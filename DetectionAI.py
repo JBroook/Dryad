@@ -24,11 +24,14 @@ device ="cuda" if torch.cuda.is_available() else "cpu"
 class FSC22Dataset(Dataset):
     def __init__(self, fsc22_meta, folds=None):
         self.meta_df = pd.read_csv(fsc22_meta)
+        # filter out non-threat classes
+        self.meta_df = self.meta_df[self.meta_df['Threat']].reset_index(drop=True)
+        self.meta_df['Class ID'] = pd.factorize(self.meta_df['Class Name'])[0]
+
         if folds:
             # filter out unwanted folds
             self.meta_df = self.meta_df[self.meta_df['Fold'].isin(folds)].reset_index(drop=True)
-        # filter out non-threat classes
-        # self.meta_df = self.meta_df[self.meta_df['Threat']].reset_index(drop=True)
+
         self.class_count = len(self.meta_df['Class Name'].unique())
         self.audio_dir = fsc22_audio_dir
 
@@ -39,19 +42,6 @@ class FSC22Dataset(Dataset):
         row = self.meta_df.iloc[item]
         waveform, sample_rate = torchaudio.load(os.path.join(self.audio_dir, row['Dataset File Name']))
         waveform = waveform.mean(dim=0)
-
-        # resample
-        if sample_rate != 32000:
-            resampler = torchaudio.transforms.Resample(sample_rate, 32000)
-            waveform = resampler(waveform)
-
-        # pad/trim
-        max_length = 5*32000
-        if waveform.size(0) > max_length:
-            waveform = waveform[:max_length]
-        else:
-            pad_size = max_length - waveform.size(0)
-            waveform = torch.nn.functional.pad(waveform, (0, pad_size))
 
         label = row['Class ID']
 
@@ -93,7 +83,7 @@ if __name__=='__main__':
         )
         checkpoint = torch.load("Cnn10_mAP=0.380.pth", map_location=device)
         model.load_state_dict(checkpoint['model'])
-        model.fc_audioset = nn.Linear(512, 27, bias=True)
+        model.fc_audioset = nn.Linear(512, 10, bias=True)
         model.to(device)
 
         optimiser = torch.optim.Adam(filter(lambda p: p.requires_grad, model.parameters()), lr=1e-4)
@@ -155,6 +145,7 @@ if __name__=='__main__':
             })
 
             if (epoch + 1) % 5 == 0:  # test every 5 epochs and save model
+                model.eval()
                 with torch.inference_mode():
                     running_test_correct = 0
                     running_test_total = 0
@@ -164,7 +155,7 @@ if __name__=='__main__':
                         inputs = inputs.to(device, non_blocking=True)
                         labels = labels.to(device, non_blocking=True)
 
-                        output_logits = model(inputs)['clipwise_output']  # raw calculation results (list of 27 probabilities)
+                        output_logits = model(inputs)['clipwise_output']  # raw calculation results (list of 10 probabilities)
 
                         loss = loss_fn(output_logits, labels)
                         running_test_loss += loss.item()
