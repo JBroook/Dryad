@@ -23,8 +23,8 @@ threat_classes = [
 
 if __name__=="__main__":
     # set up meta data
-    fsc22_audio_dir = "FSC22/Audio Wise V1.0" # Ensure this lines up with your folder structure
-    fsc22_meta_path = "FSC22/Metadata/Metadata V1.0 FSC22.csv" # Ensure this lines up with your folder structure
+    fsc22_audio_dir = "FSC22/Audio Wise V1.0" # ensure this lines up with your folder structure
+    fsc22_meta_path = "FSC22/Metadata/Metadata V1.0 FSC22.csv" # ensure this lines up with your folder structure
 
     sgkf = StratifiedGroupKFold(n_splits=5, shuffle=True, random_state=67)
 

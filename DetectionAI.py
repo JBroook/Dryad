@@ -99,7 +99,7 @@ if __name__=='__main__':
     loss_fn = nn.CrossEntropyLoss()
 
     training_stats = []
-    training_name = "100epoch_1RNR/"
+    training_name = "100epoch_SNR_50chance/"
 
     for fold in range(5):
         # initialising model
