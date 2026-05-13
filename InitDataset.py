@@ -55,12 +55,11 @@ if __name__=="__main__":
             resampler = torchaudio.transforms.Resample(sample_rate, 32000)
             waveform = resampler(waveform)
 
-        # pad/trim
         max_length = 5 * 32000
-        if waveform.size(0) > max_length:
-            waveform = waveform[:max_length]
-        else:
-            pad_size = max_length - waveform.size(0)
+        if waveform.size(1) > max_length: # trim
+            waveform = waveform[:, :max_length]
+        else: # pad
+            pad_size = max_length - waveform.size(1)
             waveform = torch.nn.functional.pad(waveform, (0, pad_size))
 
         torchaudio.save(os.path.join("FSC22/ModifiedAudio", row['Dataset File Name']), waveform, 32000)
