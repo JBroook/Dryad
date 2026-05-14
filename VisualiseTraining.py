@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
 
-with(open('trainedModels/training_stats.json')) as f:
+with(open('trainedModels/100epoch_SNR_50chance/training_stats.json')) as f:
     data = json.load(f)
 
 grouped_by_fold = {}

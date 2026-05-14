@@ -32,6 +32,8 @@ def mix_noise(signal, noise, snr_db=10):
     return signal + noise
 
 class FSC22Dataset(Dataset):
+    class_count = 10
+
     def __init__(self, fsc22_meta, folds=None, augment=True):
         self.augment = augment
         self.meta_df = pd.read_csv(fsc22_meta)
@@ -48,7 +50,6 @@ class FSC22Dataset(Dataset):
             # filter out unwanted folds
             self.meta_df = self.meta_df[self.meta_df['Fold'].isin(folds)].reset_index(drop=True)
 
-        self.class_count = len(self.meta_df['Class Name'].unique())
         self.audio_dir = fsc22_audio_dir
 
     def __len__(self):
@@ -114,20 +115,18 @@ if __name__=='__main__':
         )
         checkpoint = torch.load("Cnn10_mAP=0.380.pth", map_location=device)
         model.load_state_dict(checkpoint['model'])
-        model.fc_audioset = nn.Linear(512, 10, bias=True)
+        model.fc_audioset = nn.Linear(512, FSC22Dataset.class_count, bias=True)
         model.to(device)
 
-        for param in model.parameters():
-            param.requires_grad = True
 
         optimiser = torch.optim.Adam(filter(lambda p: p.requires_grad, model.parameters()), lr=1e-4)
 
         print(f"Training fold {fold}")
-        epochs = 100
+        epochs = 200
         test_dataset = FSC22Dataset(fsc22_meta_path, folds=[fold], augment=False)
         train_folds = [0, 1, 2, 3, 4]
         train_folds.pop(fold)
-        train_dataset = FSC22Dataset(fsc22_meta_path, folds=train_folds)
+        train_dataset = FSC22Dataset(fsc22_meta_path, folds=train_folds, augment=True)
 
         worker_count = os.cpu_count() // 2  # relegate half of cpu count to multiprocess
         train_loader = DataLoader(train_dataset,
@@ -144,18 +143,32 @@ if __name__=='__main__':
         last_acc = 0
         acc = 0
 
+        model.train()
+        optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
+
+
         for epoch in range(epochs):
             model.train()
             running_correct = 0
             running_total = 0
             running_loss = 0
 
+            step = 0
             for inputs, labels in train_loader:
+                step += 1
                 inputs = inputs.to(device, non_blocking=True)
                 labels = labels.to(device, non_blocking=True)
 
                 optimiser.zero_grad()
                 output_logits = model(inputs)['logits']  # raw calculation results
+
+                if epoch % 5 == 0 and step % 50 == 0:
+                    with torch.no_grad():
+                        outputs = model(inputs)['logits']
+
+                        print("logits mean:", outputs.mean().item())
+                        print("logits std:", outputs.std().item())
+                        print("argmax distribution:", torch.bincount(outputs.argmax(dim=1)))
 
                 loss = loss_fn(output_logits, labels)
                 running_loss += loss.item()
@@ -209,7 +222,7 @@ if __name__=='__main__':
                 save_checkpoint(f'trainedModels/{training_name}fold{fold}_checkpoint_epoch{epoch + 1}.pth')
                 break
 
-            if epoch==99:
+            if epoch==199:
                 save_checkpoint(f'trainedModels/{training_name}fold{fold}_checkpoint_epoch{epoch + 1}.pth')
 
     with open("trainedModels/"+training_name+"training_stats.json", "w") as f:
