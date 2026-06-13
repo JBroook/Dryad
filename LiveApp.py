@@ -76,6 +76,7 @@ def audio_callback(indata, frames, time, status):
     # calculate volume
     volume = np.sqrt(np.mean(indata**2))
 
+
     volume_queue.put(volume)
 
 

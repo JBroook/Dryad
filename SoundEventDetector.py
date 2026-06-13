@@ -1,15 +1,10 @@
-# Steps
-# 1. Load fsc22 dataset
-# 2. Initiate CNN10 model
-# 3. Reconfigure CNN10 final layer to fit audio class count
-# 4. Build dataloader that overlaps random sounds from fsc22 to esc50 sounds
-# 5. Train CNN10 until it reaches high accuracy
-# 6. Evaluate via confusion matrix
+# Sound event detector evaluable via PSDS
 
 import torch, torchaudio
 from torch.utils.data import DataLoader, Dataset
 import pandas as pd
 import torch.nn as nn
+import scaper
 import json
 
 import os
@@ -21,16 +16,6 @@ fsc22_audio_dir = "FSC22/ModifiedAudio"
 fsc22_meta_path = "FSC22/Metadata/Modified_Metadata.csv"
 device ="cuda" if torch.cuda.is_available() else "cpu"
 
-def mix_noise(signal, noise, snr_db=10):
-    signal_rms = signal.pow(2).mean().sqrt()
-    noise_rms = noise.pow(2).mean().sqrt()
-
-    desired_noise_rms = signal_rms / (10 ** (snr_db / 20))
-
-    noise = noise * (desired_noise_rms / (noise_rms + 1e-8))
-
-    return signal + noise
-
 class FSC22Dataset(Dataset):
     class_count = 10
 
@@ -41,10 +26,6 @@ class FSC22Dataset(Dataset):
         self.meta_df = self.meta_df[self.meta_df['Threat']].reset_index(drop=True)
         # reset class IDs to be in continuous range
         self.meta_df['Class ID'] = pd.factorize(self.meta_df['Class Name'])[0]
-
-        # get noise data
-        self.noise_df = pd.read_csv(fsc22_meta)
-        self.noise_df = self.noise_df[self.noise_df['Threat']==False].reset_index(drop=True)
 
         if folds:
             # filter out unwanted folds

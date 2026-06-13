@@ -13,7 +13,7 @@ def clip_per_fold():
 
     fold_count_filtered = df[df['Threat']]['Fold'].value_counts()
 
-    plt.bar([0, 1, 2, 3, 4], fold_count_filtered, label="Non-threat classes filtered out")
+    plt.bar([0, 1, 2, 3, 4], fold_count_filtered, label="Threat classes only")
     plt.xlabel('Fold')
     plt.ylabel('Number of Clips')
     plt.legend()
@@ -44,5 +44,5 @@ def clips_per_class():
     plt.legend()
     plt.ylabel("Clip count per class (sorted index)")
 
-clip_per_fold()
+clip_per_fold   ()
 plt.show()
