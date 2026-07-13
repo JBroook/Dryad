@@ -1,5 +1,5 @@
 # Sound event detector evaluable via PSDS
-
+import numpy as np
 import torch, torchaudio
 from torch.utils.data import DataLoader, Dataset
 import pandas as pd
@@ -8,56 +8,66 @@ import scaper
 import json
 
 import os
+from pathlib import Path
 
 from models import Cnn10
 
-premod_audio_dir = "FSC22/Audio Wise V1.0"
-fsc22_audio_dir = "FSC22/ModifiedAudio"
-fsc22_meta_path = "FSC22/Metadata/Modified_Metadata.csv"
+# premod_audio_dir = "FSC22/Audio Wise V1.0"
+# fsc22_audio_dir = "FSC22/ModifiedAudio"
+# fsc22_meta_path = "FSC22/Metadata/Modified_Metadata.csv"
+soundscape_meta_path = "FSC22/Metadata/SED_Metadata.csv"
+soundscape_audio_dir = "FSC22/SyntheticSoundscapes"
 device ="cuda" if torch.cuda.is_available() else "cpu"
 
-class FSC22Dataset(Dataset):
-    class_count = 10
+class FSC22SoundscapeDataset(Dataset):
+    class_count = 27
 
-    def __init__(self, fsc22_meta, folds=None, augment=True):
-        self.augment = augment
-        self.meta_df = pd.read_csv(fsc22_meta)
-        # filter out non-threat classes
-        self.meta_df = self.meta_df[self.meta_df['Threat']].reset_index(drop=True)
-        # reset class IDs to be in continuous range
-        self.meta_df['Class ID'] = pd.factorize(self.meta_df['Class Name'])[0]
+    def __init__(self, meta_path, folds=None):
+        self.meta_df = pd.read_csv(meta_path)
 
         if folds:
             # filter out unwanted folds
             self.meta_df = self.meta_df[self.meta_df['Fold'].isin(folds)].reset_index(drop=True)
 
-        self.audio_dir = fsc22_audio_dir
+        self.audio_dir = soundscape_audio_dir
 
     def __len__(self):
         return len(self.meta_df)
 
     def __getitem__(self, item):
         row = self.meta_df.iloc[item]
-        waveform, sample_rate = torchaudio.load(os.path.join(self.audio_dir, row['Dataset File Name']))
+        waveform, sample_rate = torchaudio.load(
+            os.path.join(self.audio_dir+f"/Fold{row['Fold']}", row['Audio File Path'])
+        )
 
         # average left and right channels to convert stereo to mono
         waveform = waveform.mean(dim=0)
-
-        if self.augment:
-            # get random noise
-            noise_row = self.noise_df.sample(n=1).iloc[0]
-            noise, _ = torchaudio.load(os.path.join(self.audio_dir, noise_row['Dataset File Name']))
-            noise = noise.mean(dim=0)
-            if torch.rand(1) < 0.5:
-                waveform = mix_noise(waveform, noise, snr_db=torch.randint(15, 30, size=(1,)).item())
 
         # normalize audio
         if waveform.abs().max() > 1:
             waveform = waveform / waveform.abs().max()
 
-        label = row['Class ID']
+        og_df = pd.read_csv("FSC22/Metadata/Modified_Metadata.csv")
+        og_df.drop_duplicates(subset=['Class Name'])
+        name_to_id = dict(zip(og_df['Class Name'], og_df['Class ID']))
+        label_matrix = np.zeros((1000, 27), dtype=np.float32)
 
-        return waveform, label
+        with open(
+                os.path.join(
+                    "FSC22/SyntheticSoundscapes" + f"/Fold{row['Fold']}", row['Label File Path']
+                ), "r", encoding="utf-8") as file:
+            for line in file:
+                t = str(line.strip())
+                if t != "":
+                    info = t.split("	")
+                    start_frame = int(float(info[0]) / 0.01)
+                    end_frame = int(float(info[1]) / 0.01)
+                    target_class = name_to_id[info[2]]
+
+                    label_matrix[start_frame:end_frame, target_class] = 1
+
+        return waveform, label_matrix
+
 
 def save_checkpoint(file_name):
     checkpoint = {
@@ -81,7 +91,11 @@ if __name__=='__main__':
     loss_fn = nn.CrossEntropyLoss()
 
     training_stats = []
-    training_name = "100epoch_SNR_50chance/"
+    training_name = "SED_v1/"
+    dir = Path('trainedModels/'+training_name)
+
+    if not dir.is_dir():
+        dir.mkdir()
 
     for fold in range(5):
         # initialising model
@@ -96,7 +110,7 @@ if __name__=='__main__':
         )
         checkpoint = torch.load("Cnn10_mAP=0.380.pth", map_location=device)
         model.load_state_dict(checkpoint['model'])
-        model.fc_audioset = nn.Linear(512, FSC22Dataset.class_count, bias=True)
+        model.fc_audioset = nn.Linear(512, FSC22SoundscapeDataset.class_count, bias=True)
         model.to(device)
 
 
@@ -104,10 +118,10 @@ if __name__=='__main__':
 
         print(f"Training fold {fold}")
         epochs = 200
-        test_dataset = FSC22Dataset(fsc22_meta_path, folds=[fold], augment=False)
+        test_dataset = FSC22SoundscapeDataset(soundscape_meta_path, folds=[fold])
         train_folds = [0, 1, 2, 3, 4]
         train_folds.pop(fold)
-        train_dataset = FSC22Dataset(fsc22_meta_path, folds=train_folds, augment=True)
+        train_dataset = FSC22SoundscapeDataset(soundscape_meta_path, folds=train_folds)
 
         worker_count = os.cpu_count() // 2  # relegate half of cpu count to multiprocess
         train_loader = DataLoader(train_dataset,
