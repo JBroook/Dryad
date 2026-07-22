@@ -1,4 +1,6 @@
 # Sound event detector evaluable via PSDS
+import time
+
 import numpy as np
 import torch, torchaudio
 from torch.utils.data import DataLoader, Dataset
@@ -14,7 +16,7 @@ from models import Cnn10
 
 # premod_audio_dir = "FSC22/Audio Wise V1.0"
 # fsc22_audio_dir = "FSC22/ModifiedAudio"
-# fsc22_meta_path = "FSC22/Metadata/Modified_Metadata.csv"
+fsc22_meta_path = "FSC22/Metadata/Modified_Metadata.csv"
 soundscape_meta_path = "FSC22/Metadata/SED_Metadata.csv"
 soundscape_audio_dir = "FSC22/SyntheticSoundscapes"
 device ="cuda" if torch.cuda.is_available() else "cpu"
@@ -24,47 +26,42 @@ class FSC22SoundscapeDataset(Dataset):
 
     def __init__(self, meta_path, folds=None):
         self.meta_df = pd.read_csv(meta_path)
-
         if folds:
-            # filter out unwanted folds
             self.meta_df = self.meta_df[self.meta_df['Fold'].isin(folds)].reset_index(drop=True)
 
         self.audio_dir = soundscape_audio_dir
+
+        og_df = pd.read_csv(fsc22_meta_path)
+        og_df = og_df.drop_duplicates(subset=['Class Name'])
+        self.name_to_id = dict(zip(og_df['Class Name'], og_df['Class ID']))
+
+        # NEW: Pre-load all label matrices into RAM
+        print("Pre-loading audio tensors and labels into memory")
+        self.labels = []
+        self.waveforms = []
+        for idx in range(len(self.meta_df)):
+            row = self.meta_df.iloc[idx]
+            # Pre-load labels
+            label_path = os.path.join(soundscape_audio_dir + f"/Fold{row['Fold']}", row['Label Tensor Path'])
+            self.labels.append(torch.load(label_path, weights_only=False))
+
+            # Pre-load waveform
+            audio_path = os.path.join(self.audio_dir + f"/Fold{row['Fold']}", row['Audio Tensor Path'])
+            self.waveforms.append(torch.load(audio_path, weights_only=True))
+        print(f"Loaded {len(self.waveforms)} items into memory.")
 
     def __len__(self):
         return len(self.meta_df)
 
     def __getitem__(self, item):
-        row = self.meta_df.iloc[item]
-        waveform, sample_rate = torchaudio.load(
-            os.path.join(self.audio_dir+f"/Fold{row['Fold']}", row['Audio File Path'])
-        )
+        # row = self.meta_df.iloc[item]
 
-        # average left and right channels to convert stereo to mono
-        waveform = waveform.mean(dim=0)
+        # Instantly load processed audio files
+        # with log-mel and spectrogram extractors already applied
+        waveform = self.waveforms[item]
 
-        # normalize audio
-        if waveform.abs().max() > 1:
-            waveform = waveform / waveform.abs().max()
-
-        og_df = pd.read_csv("FSC22/Metadata/Modified_Metadata.csv")
-        og_df.drop_duplicates(subset=['Class Name'])
-        name_to_id = dict(zip(og_df['Class Name'], og_df['Class ID']))
-        label_matrix = np.zeros((1000, 27), dtype=np.float32)
-
-        with open(
-                os.path.join(
-                    "FSC22/SyntheticSoundscapes" + f"/Fold{row['Fold']}", row['Label File Path']
-                ), "r", encoding="utf-8") as file:
-            for line in file:
-                t = str(line.strip())
-                if t != "":
-                    info = t.split("	")
-                    start_frame = int(float(info[0]) / 0.01)
-                    end_frame = int(float(info[1]) / 0.01)
-                    target_class = name_to_id[info[2]]
-
-                    label_matrix[start_frame:end_frame, target_class] = 1
+        # Retrieve label directly from memory
+        label_matrix = self.labels[item]
 
         return waveform, label_matrix
 
@@ -88,7 +85,7 @@ if __name__=='__main__':
 
     # 5-fold cross validation training loop
     fold_stats = []
-    loss_fn = nn.CrossEntropyLoss()
+    loss_fn = nn.BCEWithLogitsLoss()
 
     training_stats = []
     training_name = "SED_v1/"
@@ -123,7 +120,7 @@ if __name__=='__main__':
         train_folds.pop(fold)
         train_dataset = FSC22SoundscapeDataset(soundscape_meta_path, folds=train_folds)
 
-        worker_count = os.cpu_count() // 2  # relegate half of cpu count to multiprocess
+        worker_count = 0 #os.cpu_count() // 2  # relegate half of cpu count to multiprocess
         train_loader = DataLoader(train_dataset,
                                   batch_size=32,
                                   num_workers=worker_count,
@@ -139,41 +136,42 @@ if __name__=='__main__':
         acc = 0
 
         model.train()
-        optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
-
 
         for epoch in range(epochs):
+            start = time.time()
+
             model.train()
             running_correct = 0
             running_total = 0
             running_loss = 0
 
             step = 0
-            for inputs, labels in train_loader:
+            for i, (inputs, labels) in enumerate(train_loader):
+                print(f"Batch {i} loaded")
                 step += 1
                 inputs = inputs.to(device, non_blocking=True)
+                start = time.time()
+
                 labels = labels.to(device, non_blocking=True)
 
                 optimiser.zero_grad()
-                output_logits = model(inputs)['logits']  # raw calculation results
-
-                if epoch % 5 == 0 and step % 50 == 0:
-                    with torch.no_grad():
-                        outputs = model(inputs)['logits']
-
-                        print("logits mean:", outputs.mean().item())
-                        print("logits std:", outputs.std().item())
-                        print("argmax distribution:", torch.bincount(outputs.argmax(dim=1)))
+                forward_start = time.time()
+                output_logits = model(inputs)['frame_logits']  # raw calculation results
 
                 loss = loss_fn(output_logits, labels)
                 running_loss += loss.item()
                 loss.backward()
 
                 optimiser.step()
+                print(f"GPU stepped.")
 
-                predictions = torch.argmax(output_logits, dim=1)
-                running_correct += torch.eq(predictions, labels).sum().item()
-                running_total += labels.size(0)
+                # predictions = torch.argmax(output_logits, dim=1)
+                predictions = (torch.sigmoid(output_logits) > 0.5).float()
+                correct = (predictions == labels).sum()
+                total = labels.numel()
+
+                running_correct += correct.item()
+                running_total += total
 
             last_acc = acc
             acc = running_correct / running_total * 100
@@ -199,14 +197,17 @@ if __name__=='__main__':
                         inputs = inputs.to(device, non_blocking=True)
                         labels = labels.to(device, non_blocking=True)
 
-                        output_logits = model(inputs)['logits']  # raw calculation results (list of 10 probabilities)
+                        output_logits = model(inputs)['frame_logits']  # raw calculation results (list of 10 probabilities)
 
                         loss = loss_fn(output_logits, labels)
                         running_test_loss += loss.item()
 
-                        predictions = torch.argmax(output_logits, dim=1)
-                        running_test_correct += torch.eq(predictions, labels).sum().item()
-                        running_test_total += labels.size(0)
+                        predictions = (torch.sigmoid(output_logits) > 0.5).float()
+                        correct = (predictions == labels).sum()
+                        total = labels.numel()
+
+                        running_test_correct += correct.item()
+                        running_test_total += total
 
                     test_acc = running_test_correct / running_test_total * 100
                     training_stats[-1]['test_accuracy'] = test_acc

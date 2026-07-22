@@ -26,15 +26,15 @@ def mix_noise(signal, noise, snr_db=10):
     return signal + noise
 
 class FSC22Dataset(Dataset):
-    class_count = 10
+    class_count = 27
 
     def __init__(self, fsc22_meta, folds=None, augment=True):
         self.augment = augment
         self.meta_df = pd.read_csv(fsc22_meta)
         # filter out non-threat classes
-        self.meta_df = self.meta_df[self.meta_df['Threat']].reset_index(drop=True)
-        # reset class IDs to be in continuous range
-        self.meta_df['Class ID'] = pd.factorize(self.meta_df['Class Name'])[0]
+        # self.meta_df = self.meta_df[self.meta_df['Threat']].reset_index(drop=True)
+        # # reset class IDs to be in continuous range
+        # self.meta_df['Class ID'] = pd.factorize(self.meta_df['Class Name'])[0]
 
         # get noise data
         self.noise_df = pd.read_csv(fsc22_meta)
@@ -56,13 +56,13 @@ class FSC22Dataset(Dataset):
         # average left and right channels to convert stereo to mono
         waveform = waveform.mean(dim=0)
 
-        if self.augment:
-            # get random noise
-            noise_row = self.noise_df.sample(n=1).iloc[0]
-            noise, _ = torchaudio.load(os.path.join(self.audio_dir, noise_row['Dataset File Name']))
-            noise = noise.mean(dim=0)
-            if torch.rand(1) < 0.5:
-                waveform = mix_noise(waveform, noise, snr_db=torch.randint(15, 30, size=(1,)).item())
+        # if self.augment:
+        #     # get random noise
+        #     noise_row = self.noise_df.sample(n=1).iloc[0]
+        #     noise, _ = torchaudio.load(os.path.join(self.audio_dir, noise_row['Dataset File Name']))
+        #     noise = noise.mean(dim=0)
+        #     if torch.rand(1) < 0.5:
+        #         waveform = mix_noise(waveform, noise, snr_db=torch.randint(15, 30, size=(1,)).item())
 
         # normalize audio
         if waveform.abs().max() > 1:
@@ -94,7 +94,7 @@ if __name__=='__main__':
     loss_fn = nn.CrossEntropyLoss()
 
     training_stats = []
-    training_name = "100epoch_SNR_50chance/"
+    training_name = "200epoch_pure_AC/"
 
     for fold in range(5):
         # initialising model
@@ -160,9 +160,9 @@ if __name__=='__main__':
                     with torch.no_grad():
                         outputs = model(inputs)['logits']
 
-                        print("logits mean:", outputs.mean().item())
-                        print("logits std:", outputs.std().item())
-                        print("argmax distribution:", torch.bincount(outputs.argmax(dim=1)))
+                        # print("logits mean:", outputs.mean().item())
+                        # print("logits std:", outputs.std().item())
+                        # print("argmax distribution:", torch.bincount(outputs.argmax(dim=1)))
 
                 loss = loss_fn(output_logits, labels)
                 running_loss += loss.item()
