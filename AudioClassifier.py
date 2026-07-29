@@ -116,7 +116,7 @@ if __name__=='__main__':
         optimiser = torch.optim.Adam(filter(lambda p: p.requires_grad, model.parameters()), lr=1e-4)
 
         print(f"Training fold {fold}")
-        epochs = 200
+        epochs = 50
         test_dataset = FSC22Dataset(fsc22_meta_path, folds=[fold], augment=False)
         train_folds = [0, 1, 2, 3, 4]
         train_folds.pop(fold)
@@ -159,10 +159,6 @@ if __name__=='__main__':
                 if epoch % 5 == 0 and step % 50 == 0:
                     with torch.no_grad():
                         outputs = model(inputs)['logits']
-
-                        # print("logits mean:", outputs.mean().item())
-                        # print("logits std:", outputs.std().item())
-                        # print("argmax distribution:", torch.bincount(outputs.argmax(dim=1)))
 
                 loss = loss_fn(output_logits, labels)
                 running_loss += loss.item()
@@ -212,11 +208,7 @@ if __name__=='__main__':
                     training_stats[-1]['test_loss'] = running_test_loss
                     print(f"\n5th -> Epoch {epoch + 1} | Test loss: {running_test_loss:.2f}, Test accuracy: {test_acc:.2f}%\n")
 
-            if acc>90 and (acc-last_acc)<0.05 and acc>last_acc:
-                save_checkpoint(f'trainedModels/{training_name}fold{fold}_checkpoint_epoch{epoch + 1}.pth')
-                break
-
-            if epoch==199:
+            if epoch==49:
                 save_checkpoint(f'trainedModels/{training_name}fold{fold}_checkpoint_epoch{epoch + 1}.pth')
 
     with open("trainedModels/"+training_name+"training_stats.json", "w") as f:

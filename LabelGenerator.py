@@ -9,7 +9,7 @@ df = pd.read_csv("FSC22/Metadata/SED_Metadata.csv")
 og_df = pd.read_csv("FSC22/Metadata/Modified_Metadata.csv")
 og_df = og_df.drop_duplicates(subset=['Class Name'])
 name_to_id = dict(zip(og_df['Class Name'], og_df['Class ID']))
-label_matrix = np.zeros((172, 27), dtype=np.float32)
+label_matrix = np.zeros((344, 27), dtype=np.float32)
 
 df["Label Tensor Path"] = ""
 

@@ -48,16 +48,13 @@ for index, row in df.iterrows():
 
     waveform = waveform.squeeze(0)
 
-    print(waveform.shape)
-    print(waveform.dtype)
-    break
 
-    # new_path = row['Label File Path'].replace(".txt", "_tensor.pt")
-    # df.loc[index, "Audio Tensor Path"] = new_path
-    # torch.save(waveform, os.path.join(
-    #     "FSC22/SyntheticSoundscapes" + f"/Fold{row['Fold']}", new_path
-    # ))
+    new_path = row['Label File Path'].replace(".txt", "_tensor.pt")
+    df.loc[index, "Audio Tensor Path"] = new_path
+    torch.save(waveform, os.path.join(
+        "FSC22/SyntheticSoundscapes" + f"/Fold{row['Fold']}", new_path
+    ))
 
 
-# df.to_csv("FSC22/Metadata/SED_Metadata.csv", index=False)
-# print("Audio file tensors generated successfully")
+df.to_csv("FSC22/Metadata/SED_Metadata.csv", index=False)
+print("Audio file tensors generated successfully")

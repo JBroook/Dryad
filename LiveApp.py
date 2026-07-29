@@ -14,25 +14,25 @@ from models import Cnn10
 # EDIT HERE
 # ==============================
 
-MODEL_PATH = "trainedModels/100epoch_SNR_50chance/fold0_checkpoint_epoch200.pth"
+MODEL_PATH = "trainedModels/100epoch_pure_AC/checkpoint_epoch50.pth"
 
 # extract class names
 
 df = pd.read_csv("FSC22/Metadata/Modified_Metadata.csv")
 
 # filter out non-threat classes
-df = df[df['Threat']].reset_index(drop=True)
-# reset class IDs to be in continuous range
-df['Class ID'] = pd.factorize(df['Class Name'])[0]
+# df = df[df['Threat']].reset_index(drop=True)
+# # reset class IDs to be in continuous range
+# df['Class ID'] = pd.factorize(df['Class Name'])[0]
 
 unique_pairs = df.drop_duplicates(subset=["Class ID"])
 
 
-CLASS_NAMES = [None]*10
+CLASS_NAMES = [None]*27
 
 for _, row in unique_pairs.iterrows():
     idx = int(row['Class ID'])
-    if 0 <= idx <= 10:
+    if 0 <= idx <= 27:
         CLASS_NAMES[idx] = row['Class Name']
 
 SAMPLE_RATE = 32000
@@ -51,7 +51,7 @@ model = Cnn10(
         fmax=14000,
         classes_num=50
     )
-model.fc_audioset = nn.Linear(512, 10, bias=True)
+model.fc_audioset = nn.Linear(512, 27, bias=True)
 checkpoint = torch.load(MODEL_PATH, map_location="cpu")
 model.load_state_dict(checkpoint["model_state_dict"])
 model.eval()

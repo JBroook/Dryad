@@ -12,7 +12,7 @@ import json
 import os
 from pathlib import Path
 
-from models import Cnn10
+from models import Cnn10_SED
 
 # premod_audio_dir = "FSC22/Audio Wise V1.0"
 # fsc22_audio_dir = "FSC22/ModifiedAudio"
@@ -35,7 +35,7 @@ class FSC22SoundscapeDataset(Dataset):
         og_df = og_df.drop_duplicates(subset=['Class Name'])
         self.name_to_id = dict(zip(og_df['Class Name'], og_df['Class ID']))
 
-        # NEW: Pre-load all label matrices into RAM
+        # Pre-load all label matrices into RAM
         print("Pre-loading audio tensors and labels into memory")
         self.labels = []
         self.waveforms = []
@@ -45,7 +45,7 @@ class FSC22SoundscapeDataset(Dataset):
             label_path = os.path.join(soundscape_audio_dir + f"/Fold{row['Fold']}", row['Label Tensor Path'])
             self.labels.append(torch.load(label_path, weights_only=False))
 
-            # Pre-load waveform
+            # Preload waveform
             audio_path = os.path.join(self.audio_dir + f"/Fold{row['Fold']}", row['Audio Tensor Path'])
             self.waveforms.append(torch.load(audio_path, weights_only=True))
         print(f"Loaded {len(self.waveforms)} items into memory.")
@@ -96,7 +96,7 @@ if __name__=='__main__':
 
     for fold in range(5):
         # initialising model
-        model = Cnn10(
+        model = Cnn10_SED(
             sample_rate=32000,
             window_size=1024,
             hop_size=320,
@@ -163,7 +163,6 @@ if __name__=='__main__':
                 loss.backward()
 
                 optimiser.step()
-                print(f"GPU stepped.")
 
                 # predictions = torch.argmax(output_logits, dim=1)
                 predictions = (torch.sigmoid(output_logits) > 0.5).float()
@@ -213,10 +212,6 @@ if __name__=='__main__':
                     training_stats[-1]['test_accuracy'] = test_acc
                     training_stats[-1]['test_loss'] = running_test_loss
                     print(f"\n5th -> Epoch {epoch + 1} | Test loss: {running_test_loss:.2f}, Test accuracy: {test_acc:.2f}%\n")
-
-            if acc>90 and (acc-last_acc)<0.05 and acc>last_acc:
-                save_checkpoint(f'trainedModels/{training_name}fold{fold}_checkpoint_epoch{epoch + 1}.pth')
-                break
 
             if epoch==199:
                 save_checkpoint(f'trainedModels/{training_name}fold{fold}_checkpoint_epoch{epoch + 1}.pth')
