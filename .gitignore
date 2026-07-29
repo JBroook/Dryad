@@ -186,3 +186,5 @@ cython_debug/
 /Acoustic Classification Model/FSC22/Audio Wise V1.0
 *.wav
 /Acoustic Classification Model/FSC22/SyntheticSoundscapes
+Acoustic Classification Model/audioset_tagging_cnn/
+Acoustic Classification Model/ESC-50/
