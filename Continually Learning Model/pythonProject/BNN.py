@@ -13,17 +13,25 @@ class RiskPredictorMCDropout(nn.Module):
 
         self.blinear1 = nn.Linear(num_input_features, 64)
         self.dropout1 = nn.Dropout(p=0.2)
-        self.blinear2 = nn.Linear(64,32)
+
+        self.blinear2 = nn.Linear(64, 64)
         self.dropout2 = nn.Dropout(p=0.2)
+
+        self.blinear3 = nn.Linear(64,32)
+        self.dropout3 = nn.Dropout(p=0.2)
+
         self.output = nn.Linear(32,1)
         self.sigmoid = nn.Sigmoid()
 
     def forward(self, x):
-        x = F.relu(self.blinear1(x))
+        x = F.gelu(self.blinear1(x))
         x = self.dropout1(x)
 
-        x = F.relu(self.blinear2(x))
+        x = F.gelu(self.blinear2(x))
         x = self.dropout2(x)
+
+        x = F.gelu(self.blinear3(x))
+        x = self.dropout3(x)
 
         x = self.output(x)
         results = {
@@ -33,15 +41,33 @@ class RiskPredictorMCDropout(nn.Module):
 
         return results
 
+def get_input_as_tensor():
+    input_tensor = torch.zeros(sd.W, sd.H, sd.INPUT_FEATURES)
+
+    for x in range(sd.W):
+        for y in range(sd.H):
+            cell = torch.from_numpy(sd.get_cell_attribute(x, y)).float()
+            input_tensor[x, y] = cell
+
+    return input_tensor
+
+def get_label_as_tensor(threshold=0.5):
+    label_tensor = torch.zeros(sd.W, sd.H, 1)
+
+    for x in range(sd.W):
+        for y in range(sd.H):
+            cell = torch.from_numpy(sd.get_cell_attack(x, y)).float()
+            label_tensor[x, y] = cell>threshold
+
+    return label_tensor
+
 def predict_mc(model, x, T=100):
     model.train()
-    model.to(device)
     x = x.to(device)
 
     predicted_risk_grid = torch.zeros(sd.W, sd.H, 1).to(device)
 
     with torch.no_grad():
-
         for i in range(T):
             probabilities = model(x)["probabilities"]
             probabilities /= T
@@ -55,28 +81,75 @@ if __name__ == "__main__":
     print(torch.cuda.is_available())
     print("Device:", device)
 
-    model = RiskPredictorMCDropout(num_input_features=5)
+    model = RiskPredictorMCDropout(num_input_features=sd.INPUT_FEATURES)
+    model.to(device)
 
-    fig, ax = plt.subplots(figsize=(8, 8))
+    input_tensor = get_input_as_tensor()
+    input_tensor = input_tensor.to(device)
 
-    input_tensor = torch.zeros(sd.W, sd.H, 5)
+    label_tensor = get_label_as_tensor()
+    label_tensor = label_tensor.to(device)
 
-    for x in range(sd.W):
-        for y in range(sd.H):
-            cell = torch.from_numpy(sd.get_cell_attribute(x, y)).float()
-            input_tensor[x,y] = cell
+    epochs = 20
 
-    predictions = predict_mc(model, input_tensor).to("cpu")
-    predictions = predictions.numpy()
+    # heavily penalise wrong answers due to extreme class imbalance
+    num_pos = label_tensor.sum().item()
+    num_neg = (label_tensor == 0).sum().item()
+    pos_weight_val = torch.tensor([num_neg / (num_pos + 1e-7)]).to(device)
+    loss_fn = nn.BCEWithLogitsLoss(pos_weight=pos_weight_val)
 
-    # Background terrain
-    # ax.imshow(altitude, cmap='terrain', origin='lower')
+    optimiser = torch.optim.Adam(model.parameters(), lr=0.005, weight_decay=1e-4)
 
-    # Risk heatmap
-    ax.imshow(
-        predictions,
-        cmap='Reds',
-        alpha=0.45,  # transparency
-        origin='lower'
-    )
-    plt.show()
+    for epoch in range(epochs):
+        model.train()
+
+        logits = model(input_tensor)["logits"]
+        optimiser.zero_grad()
+        loss = loss_fn(logits, label_tensor)
+        loss.backward()
+        optimiser.step()
+
+        if (epoch+1)%epochs==0:
+            predictions = predict_mc(model, input_tensor).to("cpu")
+            predictions = predictions.squeeze().numpy().T
+
+            fig, ax = plt.subplots(figsize=(8, 8))
+
+            # Risk heatmap
+            ax.imshow(
+                predictions,
+                cmap='Reds',
+                alpha=0.45,  # transparency
+                origin='lower'
+            )
+
+            # Road
+            ax.plot(
+                sd.roads[:, 0],
+                sd.roads[:, 1],
+                color='black',
+                linewidth=2,
+                label='Road'
+            )
+
+            # River
+            ax.plot(
+                sd.river[:, 0],
+                sd.river[:, 1],
+                color='blue',
+                linewidth=2,
+                label='River'
+            )
+
+            # Logging attacks
+            ax.scatter(
+                sd.attacks[:, 0],
+                sd.attacks[:, 1],
+                marker='^',
+                color='red',
+                s=120,
+                label='Attack',
+                edgecolors='black',
+            )
+            ax.set_title(f"Epoch {epoch+1}")
+            plt.show()
