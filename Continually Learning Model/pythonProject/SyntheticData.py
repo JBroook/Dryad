@@ -44,7 +44,7 @@ def densify_path(points):
 
 
 # Example roads
-roads = np.array([
+road_1 = np.array([
     [30, 0],
     [40, 25],
     [50, 50],
@@ -56,7 +56,16 @@ roads = np.array([
     [87, 199],
 ])
 
-roads = densify_path(roads)
+road_1 = densify_path(road_1)
+
+road_2 = np.array([
+    [133, 199],
+    [154, 160],
+    [190, 141],
+    [199, 122]
+])
+
+road_2 = densify_path(road_2)
 
 # Example river
 river = np.array([
@@ -79,17 +88,17 @@ attacks = np.array([
     [36, 59],
     [62, 103],
     [54, 140],
-    [75, 113],
-    [39, 12],
-    [79, 188],
+    # [75, 113],
+    # [39, 12],
+    # [79, 188],
     [78, 175],
     [48, 33],
     [67, 167],
     [163, 78],
-    [153, 80],
-    [167, 83],
-    [166, 84],
-    [158, 70],
+    # [153, 80],
+    # [167, 83],
+    # [166, 84],
+    # [158, 70],
     [9, 114],
     [183, 10],
 ])
@@ -111,66 +120,53 @@ def create_attack_score(attacks, W, H, sigma=10):
         # Gaussian decay
         score = np.exp(-(distance**2) / (2 * sigma**2))
 
-        # Keep the maximum influence if attacks overlap
-        attack_score = np.maximum(attack_score, score)
+        attack_score += score
+        attack_score = np.clip(attack_score, 0, 1)
 
     return attack_score
 
 attack_score = create_attack_score(attacks, W, H)
 
-def create_attack_strength(attacks, W, H, sigma=10):
-    attack_strength = np.zeros((W, H))
-
-    # Create coordinate grid
-    x_grid, y_grid = np.meshgrid(
-        np.arange(W),
-        np.arange(H),
-        indexing="ij"
-    )
-
-    for x, y in attacks:
-        # Distance from this attack point
-        distance = np.sqrt((x_grid - x)**2 + (y_grid - y)**2)
-
-        # Gaussian decay
-        score = np.exp(-(distance**2) / (2 * sigma**2))
-
-        # Keep the maximum influence if attacks overlap
-        attack_strength += score
-
-    attack_strength = (attack_strength - attack_strength.min()) / (attack_strength.max() - attack_strength.min())
-
-    return attack_strength
-
-attack_strength = create_attack_strength(attacks, W, H)
-
 def get_distance_to_road(x, y):
     # Vectorized distance calculation
-    diff = roads - np.array([x, y])
+    all_roads = np.concatenate((road_1, road_2), axis=0)
+    diff = all_roads - np.array([x, y])
     distances = np.linalg.norm(diff, axis=1)
     return np.min(distances)
 
-INPUT_FEATURES = 6
+def count_attacks_in_radius(attacks, x, y, D):
+    # Calculate distances from (x, y) to all attacks
+    distances = np.sqrt(
+        (attacks[:, 0] - x)**2 +
+        (attacks[:, 1] - y)**2
+    )
+
+    # Count attacks within radius
+    return np.sum(distances <= D)
+
+INPUT_FEATURES = 3
 def get_cell_attribute(x, y):
     cell_altitude = altitude[x, y]
     cell_contour = contour[x, y]
-    cell_road = [x, y] in roads
+    cell_road = [x, y] in road_1
     cell_river = [x, y] in river
-    cell_attack_strength = attack_strength[x, y]
+    # cell_attack_strength = attack_strength[x, y]
+    attacks_in_area = count_attacks_in_radius(attacks, x, y, 15)
 
     norm_x = x / W
     norm_y = y / H
-    dist_to_road = get_distance_to_road(x, y) / (np.sqrt(W ** 2 + H ** 2))
+    dist_to_road = get_distance_to_road(x, y) #/ (np.sqrt(W ** 2 + H ** 2))
 
     return np.array([
         # cell_altitude,
         # cell_contour,
         cell_river,
         cell_road,
-        norm_x,
-        norm_y,
+        # norm_x,
+        # norm_y,
         dist_to_road,
-        cell_attack_strength
+        # cell_attack_strength,
+        # attacks_in_area,
     ])
 
 def get_cell_attack(x, y):
@@ -190,10 +186,19 @@ if __name__=="__main__":
         origin='lower'
     )
 
-    # Road
+    # Road 1
     ax.plot(
-        roads[:,0],
-        roads[:,1],
+        road_1[:,0],
+        road_1[:,1],
+        color='black',
+        linewidth=2,
+        label='Road'
+    )
+
+    # Road 2
+    ax.plot(
+        road_2[:, 0],
+        road_2[:, 1],
         color='black',
         linewidth=2,
         label='Road'

@@ -41,6 +41,18 @@ class RiskPredictorMCDropout(nn.Module):
 
         return results
 
+def normalize_tensor(tensor):
+    # Flatten spatial dimensions to (W * H, num_features) to find min/max per feature
+    flat = tensor.view(-1, tensor.shape[-1])
+    min_vals = flat.min(dim=0).values
+    max_vals = flat.max(dim=0).values
+
+    # Prevent division by zero for constant features (e.g., all 0s)
+    range_vals = torch.where(max_vals - min_vals == 0, torch.ones_like(max_vals), max_vals - min_vals)
+
+    # Broadcast scaling across (W, H, num_features)
+    return (tensor - min_vals) / range_vals
+
 def get_input_as_tensor():
     input_tensor = torch.zeros(sd.W, sd.H, sd.INPUT_FEATURES)
 
@@ -48,6 +60,8 @@ def get_input_as_tensor():
         for y in range(sd.H):
             cell = torch.from_numpy(sd.get_cell_attribute(x, y)).float()
             input_tensor[x, y] = cell
+
+    input_tensor = normalize_tensor(input_tensor)
 
     return input_tensor
 
@@ -90,7 +104,7 @@ if __name__ == "__main__":
     label_tensor = get_label_as_tensor()
     label_tensor = label_tensor.to(device)
 
-    epochs = 20
+    epochs = 80
 
     # heavily penalise wrong answers due to extreme class imbalance
     num_pos = label_tensor.sum().item()
@@ -123,10 +137,19 @@ if __name__ == "__main__":
                 origin='lower'
             )
 
-            # Road
+            # Road 1
             ax.plot(
-                sd.roads[:, 0],
-                sd.roads[:, 1],
+                sd.road_1[:, 0],
+                sd.road_1[:, 1],
+                color='black',
+                linewidth=2,
+                label='Road'
+            )
+
+            # Road 2
+            ax.plot(
+                sd.road_2[:, 0],
+                sd.road_2[:, 1],
                 color='black',
                 linewidth=2,
                 label='Road'
