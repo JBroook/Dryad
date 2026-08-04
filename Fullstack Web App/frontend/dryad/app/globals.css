@@ -1,6 +1,36 @@
 @import "tailwindcss";
 @plugin "daisyui";
 
+@plugin "daisyui/theme" {
+  name: "mytheme";
+  default: true;
+
+  --font-sans: var(--font-inter);
+
+  --color-primary: #16A34A;
+  --color-primary-content: #ffffff;
+
+  --color-secondary: #131B15;
+  --color-secondary-content: #898D8A;
+
+  --color-accent: #14b8a6;
+  --color-accent-content: #ffffff;
+
+  --color-neutral: #1f2937;
+  --color-neutral-content: #f9fafb;
+
+  --color-base-100: #070F09;
+  --color-base-200: #0A1410;
+  --color-base-300: #19221E;
+  --color-base-content: #ffffff;
+
+  --color-info: #0ea5e9;
+  --color-success: #22c55e;
+  --color-warning: #f59e0b;
+  --color-error: #ef4444;
+}
+
+
 /* @import "tailwindcss";
 
 :root {
