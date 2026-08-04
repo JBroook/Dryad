@@ -104,7 +104,7 @@ if __name__ == "__main__":
     label_tensor = get_label_as_tensor()
     label_tensor = label_tensor.to(device)
 
-    epochs = 80
+    epochs = 100
 
     # heavily penalise wrong answers due to extreme class imbalance
     num_pos = label_tensor.sum().item()
@@ -114,7 +114,45 @@ if __name__ == "__main__":
 
     optimiser = torch.optim.Adam(model.parameters(), lr=0.005, weight_decay=1e-4)
 
+    distance_to_road_grid = np.zeros((200, 200))
+
+    for x in range(200):
+        for y in range(200):
+            attrs = sd.get_cell_attribute(x, y)
+            distance_to_road_grid[x, y] = attrs[2]
+
+    fig, ax = plt.subplots(figsize=(8, 8))
+
+    # Risk heatmap
+    ax.imshow(
+        distance_to_road_grid.transpose(),
+        cmap='Reds',
+        alpha=0.45,  # transparency
+        origin='lower'
+    )
+
+    # Road 1
+    ax.plot(
+        sd.road_1[:, 0],
+        sd.road_1[:, 1],
+        color='black',
+        linewidth=2,
+        label='Road'
+    )
+
+    # Road 2
+    ax.plot(
+        sd.road_2[:, 0],
+        sd.road_2[:, 1],
+        color='black',
+        linewidth=2,
+        label='Road'
+    )
+
+    plt.show()
+
     for epoch in range(epochs):
+        break
         model.train()
 
         logits = model(input_tensor)["logits"]
