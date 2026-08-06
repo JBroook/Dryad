@@ -5,13 +5,44 @@ import { IoMdWifi } from "react-icons/io";
 import { FiShield } from "react-icons/fi";
 import { BsTree } from "react-icons/bs";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 
 export default function Login() {
   const [submitted, setSubmitted] = useState<boolean>(false);
+  const [email, setEmail] = useState<string>("");
+  const [password, setPassword] = useState<string>("");
 
-  const handleLogin = async () => {
-    setSubmitted(true);
+  const APIBase = "http://127.0.0.1:8000/api";
+
+  const router = useRouter();
+
+  const handleLogin: React.SubmitEventHandler<HTMLFormElement> = async (e) => {
+    e.preventDefault();
+    // setSubmitted(true);
     
+    const res = await fetch(`${APIBase}/login/`, {
+      method: "POST",
+      headers: {
+        "Content-Type" : "application/json"
+      },
+      body: JSON.stringify({
+        email,
+        password
+      })
+    })
+
+    if(!res.ok){
+      alert("Invalid Credentials");
+      setSubmitted(false);
+      return;
+    }
+
+    const tokens = await res.json();
+
+    localStorage.setItem("access", tokens.access);
+    localStorage.setItem("refresh", tokens.refresh);
+
+    router.push("/home");
   }
 
   return (
@@ -80,13 +111,15 @@ export default function Login() {
           </a>
         </div>
 
-        <form className="flex flex-col max-w-md mx-auto space-y-4">
+        <form className="flex flex-col max-w-md mx-auto space-y-4" onSubmit={handleLogin}>
           <fieldset className="fieldset">
             <legend className="fieldset-legend font-medium text-[#A3ADA6]">Email Address</legend>
             <input
               type="email"
               className="input w-full bg-[#273F2F]"
               placeholder="you@example.com"
+              value={email}
+              onChange={(e)=>setEmail(e.target.value)}
             />
           </fieldset>
 
@@ -96,6 +129,8 @@ export default function Login() {
               type="password"
               className="input w-full bg-[#273F2F]"
               placeholder="••••••••"
+              value={password}
+              onChange={(e)=>setPassword(e.target.value)}
             />
           </fieldset>
 
@@ -106,7 +141,7 @@ export default function Login() {
             Forgot password?
           </a>
 
-          <button className="btn btn-primary w-full" disabled={submitted} onClick={handleLogin}>
+          <button className="btn btn-primary w-full" disabled={submitted}>
             {submitted ?
               <span className="loading loading-spinner"></span>
               :
