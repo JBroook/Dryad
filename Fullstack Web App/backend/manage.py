@@ -2,11 +2,14 @@
 """Django's command-line utility for administrative tasks."""
 import os
 import sys
-
+import re
 
 def main():
     """Run administrative tasks."""
     os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings')
+    import django.utils.cache
+    if not hasattr(django.utils.cache, 'cc_delim_re'):
+        django.utils.cache.cc_delim_re = re.compile(r'\s*,\s*')
     try:
         from django.core.management import execute_from_command_line
     except ImportError as exc:
