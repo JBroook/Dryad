@@ -1,9 +1,12 @@
 import HollowCard from "@/components/HollowCard";
 import Image from "next/image";
+import { IoMdWifi } from "react-icons/io";
+import { FiShield } from "react-icons/fi";
+import { BsTree } from "react-icons/bs";
 
 export default function Login() {
   return (
-  <div className="w-screen h-screen bg-gradient-to-br from-[#0A1A0F] via-[#0F2A18] to-[#0A1A0F]">
+  <div className="flex flex-row w-screen h-screen bg-gradient-to-br from-[#0A1A0F] via-[#0F2A18] to-[#0A1A0F]">
     <div className="flex flex-col w-1/2 h-full pt-10 pl-10 bg-[url('/assets/login_graphic.svg')] bg-contain bg-bottom bg-no-repeat">
       <div>
         <h1 className="text-3xl font-semibold">Dryad</h1>
@@ -20,6 +23,7 @@ export default function Login() {
       <div className="grid grid-cols-3 gap-4 w-full mt-auto mb-20 pr-15">
         <HollowCard>
           <div className="p-4 w-50">
+            <IoMdWifi className="text-accent text-3xl mb-2"/>
             <h1 className="font-bold text-2xl">
               2,400+
             </h1>
@@ -29,26 +33,75 @@ export default function Login() {
           </div>
         </HollowCard>
         <HollowCard>
-          <div className="p-4">
-            <h1 className="font-bold text-xl">
-              2,400+
+          <div className="p-4 w-50">
+            <FiShield className="text-accent text-3xl mb-2"/>
+            <h1 className="font-bold text-2xl">
+              10
             </h1>
             <p className="text-[#74A385]"> 
-              Listening Devices
+              Forests Protected
             </p>
           </div>
         </HollowCard>
         <HollowCard>
-          <div className="p-4">
-            <h1 className="font-bold text-xl">
-              2,400+
+          <div className="p-4 w-50">
+            <BsTree className="text-accent text-3xl mb-2"/>
+            <h1 className="font-bold text-2xl">
+              1,847
             </h1>
             <p className="text-[#74A385]"> 
-              Listening Devices
+              Incidents Caught
             </p>
           </div>
         </HollowCard>
       </div>
+    </div>
+
+    <div className="flex w-1/2 h-full items-center justify-center">
+      <HollowCard className="p-8 w-[60%] max-w-xl">
+        <h1 className="text-3xl font-bold">Welcome back</h1>
+        <p className="text-[#74A385] text-md mt-2 mb-4">Sign into your monitoring dashboard</p>
+
+        <div role="tablist" className="tabs tabs-box bg-[#273F2F] w-fit mx-auto">
+          <a role="tab" className="tab px-10 text-accent bg-[#265335] tab-active ">
+            Sign in
+          </a>
+          <a role="tab" className="tab px-10 text-[#A3ADA6] ">
+            Register
+          </a>
+        </div>
+
+        <form className="flex flex-col max-w-md mx-auto space-y-4">
+          <fieldset className="fieldset">
+            <legend className="fieldset-legend font-medium text-[#A3ADA6]">Email Address</legend>
+            <input
+              type="email"
+              className="input w-full bg-[#273F2F]"
+              placeholder="you@example.com"
+            />
+          </fieldset>
+
+          <fieldset className="fieldset">
+            <legend className="fieldset-legend font-medium text-[#A3ADA6]">Password</legend>
+            <input
+              type="password"
+              className="input w-full bg-[#273F2F]"
+              placeholder="••••••••"
+            />
+          </fieldset>
+
+          <a
+            href="/forgot-password"
+            className="link link-hover text-sm self-end text-accent"
+          >
+            Forgot password?
+          </a>
+
+          <button className="btn btn-primary w-full">
+            Sign In
+          </button>
+        </form>
+      </HollowCard>
     </div>
   </div>
   );
