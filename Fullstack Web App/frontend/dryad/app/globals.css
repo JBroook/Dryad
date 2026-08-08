@@ -1,14 +1,19 @@
 @import "tailwindcss";
 
 @plugin "daisyui" {
-  themes: mytheme-light --default, mytheme-dark;
+  themes: mytheme-light, mytheme-dark --default;
 }
 
 /* Light */
 @plugin "daisyui/theme" {
   name: "mytheme-light";
-  default: true;
+  default: false;
   color-scheme: light;
+
+  --radius-field: 0.5rem;
+  --radius-selector: 0.5rem;
+  --radius-box: 0.75rem;
+  --border: 1px;
 
   --font-sans: var(--font-inter);
 
@@ -38,9 +43,14 @@
 /* Dark */
 @plugin "daisyui/theme" {
   name: "mytheme-dark";
-  default: false;
+  default: true;
   prefersdark: true;
   color-scheme: dark;
+
+  --radius-field: 0.5rem;
+  --radius-selector: 0.5rem;
+  --radius-box: 0.75rem;
+  --border: 0px;
 
   --font-sans: var(--font-inter);
 

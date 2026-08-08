@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { BsTree } from "react-icons/bs";
 import { IoSettingsOutline, IoWarningOutline } from "react-icons/io5";
 import { TbMapRoute } from "react-icons/tb";
@@ -23,6 +23,13 @@ export default function Sidebar() {
     const changeTheme = () => {
         setMode(!mode)
         setTheme(mode ? "mytheme-light" : "mytheme-dark")
+    }
+    const router = useRouter()
+    function logout() {
+        localStorage.removeItem("access");
+        localStorage.removeItem("refresh");
+
+        router.push("/login");
     }
 
     return (
@@ -71,7 +78,8 @@ export default function Sidebar() {
                             <p className="text-secondary-content text-xs truncate w-40">annasouza@gmail.com</p>
                         </div>
                     </HollowCard>
-                    <button className="w-full justify-center my-2 btn btn-link no-underline text-secondary-content hover:text-[#EF4444]">
+                    <button className="w-full justify-center my-2 btn btn-link no-underline text-secondary-content hover:text-[#EF4444]"
+                    onClick={logout}>
                         Sign out
                     </button>
                 </div>

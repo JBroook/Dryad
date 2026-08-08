@@ -10,7 +10,7 @@ export function ThemeProvider({
   return (
     <NextThemesProvider
       attribute="data-theme"
-      defaultTheme="mytheme-light"
+      defaultTheme="mytheme-dark"
       themes={["mytheme-light", "mytheme-dark"]}
       enableSystem={false}
       disableTransitionOnChange
