@@ -18,7 +18,7 @@ export default function Login() {
 
   const handleLogin: React.SubmitEventHandler<HTMLFormElement> = async (e) => {
     e.preventDefault();
-    // setSubmitted(true);
+    setSubmitted(true);
     
     const res = await fetch(`${APIBase}/login/`, {
       method: "POST",
