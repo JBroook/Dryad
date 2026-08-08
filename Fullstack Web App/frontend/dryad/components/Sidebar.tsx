@@ -6,7 +6,8 @@ import { BsTree } from "react-icons/bs";
 import { IoSettingsOutline, IoWarningOutline } from "react-icons/io5";
 import { TbMapRoute } from "react-icons/tb";
 import HollowCard from "./HollowCard";
-import { MdOutlineLightMode } from "react-icons/md";
+import { MdOutlineDarkMode, MdOutlineLightMode } from "react-icons/md";
+import { useState } from "react";
 
 export default function Sidebar() {
     const sidebarOptions = [
@@ -15,6 +16,7 @@ export default function Sidebar() {
         {href : "/home/patrols", name : "Patrols", icon: TbMapRoute},
         {href : "/home/settings", name : "Settings", icon: IoSettingsOutline},
     ]
+    const [mode, setMode] = useState<boolean>(true);
     const pathname = usePathname();
 
     return (
@@ -41,10 +43,16 @@ export default function Sidebar() {
                 </ul>
                 
                 <div className="flex flex-col items-center mt-auto border-t border-t-[2px] border-t-white/5">
-                    <HollowCard className="mt-3 p-3 w-[90%] flex flex-row items-center">
-                        <MdOutlineLightMode className="text-secondary-content text-xl mr-3"/>
-                        <h1 className="text-secondary-content text-sm">Light Mode</h1>
-                    </HollowCard>
+                    <div className="btn bg-white/8 font-medium mt-3 p-3 w-[90%] flex flex-row justify-start items-center" onClick={()=>{setMode(!mode)}}>
+                         {mode ? 
+                            <MdOutlineLightMode className="text-secondary-content text-xl mr-3"/>
+                            :
+                            <MdOutlineDarkMode className="text-secondary-content text-xl mr-3"/>
+                         }
+                        <h1 className="text-secondary-content text-sm">
+                            {mode ? "Light Mode" : "Dark Mode"}
+                        </h1>
+                    </div>
                     <HollowCard className="mt-3 p-3 w-[90%] flex flex-row">
                         <div className="avatar">
                             <div className="w-8 rounded-full">
