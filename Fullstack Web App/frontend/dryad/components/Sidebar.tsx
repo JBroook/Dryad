@@ -8,6 +8,7 @@ import { TbMapRoute } from "react-icons/tb";
 import HollowCard from "./HollowCard";
 import { MdOutlineDarkMode, MdOutlineLightMode } from "react-icons/md";
 import { useState } from "react";
+import { useTheme } from "next-themes";
 
 export default function Sidebar() {
     const sidebarOptions = [
@@ -18,6 +19,11 @@ export default function Sidebar() {
     ]
     const [mode, setMode] = useState<boolean>(true);
     const pathname = usePathname();
+    const {theme, setTheme} = useTheme();
+    const changeTheme = () => {
+        setMode(!mode)
+        setTheme(mode ? "mytheme-light" : "mytheme-dark")
+    }
 
     return (
         <aside className="w-64 h-screen">
@@ -43,7 +49,8 @@ export default function Sidebar() {
                 </ul>
                 
                 <div className="flex flex-col items-center mt-auto border-t border-t-[2px] border-t-white/5">
-                    <div className="btn bg-white/8 font-medium mt-3 p-3 w-[90%] flex flex-row justify-start items-center" onClick={()=>{setMode(!mode)}}>
+                    <button className="bg-white/8 rounded-xl font-medium mt-3 p-3 w-[90%] flex flex-row justify-start items-center hover:cursor-pointer" 
+                    onClick={changeTheme}>
                          {mode ? 
                             <MdOutlineLightMode className="text-secondary-content text-xl mr-3"/>
                             :
@@ -52,7 +59,7 @@ export default function Sidebar() {
                         <h1 className="text-secondary-content text-sm">
                             {mode ? "Light Mode" : "Dark Mode"}
                         </h1>
-                    </div>
+                    </button>
                     <HollowCard className="mt-3 p-3 w-[90%] flex flex-row">
                         <div className="avatar">
                             <div className="w-8 rounded-full">
