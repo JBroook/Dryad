@@ -12,7 +12,7 @@ import { useTheme } from "next-themes";
 
 export default function Sidebar() {
     const sidebarOptions = [
-        {href : "/home", name : "Projects", icon: BsTree},
+        {href : "/home/projects", name : "Projects", icon: BsTree},
         {href : "/home/incidents", name : "Incidents", icon: IoWarningOutline},
         {href : "/home/patrols", name : "Patrols", icon: TbMapRoute},
         {href : "/home/settings", name : "Settings", icon: IoSettingsOutline},

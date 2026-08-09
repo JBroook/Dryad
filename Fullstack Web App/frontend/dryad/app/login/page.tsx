@@ -42,7 +42,7 @@ export default function Login() {
     localStorage.setItem("access", tokens.access);
     localStorage.setItem("refresh", tokens.refresh);
 
-    router.push("/home");
+    router.push("/home/projects");
   }
 
   return (
