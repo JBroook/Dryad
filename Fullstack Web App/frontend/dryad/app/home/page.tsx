@@ -3,6 +3,7 @@
 import HollowCard from "@/components/HollowCard";
 import ProjectCard from "@/components/ProjectCard";
 import ProjectCreator from "@/components/ProjectCreator";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { BsTree } from "react-icons/bs";
@@ -24,7 +25,6 @@ export default function Home() {
   const projs = [
     0, 1, 2, 3, 4, 5, 6, 7
   ]
-  const projectCreationModal = useRef<HTMLDialogElement>(null);
 
   useEffect(()=>{
     const token = localStorage.getItem("access");
@@ -49,13 +49,13 @@ export default function Home() {
             </p>
           </div>
 
-          <button 
-            className="btn btn-primary mr-8"
-            onClick={()=>projectCreationModal.current?.showModal()}
+          <Link 
+              href="/home/new"
+              className="btn btn-primary mr-8"
           >
-            <FaPlus/>
-            New Project
-          </button>
+              <FaPlus/>
+              New Project
+          </Link>
         </div>
 
         <div className="w-full grid grid-cols-4 gap-4 px-8 mt-8">
@@ -94,18 +94,17 @@ export default function Home() {
             />
           })}
 
-          <div className="flex flex-col justify-center 
+          <Link className="flex flex-col justify-center 
           items-center rounded-xl border border-white/8
-          cursor-pointer hover:bg-white/4 
-          ">
+          cursor-pointer hover:bg-white/4"
+          href="/home/new"
+          >
               <div className="rounded-full border border-primary bg-base-300 p-2 mb-2">
                 <FaPlus className="text-accent"/>
               </div>
             <p className="text-secondary-content text-sm">Add new project</p>
-          </div>
+          </Link>
         </div>
-
-        <ProjectCreator ref={projectCreationModal}/>
       </>
       :
       <div className="w-full h-full flex justify-center items-center">
