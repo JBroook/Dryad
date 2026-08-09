@@ -2,10 +2,10 @@
 
 import HollowCard from "@/components/HollowCard";
 import ProjectCard from "@/components/ProjectCard";
+import ProjectCreator from "@/components/ProjectCreator";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { BsTree } from "react-icons/bs";
-import { CiCirclePlus } from "react-icons/ci";
 import { FaPlus } from "react-icons/fa6";
 import { GoPulse } from "react-icons/go";
 import { IoMdWifi } from "react-icons/io";
@@ -24,6 +24,7 @@ export default function Home() {
   const projs = [
     0, 1, 2, 3, 4, 5, 6, 7
   ]
+  const projectCreationModal = useRef<HTMLDialogElement>(null);
 
   useEffect(()=>{
     const token = localStorage.getItem("access");
@@ -48,7 +49,10 @@ export default function Home() {
             </p>
           </div>
 
-          <button className="btn btn-primary mr-8">
+          <button 
+            className="btn btn-primary mr-8"
+            onClick={()=>projectCreationModal.current?.showModal()}
+          >
             <FaPlus/>
             New Project
           </button>
@@ -100,6 +104,8 @@ export default function Home() {
             <p className="text-secondary-content text-sm">Add new project</p>
           </div>
         </div>
+
+        <ProjectCreator ref={projectCreationModal}/>
       </>
       :
       <div className="w-full h-full flex justify-center items-center">
