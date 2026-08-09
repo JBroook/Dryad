@@ -33,7 +33,7 @@ export default function Sidebar() {
     }
 
     return (
-        <aside className="w-64 h-screen">
+        <aside className="w-64 h-screen fixed left-0 top-0">
             <div className="flex flex-col w-full h-full bg-secondary border-r border-r-white/5 border-r-[2px]">
                 <div className="py-5 pl-5 border-b border-b-white/5 border-b-[2px]">
                     <h1 className="text-3xl font-semibold">Dryad</h1>
@@ -46,7 +46,7 @@ export default function Sidebar() {
                         return (<li key={index} className="py-1 bg-secondary">
                         <Link 
                             href={option.href}
-                            className={`text-md py-2 font-medium ${isActive ? "bg-[#0C2618] text-accent" : "text-secondary-content"}`}
+                            className={`text-md py-2 font-medium ${isActive ? "bg-base-300 text-accent" : "text-secondary-content"}`}
                         >
                             <Icon className={`text-lg mr-1 ${isActive ? "text-accent" : "text-secondary-content"}`}/>
                             {option.name}
