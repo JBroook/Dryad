@@ -7,8 +7,9 @@ import { IoSettingsOutline, IoWarningOutline } from "react-icons/io5";
 import { TbMapRoute } from "react-icons/tb";
 import HollowCard from "./HollowCard";
 import { MdOutlineDarkMode, MdOutlineLightMode } from "react-icons/md";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useTheme } from "next-themes";
+import { apiFetch } from "@/lib/api";
 
 export default function Sidebar() {
     const sidebarOptions = [
@@ -31,6 +32,36 @@ export default function Sidebar() {
 
         router.push("/login");
     }
+
+    const [firstName, setFirstName] = useState<string>("")
+    const [lastName, setLastName] = useState<string>("")
+    const [email, setEmail] = useState<string>("")
+    
+    const setUserInfo = (data : any) => {
+        setFirstName(data.first_name);
+        setLastName(data.last_name);
+        setEmail(data.email);
+      }
+    
+      useEffect(()=>{
+        // const token = localStorage.getItem("access");
+    
+        // if(!token){
+        //   router.push("/login")
+        // }else{
+        //   setAuthenticated(true)
+        // }
+    
+        // fetch user info
+        const userID = localStorage.getItem("userID")
+        apiFetch(`http://127.0.0.1:8000/api/users/${userID}`)
+          .then(async (res) => {
+            if (!res.ok) throw new Error(await res.text());
+            return res.json();
+          })
+          .then(setUserInfo)
+          .catch((err) => console.error("Fetch failed:", err));
+      }, [])
 
     return (
         <aside className="w-64 h-screen fixed left-0 top-0">
@@ -74,8 +105,8 @@ export default function Sidebar() {
                             </div>
                         </div>
                         <div className="ml-4">
-                            <h1 className="font-semibold">Anna Souza</h1>
-                            <p className="text-secondary-content text-xs truncate w-40">annasouza@gmail.com</p>
+                            <h1 className="font-semibold">{firstName} {lastName}</h1>
+                            <p className="text-secondary-content text-xs truncate w-40">{email}</p>
                         </div>
                     </HollowCard>
                     <button className="w-full justify-center my-2 btn btn-link no-underline text-secondary-content hover:text-[#EF4444]"

@@ -3,6 +3,7 @@ from rest_framework.views import APIView
 from users.serializers import LoginSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.response import Response
+from users.serializers import UserSerializer
 
 # Create your views here.
 class LoginView(APIView):
@@ -12,10 +13,12 @@ class LoginView(APIView):
         serializer.is_valid(raise_exception=True)
 
         user = serializer.validated_data["user"]
+        user_serializer = UserSerializer(user)
 
         refresh = RefreshToken.for_user(user)
 
         return Response({
             "access" : str(refresh.access_token),
-            "refresh" : str(refresh)
+            "refresh" : str(refresh),
+            "user" : user_serializer.data
         })

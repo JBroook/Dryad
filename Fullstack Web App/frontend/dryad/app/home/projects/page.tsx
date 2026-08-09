@@ -3,6 +3,7 @@
 import HollowCard from "@/components/HollowCard";
 import ProjectCard from "@/components/ProjectCard";
 import ProjectCreator from "@/components/ProjectCreator";
+import { apiFetch } from "@/lib/api";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
@@ -22,6 +23,9 @@ export default function Home() {
     {title : "Total Incidents", number : 8, icon : GoPulse, iconColor : "#A78BFA"},
   ]
 
+  const [firstName, setFirstName] = useState<string>("")
+
+
   const projs = [
     0, 1, 2, 3, 4, 5, 6, 7
   ]
@@ -34,6 +38,16 @@ export default function Home() {
     }else{
       setAuthenticated(true)
     }
+
+    // fetch user info
+    const userID = localStorage.getItem("userID")
+    apiFetch(`http://127.0.0.1:8000/api/users/${userID}`)
+      .then(async (res) => {
+        if (!res.ok) throw new Error(await res.text());
+        return res.json();
+      })
+      .then((data)=>setFirstName(data.first_name))
+      .catch((err) => console.error("Fetch failed:", err));
   }, [])
 
   return (<>
@@ -45,12 +59,12 @@ export default function Home() {
               Projects
             </h1>
             <p className="text-sm text-secondary-content">
-              Welcome back, Anna
+              Welcome back, {firstName}
             </p>
           </div>
 
           <Link 
-              href="/home/new"
+              href="/home/projects/new"
               className="btn btn-primary mr-8"
           >
               <FaPlus/>
@@ -97,7 +111,7 @@ export default function Home() {
           <Link className="flex flex-col justify-center 
           items-center rounded-xl border border-white/8
           cursor-pointer hover:bg-white/4"
-          href="/home/new"
+          href="/home/projects/new"
           >
               <div className="rounded-full border border-primary bg-base-300 p-2 mb-2">
                 <FaPlus className="text-accent"/>

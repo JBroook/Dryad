@@ -37,10 +37,11 @@ export default function Login() {
       return;
     }
 
-    const tokens = await res.json();
+    const data = await res.json();
 
-    localStorage.setItem("access", tokens.access);
-    localStorage.setItem("refresh", tokens.refresh);
+    localStorage.setItem("access", data.access);
+    localStorage.setItem("refresh", data.refresh);
+    localStorage.setItem("userID", data.user.id);
 
     router.push("/home/projects");
   }
