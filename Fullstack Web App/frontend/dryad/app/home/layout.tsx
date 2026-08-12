@@ -6,7 +6,11 @@ export default function HomeLayout({
   children: React.ReactNode;
 }>) {
   return (<>
-    <Sidebar />
-    {children}
+    <div className="flex flex-row">
+      <Sidebar />
+      <main className="flex-1 min-w-0 ml-64 mb-32">
+        {children}
+      </main>
+    </div>
   </>);
 }
