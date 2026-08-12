@@ -13,6 +13,16 @@ import { GoPulse } from "react-icons/go";
 import { IoMdWifi } from "react-icons/io";
 import { IoWarning } from "react-icons/io5";
 
+type Project = {
+  id : number;
+  name : string;
+  status : boolean;
+  region : string;
+  location : string;
+  color : string;
+  owner : number;
+}
+
 export default function Home() {
   const [authenticated, setAuthenticated] = useState<boolean>(false)
   const router = useRouter();
@@ -24,7 +34,7 @@ export default function Home() {
   ]
 
   const [firstName, setFirstName] = useState<string>("")
-
+  const [allProjects, setAllProjects] = useState<Project[]>([])
 
   const projs = [
     0, 1, 2, 3, 4, 5, 6, 7
@@ -46,7 +56,19 @@ export default function Home() {
         if (!res.ok) throw new Error(await res.text());
         return res.json();
       })
-      .then((data)=>setFirstName(data.first_name))
+      .then((data)=>{
+        setFirstName(data.first_name)
+        return data
+      })
+      .catch((err) => console.error("Fetch failed:", err));
+
+    // fetch all projects
+    apiFetch(`http://127.0.0.1:8000/api/projects/`)
+      .then(async (res) => {
+        if (!res.ok) throw new Error(await res.text());
+        return res.json();
+      })
+      .then((data)=>setAllProjects(data))
       .catch((err) => console.error("Fetch failed:", err));
   }, [])
 
@@ -91,19 +113,19 @@ export default function Home() {
           Your Projects
         </h2>
         <div className="grid grid-cols-3 gap-x-3 gap-y-5 px-8 w-full">
-          {projs.map((i, j)=>{
+          {allProjects.map((project, index)=>{
             return <ProjectCard
-              key={j}
-              tag ="Active"
-              name ="Amazon Shield"
-              region ="Pará"
-              location ="Pará State, Brazil"
+              key={index}
+              tag ={project.status ? "Active" : "Inactive"}
+              name ={project.name}
+              region ={project.region}
+              location ={project.location}
               area ="4,820 km²"
               alerts ={1}
               activeDevices ={3}
               totalDevices ={5}
               members ={20}
-              accentColor="primary"
+              accentColor={project.color}
               tagColor="#4ADE80"
             />
           })}

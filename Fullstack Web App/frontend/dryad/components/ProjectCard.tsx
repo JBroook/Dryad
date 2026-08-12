@@ -29,13 +29,19 @@ export default function ProjectCard(props : ProjectCardProps) {
       before:inset-x-0
       before:top-0
       before:h-2
-      before:bg-base-300
+      before:bg-[var(--accent-color)]
       border border-white/8 border-width-[2px]
       cursor-pointer
       hover:bg-white/4
-    `}>
+    `}
+    style={{
+      "--accent-color": props.accentColor,
+    } as React.CSSProperties}
+    >
       <div className="w-full flex flew-row justify-between items-center">
-        <div className="badge badge-info bg-base-300 mb-2" style={{color:props.tagColor}}>
+        <div className="badge bg-base-300 mb-2" style={{
+          color:props.tagColor,
+          backgroundImage: "none",}}>
           • {props.tag}
         </div>
 
