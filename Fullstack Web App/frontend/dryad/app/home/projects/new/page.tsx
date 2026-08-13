@@ -1,6 +1,7 @@
   "use client"
 
 import StepOnePage from "@/components/StepPages/StepOnePage";
+import StepTwoPage from "@/components/StepPages/StepTwoPage";
 import StepPanel from "@/components/StepPanel";
 import Link from "next/link";
 import { useState } from "react";
@@ -8,9 +9,25 @@ import { FaArrowLeft } from "react-icons/fa";
 
 export default function New() {
   const [step, setStep] = useState<number>(0);
+  const [projectName, setProjectName] = useState<string>("");
+  const [projectDescription, setProjectDescription] = useState<string>("");
+  const [projectColor, setProjectColor] = useState<string>("#4ADE80");
+
+  const nextPage = () => {
+    setStep(step+1);
+  }
 
   const pages = [
-    {title : "Basics", component : <StepOnePage/>}
+    (<StepOnePage 
+      nameValue={projectName}
+      nameFunction={(e)=>setProjectName(e.target.value)}
+      descriptionValue={projectDescription}
+      descriptionFunction={(e)=>setProjectDescription(e.target.value)}
+      colorValue={projectColor}
+      colorFunction={(e)=>setProjectColor(e.target.value)}
+      submitEvent={nextPage}/>),
+
+      (<StepTwoPage backEvent={()=>setStep(step-1)}/>),
   ]
   
   return (
@@ -27,7 +44,7 @@ export default function New() {
 
     <div className="flex mt-20">
       <div className="flex-1 min-w-0">
-        {pages[step].component}
+        {pages[step]}
       </div>
 
       <StepPanel currentStep={step} />
