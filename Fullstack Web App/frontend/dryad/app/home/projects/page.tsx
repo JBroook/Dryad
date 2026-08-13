@@ -75,7 +75,7 @@ export default function Home() {
   return (<>
     {authenticated ?
       <>
-        <div className="w-full py-5 pl-8 border-b-white/8 border-b border-b-width-[2px] flex flex-row items-center justify-between">
+        <div className="w-full py-5 pl-8 border-b-white/8 border-b border-b-width-[2px] flex flex-row items-center justify-between ">
           <div>
             <h1 className="font-bold text-2xl">
               Projects
@@ -112,7 +112,7 @@ export default function Home() {
         <h2 className="ml-8 mt-8 mb-4 font-semibold">
           Your Projects
         </h2>
-        <div className="grid grid-cols-3 gap-x-3 gap-y-5 px-8 w-full">
+        <div className="grid grid-cols-3 gap-x-3 gap-y-5 px-8 w-full mb-32">
           {allProjects.map((project, index)=>{
             return <ProjectCard
               key={index}
