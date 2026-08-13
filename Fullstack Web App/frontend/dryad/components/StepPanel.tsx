@@ -21,10 +21,11 @@ export default function StepPanel(props: StepPanelProps) {
         {title : "Team", icon : AiOutlineTeam},
         {title : "Review", icon : IoMdCheckmark},
     ]
+    const progress = Math.round(props.currentStep/steps.length*100);
 
     return (<aside className="w-64 shrink-0 ">
         <div className="fixed 
-        top-16 w-64 bg-secondary h-screen border-l 
+        top-16 w-64 bg-secondary bottom-0 border-l 
         border-l-white/8 border-l-width-[2px]
         flex flex-col items-center px-5 pt-10
         ">
@@ -37,6 +38,14 @@ export default function StepPanel(props: StepPanelProps) {
                     return <NextStep title={step.title} icon={step.icon} step={index} key={index}/>
                 }
             })}
+
+            <div className="flex-1 w-full relative">
+                <div className="w-full flex flex-row justify-between absolute bottom-16">
+                    <p className="text-secondary-content">Progress</p>
+                    <p className="text-secondary-content">{progress}%</p>
+                </div>
+                <progress className="progress progress-primary w-56 absolute bottom-12" value={progress} max="100"></progress>
+            </div>
         </div>
     </aside>);
 }
