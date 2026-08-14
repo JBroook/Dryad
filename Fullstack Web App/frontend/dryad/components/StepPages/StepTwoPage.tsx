@@ -20,10 +20,14 @@ interface StepPageProps {
 
 export default function StepTwoPage(props: StepPageProps) {
     const [search, setSearch] = useState<string>("");
-    const [latitude, setLatitude] = useState<string>("52.51");
-    const [longitude, setLongitude] = useState<string>("13.38");
+    const [latitude, setLatitude] = useState<number>(52.51);
+    const [longitude, setLongitude] = useState<number>(13.38);
+    const [searchSpinner, setSearchSpinner] = useState<boolean>(false);
 
-    const searchLocation = async () => {
+    const searchLocation = async (e : React.SubmitEvent) => {
+        e.preventDefault();
+        setSearchSpinner(true);
+
         const response = await fetch(
             `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(search)}`
         );
@@ -31,11 +35,10 @@ export default function StepTwoPage(props: StepPageProps) {
         const data = await response.json();
 
         if(data.length>0){
-            setLatitude(data[0].lat);
-            setLongitude(data[0].lon)
+            setLatitude(parseFloat(data[0].lat));
+            setLongitude(parseFloat(data[0].lon));
         }
-
-        console.log(data);
+        setSearchSpinner(false);
     };
 
     return (
@@ -49,12 +52,13 @@ export default function StepTwoPage(props: StepPageProps) {
         <p className="pt-2 text-secondary-content mx-30">Search or use the map to define the forest area you want to monitor.</p>
 
         <div className="flex-1 mx-30 mt-2 mb-20">
-            <div className="flex flex-row items-center mb-5">
+            <form className="flex flex-row items-center mb-5" onSubmit={searchLocation}>
                 <button 
-                    className="btn btn-primary mr-2"
-                    onClick={searchLocation}
+                    className="btn btn-primary mr-2 w-12"
+                    type="submit"
+                    disabled={searchSpinner}
                 >
-                    <FaSearch />
+                    {searchSpinner ? <span className="loading loading-spinner w-full"></span>: <FaSearch />}
                 </button>
                 <fieldset className="fieldset flex-1">
                     {/* <legend className="fieldset-legend font-medium text-secondary-content text-xs">Search Location</legend> */}
@@ -65,7 +69,7 @@ export default function StepTwoPage(props: StepPageProps) {
                     value={search}
                     onChange={(e)=>setSearch(e.target.value)}/>
                 </fieldset>
-            </div>
+            </form>
 
             <ForestMap 
                 searchValue={search}
