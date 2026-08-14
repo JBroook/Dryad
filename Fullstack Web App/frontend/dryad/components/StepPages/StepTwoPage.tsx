@@ -1,5 +1,7 @@
+import { useState } from "react";
 import BottomBar from "./BottomBar";
 import dynamic from "next/dynamic";
+import { FaSearch } from "react-icons/fa";
 
 const ForestMap = dynamic(() => import("../ForestMap"), {
     ssr: false,
@@ -17,6 +19,25 @@ interface StepPageProps {
 }
 
 export default function StepTwoPage(props: StepPageProps) {
+    const [search, setSearch] = useState<string>("");
+    const [latitude, setLatitude] = useState<string>("52.51");
+    const [longitude, setLongitude] = useState<string>("13.38");
+
+    const searchLocation = async () => {
+        const response = await fetch(
+            `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(search)}`
+        );
+
+        const data = await response.json();
+
+        if(data.length>0){
+            setLatitude(data[0].lat);
+            setLongitude(data[0].lon)
+        }
+
+        console.log(data);
+    };
+
     return (
     <div className="h-[calc(100vh-5rem)] flex flex-col">
         <div className="flex flex-row ml-30 mt-8">
@@ -27,16 +48,32 @@ export default function StepTwoPage(props: StepPageProps) {
         <h1 className="pt-3 text-3xl font-bold mx-30">Choose a Forest Location</h1>
         <p className="pt-2 text-secondary-content mx-30">Search or use the map to define the forest area you want to monitor.</p>
 
-        <div className="flex-1 mx-30 mt-2">
-            <fieldset className="fieldset mb-5">
-                <legend className="fieldset-legend font-medium text-secondary-content text-xs">Search Location</legend>
-                <input 
-                type="text"
-                className="input w-full bg-base-200 border"
-                placeholder="Search forests, regions, countries"/>
-            </fieldset>
-            <ForestMap />
+        <div className="flex-1 mx-30 mt-2 mb-20">
+            <div className="flex flex-row items-center mb-5">
+                <button 
+                    className="btn btn-primary mr-2"
+                    onClick={searchLocation}
+                >
+                    <FaSearch />
+                </button>
+                <fieldset className="fieldset flex-1">
+                    {/* <legend className="fieldset-legend font-medium text-secondary-content text-xs">Search Location</legend> */}
+                    <input 
+                    type="text"
+                    className="input w-full bg-base-200 border"
+                    placeholder="Search forests, regions, countries"
+                    value={search}
+                    onChange={(e)=>setSearch(e.target.value)}/>
+                </fieldset>
+            </div>
+
+            <ForestMap 
+                searchValue={search}
+                latitude={latitude}
+                longitude={longitude}/>
         </div>
+
+        <BottomBar next="Continue" back="Back" formID="project-form" clickEvent={props.backEvent}/>
 
         {/* <form className="pt-6 flex-1" onSubmit={props.submitEvent} id="project-form">
             <div className="mx-30">
@@ -72,7 +109,5 @@ export default function StepTwoPage(props: StepPageProps) {
                 </fieldset>
             </div>
         </form> */}
-
-        <BottomBar next="Continue" back="Back" formID="project-form" clickEvent={props.backEvent}/>
     </div>);
 }
