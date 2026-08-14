@@ -1,6 +1,9 @@
-import Link from "next/link";
-import { FaArrowLeft, FaArrowRight } from "react-icons/fa";
 import BottomBar from "./BottomBar";
+import dynamic from "next/dynamic";
+
+const ForestMap = dynamic(() => import("../ForestMap"), {
+    ssr: false,
+});
 
 interface StepPageProps {
     backEvent : ()=>void;
@@ -13,18 +16,29 @@ interface StepPageProps {
     // colorFunction : (e : React.ChangeEvent<HTMLInputElement>) => void;
 }
 
-export default function StepOnePage(props: StepPageProps) {
+export default function StepTwoPage(props: StepPageProps) {
     return (
     <div className="h-[calc(100vh-5rem)] flex flex-col">
-        {/* <div className="flex flex-row ml-30 mt-8">
-          <p className="text-sm text-secondary-content">Step 1 of 5</p>
-          <p className="text-sm text-accent ml-5 font-semibold">Basics</p>
+        <div className="flex flex-row ml-30 mt-8">
+          <p className="text-sm text-secondary-content">Step 2 of 5</p>
+          <p className="text-sm text-accent ml-5 font-semibold">Location</p>
         </div>
 
-        <h1 className="pt-3 text-3xl font-bold mx-30">Project Basics</h1>
-        <p className="pt-2 text-secondary-content mx-30">Name your project and define what you're protecting.</p>
+        <h1 className="pt-3 text-3xl font-bold mx-30">Choose a Forest Location</h1>
+        <p className="pt-2 text-secondary-content mx-30">Search or use the map to define the forest area you want to monitor.</p>
 
-        <form className="pt-6 flex-1" onSubmit={props.submitEvent} id="project-form">
+        <div className="flex-1 mx-30 mt-2">
+            <fieldset className="fieldset mb-5">
+                <legend className="fieldset-legend font-medium text-secondary-content text-xs">Search Location</legend>
+                <input 
+                type="text"
+                className="input w-full bg-base-200 border"
+                placeholder="Search forests, regions, countries"/>
+            </fieldset>
+            <ForestMap />
+        </div>
+
+        {/* <form className="pt-6 flex-1" onSubmit={props.submitEvent} id="project-form">
             <div className="mx-30">
                 <fieldset className="fieldset">
                     <legend className="fieldset-legend font-medium text-secondary-content">Project Name</legend>
@@ -59,6 +73,6 @@ export default function StepOnePage(props: StepPageProps) {
             </div>
         </form> */}
 
-        <BottomBar next="Continue" back="Cancel" formID="project-form" clickEvent={props.backEvent}/>
+        <BottomBar next="Continue" back="Back" formID="project-form" clickEvent={props.backEvent}/>
     </div>);
 }

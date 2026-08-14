@@ -5,10 +5,7 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="3f32e91f-5408-4877-9ca6-eb5b303e1324" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/pythonProject.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/pythonProject.iml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/BNN.py" beforeDir="false" afterPath="$PROJECT_DIR$/BNN.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/SyntheticData.py" beforeDir="false" afterPath="$PROJECT_DIR$/SyntheticData.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../Fullstack Web App/backend/api/views.py" beforeDir="false" afterPath="$PROJECT_DIR$/../../Fullstack Web App/backend/api/views.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -48,16 +45,16 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent">{
-  &quot;keyToString&quot;: {
-    &quot;Python.BNN.executor&quot;: &quot;Run&quot;,
-    &quot;Python.SyntheticData.executor&quot;: &quot;Run&quot;,
-    &quot;Python.test.executor&quot;: &quot;Run&quot;,
-    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;Bayesian-Neural-Network&quot;,
-    &quot;last_opened_file_path&quot;: &quot;C:/Users/User/Documents/GitHub/Dryad/Acoustic Classification Model&quot;
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "Python.BNN.executor": "Run",
+    "Python.SyntheticData.executor": "Run",
+    "Python.test.executor": "Run",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "git-widget-placeholder": "Project-Creation",
+    "last_opened_file_path": "C:/Users/User/Documents/GitHub/ALLProject2024"
   }
-}</component>
+}]]></component>
   <component name="SharedIndexes">
     <attachedChunks>
       <set>
