@@ -2,6 +2,7 @@ import { useState } from "react";
 import BottomBar from "./BottomBar";
 import dynamic from "next/dynamic";
 import { FaSearch } from "react-icons/fa";
+import type { GeoJSON, Feature, Geometry } from 'geojson';
 
 const ForestMap = dynamic(() => import("../ForestMap"), {
     ssr: false,
@@ -23,6 +24,7 @@ export default function StepTwoPage(props: StepPageProps) {
     const [latitude, setLatitude] = useState<number>(52.51);
     const [longitude, setLongitude] = useState<number>(13.38);
     const [searchSpinner, setSearchSpinner] = useState<boolean>(false);
+    const [forestArea, setForestArea] = useState<GeoJSON | null>();
 
     const searchLocation = async (e : React.SubmitEvent) => {
         e.preventDefault();
