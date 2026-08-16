@@ -51,7 +51,7 @@ export default function StepTwoPage(props: StepPageProps) {
         <h1 className="pt-3 text-3xl font-bold mx-30">Choose a Forest Location</h1>
         <p className="pt-2 text-secondary-content mx-30">Search or use the map to define the forest area you want to monitor.</p>
 
-        <div className="flex-1 mx-30 mt-2 mb-20">
+        <div className="flex-1 mx-30 mt-2 mb-20 flex flex-col">
             <form className="flex flex-row items-center mb-5" onSubmit={searchLocation}>
                 <button 
                     className="btn btn-primary mr-2 w-12"
@@ -75,6 +75,10 @@ export default function StepTwoPage(props: StepPageProps) {
                 searchValue={search}
                 latitude={latitude}
                 longitude={longitude}/>
+
+            <button className="btn btn-primary mt-2 self-center px-8">
+                Draw Area
+            </button>
         </div>
 
         <BottomBar next="Continue" back="Back" formID="project-form" clickEvent={props.backEvent}/>
