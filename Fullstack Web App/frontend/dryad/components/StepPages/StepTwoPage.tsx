@@ -76,9 +76,13 @@ export default function StepTwoPage(props: StepPageProps) {
                 latitude={latitude}
                 longitude={longitude}/>
 
-            <button className="btn btn-primary mt-2 self-center px-8">
+            <p className="text-secondary-content text-md mt-1">
+                *Use the buttons on the top right of the map to draw the area you want to monitor
+            </p>
+
+            {/* <button className="btn btn-primary mt-2 self-center px-8">
                 Draw Area
-            </button>
+            </button> */}
         </div>
 
         <BottomBar next="Continue" back="Back" formID="project-form" clickEvent={props.backEvent}/>
