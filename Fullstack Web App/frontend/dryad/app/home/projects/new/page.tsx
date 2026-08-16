@@ -6,28 +6,55 @@ import StepPanel from "@/components/StepPanel";
 import Link from "next/link";
 import { useState } from "react";
 import { FaArrowLeft } from "react-icons/fa";
+import type { GeoJSON } from 'geojson';
+import StepThreePage from "@/components/StepPages/StepThreePage";
+import StepFourPage from "@/components/StepPages/StepFourPage";
 
 export default function New() {
   const [step, setStep] = useState<number>(0);
   const [projectName, setProjectName] = useState<string>("");
   const [projectDescription, setProjectDescription] = useState<string>("");
   const [projectColor, setProjectColor] = useState<string>("#4ADE80");
+  const [projectGeoJSON, setProjectGeoJSON] = useState<GeoJSON | null>(null);
 
   const nextPage = () => {
     setStep(step+1);
   }
 
   const pages = [
-    (<StepOnePage 
+    <StepOnePage 
       nameValue={projectName}
       nameFunction={(e)=>setProjectName(e.target.value)}
       descriptionValue={projectDescription}
       descriptionFunction={(e)=>setProjectDescription(e.target.value)}
       colorValue={projectColor}
       colorFunction={(e)=>setProjectColor(e.target.value)}
-      submitEvent={nextPage}/>),
+      submitEvent={nextPage}/>,
 
-      (<StepTwoPage backEvent={()=>setStep(step-1)}/>),
+    <StepTwoPage 
+      backEvent={()=>setStep(step-1)}
+      submitEvent={nextPage}
+      />,
+
+    <StepThreePage 
+      nameValue={projectName}
+      nameFunction={(e)=>setProjectName(e.target.value)}
+      descriptionValue={projectDescription}
+      descriptionFunction={(e)=>setProjectDescription(e.target.value)}
+      colorValue={projectColor}
+      colorFunction={(e)=>setProjectColor(e.target.value)}
+      submitEvent={nextPage}
+      backEvent={()=>setStep(step-1)}/>,
+
+    <StepFourPage 
+      nameValue={projectName}
+      nameFunction={(e)=>setProjectName(e.target.value)}
+      descriptionValue={projectDescription}
+      descriptionFunction={(e)=>setProjectDescription(e.target.value)}
+      colorValue={projectColor}
+      colorFunction={(e)=>setProjectColor(e.target.value)}
+      submitEvent={nextPage}
+      backEvent={()=>setStep(step-1)}/>,
   ]
   
   return (

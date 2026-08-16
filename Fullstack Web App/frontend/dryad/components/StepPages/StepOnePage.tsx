@@ -58,6 +58,6 @@ export default function StepOnePage(props: StepPageProps) {
             </div>
         </form>
 
-        <BottomBar next="Continue" back="Cancel" formID="project-form" clickEvent={()=> window.history.back()}/>
+        <BottomBar next="Continue" back="Cancel" formID="project-form" backEvent={()=> window.history.back()}/>
     </div>);
 }

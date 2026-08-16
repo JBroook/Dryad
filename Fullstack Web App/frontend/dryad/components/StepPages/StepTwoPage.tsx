@@ -1,8 +1,12 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import BottomBar from "./BottomBar";
 import dynamic from "next/dynamic";
 import { FaSearch } from "react-icons/fa";
-import type { GeoJSON, Feature, Geometry } from 'geojson';
+import type { GeoJSON } from 'geojson';
+import * as turf from "@turf/turf";
+import { IoMdCheckmark } from "react-icons/io";
+import { RxCross2 } from "react-icons/rx";
+import type { FeatureGroup as LeafletFeatureGroup } from "leaflet";
 
 const ForestMap = dynamic(() => import("../ForestMap"), {
     ssr: false,
@@ -10,7 +14,7 @@ const ForestMap = dynamic(() => import("../ForestMap"), {
 
 interface StepPageProps {
     backEvent : ()=>void;
-    // submitEvent : () => void;
+    submitEvent : () => void;
     // nameValue : string;
     // descriptionValue : string;
     // colorValue : string;
@@ -24,7 +28,8 @@ export default function StepTwoPage(props: StepPageProps) {
     const [latitude, setLatitude] = useState<number>(52.51);
     const [longitude, setLongitude] = useState<number>(13.38);
     const [searchSpinner, setSearchSpinner] = useState<boolean>(false);
-    const [forestArea, setForestArea] = useState<GeoJSON | null>();
+    const [forestGeoJSON, setForestGeoJSON] = useState<GeoJSON | null>();
+    const [forestArea, setForestArea] = useState<number | null>();
 
     const searchLocation = async (e : React.SubmitEvent) => {
         e.preventDefault();
@@ -42,6 +47,20 @@ export default function StepTwoPage(props: StepPageProps) {
         }
         setSearchSpinner(false);
     };
+
+    const handleArea = (area : GeoJSON) => {
+        setForestGeoJSON(area);
+        const areaKMSquare = Math.round(turf.area(area)/1_000_000);
+        setForestArea(areaKMSquare);
+    }
+
+    const drawnItemsReference = useRef<LeafletFeatureGroup | null>(null);
+
+    const resetForestArea = () => {
+        setForestArea(null);
+        setForestGeoJSON(null);
+        drawnItemsReference.current?.clearLayers();
+    }
 
     return (
     <div className="h-[calc(100vh-5rem)] flex flex-col">
@@ -76,52 +95,34 @@ export default function StepTwoPage(props: StepPageProps) {
             <ForestMap 
                 searchValue={search}
                 latitude={latitude}
-                longitude={longitude}/>
+                longitude={longitude}
+                handleArea={handleArea}
+                drawingEnabled={forestArea==null}
+                drawnItemsReference={drawnItemsReference}
+                />
 
             <p className="text-secondary-content text-md mt-1">
                 *Use the buttons on the top right of the map to draw the area you want to monitor
             </p>
 
-            {/* <button className="btn btn-primary mt-2 self-center px-8">
-                Draw Area
-            </button> */}
+            {forestArea!=null ?
+            <div className="mt-5 w-full flex flex-row items-center bg-base-300 p-4 rounded-xl border border-white/8">
+                <div className="bg-primary rounded-full mr-4">
+                    <IoMdCheckmark className="text-xl m-3"/>
+                </div>
+                <div>
+                    <h1 className="text-lg font-semibold text-accent">Area Selected ({forestArea}km²)</h1>
+                    <p className="text-sm text-secondary-content">You can proceed to the next step, or clear and choose a different area.</p>
+                </div>
+
+                <button className="btn btn-error/10 ml-auto text-error border border-error/25"
+                    onClick={resetForestArea}>
+                    <RxCross2 className="text-error"/>
+                    Clear Selection
+                </button>
+            </div>:<></>}
         </div>
 
-        <BottomBar next="Continue" back="Back" formID="project-form" clickEvent={props.backEvent}/>
-
-        {/* <form className="pt-6 flex-1" onSubmit={props.submitEvent} id="project-form">
-            <div className="mx-30">
-                <fieldset className="fieldset">
-                    <legend className="fieldset-legend font-medium text-secondary-content">Project Name</legend>
-                    <input
-                    type="text"
-                    className="input w-full bg-base-200 border"
-                    placeholder="e.g. Amazon Shield"
-                    value={props.nameValue}
-                    onChange={props.nameFunction}
-                    />
-                </fieldset>
-
-                <fieldset className="fieldset pt-2">
-                    <legend className="fieldset-legend font-medium text-secondary-content">Description</legend>
-                    <textarea
-                    className="textarea w-full bg-base-200 border resize-none"
-                    placeholder="Briefly describe what this project is protecting and why it matters"
-                    value={props.descriptionValue}
-                    onChange={props.descriptionFunction}
-                    />
-                </fieldset>
-
-                <fieldset className="fieldset pt-2">
-                    <legend className="fieldset-legend font-medium text-secondary-content">Pick a Color</legend>
-                    <input type="color"
-                    className="w-32 h-12 p-1 rounded-lg bg-base-200 border border-base-300 cursor-pointer"
-                    value={props.colorValue}
-                    onChange={props.colorFunction}
-                    >
-                    </input>
-                </fieldset>
-            </div>
-        </form> */}
+        <BottomBar next="Continue" back="Back" formID="project-form" backEvent={props.backEvent} nextEvent={props.submitEvent}/>
     </div>);
 }

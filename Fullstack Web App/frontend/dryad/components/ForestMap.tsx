@@ -1,9 +1,11 @@
 "use client"
 
 import L from 'leaflet';
-import { useEffect } from 'react';
+import { Ref, useEffect, useRef } from 'react';
 import { FeatureGroup, MapContainer, TileLayer, useMap } from 'react-leaflet'
+import type { FeatureGroup as LeafletFeatureGroup } from "leaflet";
 import { EditControl } from 'react-leaflet-draw';
+import type { GeoJSON } from 'geojson';
 
 import 'leaflet/dist/leaflet.css';
 import 'leaflet-draw/dist/leaflet.draw.css';
@@ -13,6 +15,9 @@ interface ForestMapProps {
     searchValue : string;
     latitude : number;
     longitude : number;
+    handleArea : (area : GeoJSON) => void;
+    drawingEnabled : boolean;
+    drawnItemsReference : Ref<LeafletFeatureGroup>;
 }
 
 export default function ForestMap(props: ForestMapProps) {
@@ -36,12 +41,20 @@ export default function ForestMap(props: ForestMapProps) {
     }
 
     const handleRegionCreation = (e : L.DrawEvents.Created) => {
-        const layer = e.layer;
+        const polygon = e.layer;
 
-        if ('getLatLngs' in layer && typeof layer.getLatLngs === 'function') {
-            const coordinates = layer.getLatLngs();
-            console.log(coordinates);
+        if ('getLatLngs' in polygon && typeof polygon.getLatLngs === 'function') {
+            const geoJSON = polygon.toGeoJSON();
+            props.handleArea(geoJSON);
         }
+    }
+
+    const handleRegionEdit = (e : L.DrawEvents.Edited) => {
+        e.layers.eachLayer((layer) => {
+            if (layer instanceof L.Polygon) {
+                props.handleArea(layer.toGeoJSON());
+            }
+        });
     }
 
     return ( 
@@ -58,18 +71,19 @@ export default function ForestMap(props: ForestMapProps) {
 
             <MapController location={{lat : props.latitude, lon : props.longitude}} />
 
-            <FeatureGroup>
+            <FeatureGroup ref={props.drawnItemsReference}>
                 <EditControl
                     position="topright"
                     draw={{
-                        rectangle: true,
+                        rectangle: props.drawingEnabled,
+                        polygon: props.drawingEnabled,
                         circle: false,
                         marker: false,
                         polyline: false,
                         circlemarker: false,
-                        polygon: true,
                     }}
                     onCreated={handleRegionCreation}
+                    onEdited={handleRegionEdit}
                 />
             </FeatureGroup>
         </MapContainer>

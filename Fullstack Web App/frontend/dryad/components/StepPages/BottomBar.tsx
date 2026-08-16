@@ -5,7 +5,8 @@ interface BottomBarProps {
     formID : string;
     back : string;
     next : string;
-    clickEvent : ()=> void;
+    backEvent : ()=> void;
+    nextEvent? : ()=> void;
 }
 
 export default function BottomBar(props: BottomBarProps) {
@@ -13,7 +14,7 @@ export default function BottomBar(props: BottomBarProps) {
         <div className="bg-secondary w-full h-18 shrink-0 border-t border-t-white/8 flex flex-row items-center justify-between">
             <button 
                 className="btn text-secondary-content font-medium ml-5"
-                onClick={props.clickEvent}>
+                onClick={props.backEvent}>
                 <FaArrowLeft className="text-secondary-content"/>
                 {props.back}
             </button>
@@ -22,6 +23,7 @@ export default function BottomBar(props: BottomBarProps) {
                 className="btn text-secondary-content font-medium mr-5"
                 form={props.formID}
                 type="submit"
+                onClick={props.nextEvent ? props.nextEvent : ()=>{}}
                 >
                 {props.next}
                 <FaArrowRight className="text-secondary-content"/>
