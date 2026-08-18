@@ -30,6 +30,17 @@ class UserViewSet(ModelViewSet):
     queryset = User.objects.all()
     serializer_class = UserSerializer
 
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        email = self.request.query_params.get('email')
+
+        if email:
+            queryset = queryset.filter(email=email)
+
+        return queryset
+        
+    
+
 class ProjectViewSet(ModelViewSet):
     queryset = Project.objects.all()
     serializer_class = ProjectSerializer

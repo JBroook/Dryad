@@ -10,12 +10,23 @@ import type { GeoJSON } from 'geojson';
 import StepThreePage from "@/components/StepPages/StepThreePage";
 import StepFourPage from "@/components/StepPages/StepFourPage";
 
+export type Member = {
+  id : number;
+  firstName : string;
+  lastName : string;
+  email : string;
+  role : string;
+}
+
 export default function New() {
   const [step, setStep] = useState<number>(0);
   const [projectName, setProjectName] = useState<string>("");
   const [projectDescription, setProjectDescription] = useState<string>("");
   const [projectColor, setProjectColor] = useState<string>("#4ADE80");
   const [projectGeoJSON, setProjectGeoJSON] = useState<GeoJSON | null>(null);
+  const [projectMembers, setProjectMembers] = useState<Member[]>([
+    {id : 0, firstName : "Jeremiah", lastName : "Boey", email : "jeremiahboey@gmail.com", role: "Owner"}
+  ]);
 
   const nextPage = () => {
     setStep(step+1);
@@ -47,12 +58,8 @@ export default function New() {
       backEvent={()=>setStep(step-1)}/>,
 
     <StepFourPage 
-      nameValue={projectName}
-      nameFunction={(e)=>setProjectName(e.target.value)}
-      descriptionValue={projectDescription}
-      descriptionFunction={(e)=>setProjectDescription(e.target.value)}
-      colorValue={projectColor}
-      colorFunction={(e)=>setProjectColor(e.target.value)}
+      membersArray={projectMembers}
+      membersFunction={(newMembers : Member[])=>setProjectMembers(newMembers)}
       submitEvent={nextPage}
       backEvent={()=>setStep(step-1)}/>,
   ]
