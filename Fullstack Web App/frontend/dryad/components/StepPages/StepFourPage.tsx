@@ -18,6 +18,7 @@ interface StepPageProps {
     backEvent : () => void;
     membersArray : Member[];
     membersFunction : (newMembers : Member[]) => void;
+    roleFunction : (index: number, newRole : string) => void;
 }
 
 export default function StepFourPage(props: StepPageProps) {
@@ -46,7 +47,7 @@ export default function StepFourPage(props: StepPageProps) {
                         firstName : data[0].first_name,
                         lastName : data[0].last_name,
                         email : data[0].email,
-                        role : data[0].role
+                        role : "Viewer"
                     }
                     props.membersFunction([...props.membersArray, newMember])
                 }else{
@@ -138,9 +139,19 @@ export default function StepFourPage(props: StepPageProps) {
                                     {member.role}
                                 </summary>
                                 <ul className="menu dropdown-content bg-base-300 rounded-box z-1 w-52 p-2 shadow-sm">
-                                    <li><a className="text-[#60A5FA]">Admin</a></li>
-                                    <li><a className="text-[#4ADE80]">Analyst</a></li>
-                                    <li><a className="text-[#94A3B8]">Viewer</a></li>
+                                    <li><a 
+                                        className="text-[#60A5FA]" 
+                                        onClick={()=>props.roleFunction(index, "Admin")}>
+                                        Admin
+                                    </a></li>
+                                    <li><a className="text-[#4ADE80]"
+                                        onClick={()=>props.roleFunction(index, "Analyst")}>
+                                        Analyst
+                                    </a></li>
+                                    <li><a className="text-[#94A3B8]"
+                                        onClick={()=>props.roleFunction(index, "Viewer")}>
+                                        Viewer
+                                    </a></li>
                                 </ul>
                             </details>
 

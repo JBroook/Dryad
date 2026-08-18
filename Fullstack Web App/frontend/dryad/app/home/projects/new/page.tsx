@@ -32,6 +32,12 @@ export default function New() {
     setStep(step+1);
   }
 
+  const changeRole = (index : number, newRole : string) => {
+    setProjectMembers(projectMembers.map((member, i) => 
+      i === index ? { ...member, role: newRole } : member
+    ));
+  }
+
   const pages = [
     <StepOnePage 
       nameValue={projectName}
@@ -60,6 +66,7 @@ export default function New() {
     <StepFourPage 
       membersArray={projectMembers}
       membersFunction={(newMembers : Member[])=>setProjectMembers(newMembers)}
+      roleFunction={changeRole}
       submitEvent={nextPage}
       backEvent={()=>setStep(step-1)}/>,
   ]
