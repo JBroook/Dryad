@@ -9,6 +9,7 @@ import { FaArrowLeft } from "react-icons/fa";
 import type { GeoJSON } from 'geojson';
 import StepThreePage from "@/components/StepPages/StepThreePage";
 import StepFourPage from "@/components/StepPages/StepFourPage";
+import StepFivePage from "@/components/StepPages/StepFivePage";
 
 export type Member = {
   id : number;
@@ -18,55 +19,78 @@ export type Member = {
   role : string;
 }
 
+export type Project = {
+  name : string;
+  description : string;
+  color : string;
+  geoJSON : GeoJSON | null;
+  area : number | null;
+  members : Member[];
+}
+
 export default function New() {
   const [step, setStep] = useState<number>(0);
-  const [projectName, setProjectName] = useState<string>("");
-  const [projectDescription, setProjectDescription] = useState<string>("");
-  const [projectColor, setProjectColor] = useState<string>("#4ADE80");
-  const [projectGeoJSON, setProjectGeoJSON] = useState<GeoJSON | null>(null);
-  const [projectMembers, setProjectMembers] = useState<Member[]>([
-    {id : 0, firstName : "Jeremiah", lastName : "Boey", email : "jeremiahboey@gmail.com", role: "Owner"}
-  ]);
+  const [project, setProject] = useState<Project>({
+    name : "",
+    description : "",
+    color : "#4ADE80",
+    geoJSON : null,
+    members : [],
+    area : null
+  });
 
   const nextPage = () => {
     setStep(step+1);
   }
 
   const changeRole = (index : number, newRole : string) => {
-    setProjectMembers(projectMembers.map((member, i) => 
-      i === index ? { ...member, role: newRole } : member
-    ));
+    setProject({
+      ...project,
+      members: project.members.map((member, i) => 
+        i === index ? { ...member, role: newRole } : member
+      )
+    });
   }
 
   const pages = [
     <StepOnePage 
-      nameValue={projectName}
-      nameFunction={(e)=>setProjectName(e.target.value)}
-      descriptionValue={projectDescription}
-      descriptionFunction={(e)=>setProjectDescription(e.target.value)}
-      colorValue={projectColor}
-      colorFunction={(e)=>setProjectColor(e.target.value)}
+      nameValue={project.name}
+      nameFunction={(e)=>setProject({...project, name: e.target.value})}
+      descriptionValue={project.description}
+      descriptionFunction={(e)=>setProject({...project, description: e.target.value})}
+      colorValue={project.color}
+      colorFunction={(e)=>setProject({...project, color: e.target.value})}
       submitEvent={nextPage}/>,
 
     <StepTwoPage 
       backEvent={()=>setStep(step-1)}
       submitEvent={nextPage}
+      handleArea={(geoJSON : GeoJSON | null, area : number | null)=>{
+        setProject({...project, area : area, geoJSON : geoJSON})
+      }}
+      forestArea={project.area}
+      geoJSON={project.geoJSON}
       />,
 
     <StepThreePage 
-      nameValue={projectName}
-      nameFunction={(e)=>setProjectName(e.target.value)}
-      descriptionValue={projectDescription}
-      descriptionFunction={(e)=>setProjectDescription(e.target.value)}
-      colorValue={projectColor}
-      colorFunction={(e)=>setProjectColor(e.target.value)}
+      nameValue={project.name}
+      nameFunction={(e)=>setProject({...project, name: e.target.value})}
+      descriptionValue={project.description}
+      descriptionFunction={(e)=>setProject({...project, description: e.target.value})}
+      colorValue={project.color}
+      colorFunction={(e)=>setProject({...project, color: e.target.value})}
       submitEvent={nextPage}
       backEvent={()=>setStep(step-1)}/>,
 
     <StepFourPage 
-      membersArray={projectMembers}
-      membersFunction={(newMembers : Member[])=>setProjectMembers(newMembers)}
+      membersArray={project.members}
+      membersFunction={(newMemberArray : Member[])=>setProject({...project, members: newMemberArray})}
       roleFunction={changeRole}
+      submitEvent={nextPage}
+      backEvent={()=>setStep(step-1)}/>,
+
+    <StepFivePage 
+      project={project}
       submitEvent={nextPage}
       backEvent={()=>setStep(step-1)}/>,
   ]
@@ -74,11 +98,11 @@ export default function New() {
   return (
   <div className="flex flex-col">
     <div className="fixed top-0 h-20 w-full flex flex-row items-center bg-secondary border-b border-b-white/8 z-1">
-      <Link href="/home/projects" 
+      <button onClick={()=>console.log(project)}
         className="btn text-secondary-content font-medium ml-5">
         <FaArrowLeft className="text-secondary-content"/>
         Dashboard
-      </Link>
+      </button>
 
       <h1 className="ml-10">New Monitoring Project</h1>
     </div>

@@ -15,12 +15,9 @@ const ForestMap = dynamic(() => import("../ForestMap"), {
 interface StepPageProps {
     backEvent : ()=>void;
     submitEvent : () => void;
-    // nameValue : string;
-    // descriptionValue : string;
-    // colorValue : string;
-    // nameFunction : (e : React.ChangeEvent<HTMLInputElement>) => void;
-    // descriptionFunction : (e : React.ChangeEvent<HTMLTextAreaElement>) => void;
-    // colorFunction : (e : React.ChangeEvent<HTMLInputElement>) => void;
+    forestArea : number | null;
+    geoJSON : GeoJSON | null;
+    handleArea : (geoJSON : GeoJSON | null, area : number | null) => void;
 }
 
 export default function StepTwoPage(props: StepPageProps) {
@@ -28,8 +25,6 @@ export default function StepTwoPage(props: StepPageProps) {
     const [latitude, setLatitude] = useState<number>(52.51);
     const [longitude, setLongitude] = useState<number>(13.38);
     const [searchSpinner, setSearchSpinner] = useState<boolean>(false);
-    const [forestGeoJSON, setForestGeoJSON] = useState<GeoJSON | null>();
-    const [forestArea, setForestArea] = useState<number | null>();
 
     const searchLocation = async (e : React.SubmitEvent) => {
         e.preventDefault();
@@ -49,16 +44,14 @@ export default function StepTwoPage(props: StepPageProps) {
     };
 
     const handleArea = (area : GeoJSON) => {
-        setForestGeoJSON(area);
         const areaKMSquare = Math.round(turf.area(area)/1_000_000);
-        setForestArea(areaKMSquare);
+        props.handleArea(area, areaKMSquare);
     }
 
     const drawnItemsReference = useRef<LeafletFeatureGroup | null>(null);
 
     const resetForestArea = () => {
-        setForestArea(null);
-        setForestGeoJSON(null);
+        props.handleArea(null, null);
         drawnItemsReference.current?.clearLayers();
     }
 
@@ -82,7 +75,6 @@ export default function StepTwoPage(props: StepPageProps) {
                     {searchSpinner ? <span className="loading loading-spinner w-full"></span>: <FaSearch />}
                 </button>
                 <fieldset className="fieldset flex-1">
-                    {/* <legend className="fieldset-legend font-medium text-secondary-content text-xs">Search Location</legend> */}
                     <input 
                     type="text"
                     className="input w-full bg-base-200 border"
@@ -97,21 +89,22 @@ export default function StepTwoPage(props: StepPageProps) {
                 latitude={latitude}
                 longitude={longitude}
                 handleArea={handleArea}
-                drawingEnabled={forestArea==null}
+                drawingEnabled={props.forestArea==null}
                 drawnItemsReference={drawnItemsReference}
+                geoJSON={props.geoJSON}
                 />
 
             <p className="text-secondary-content text-md mt-1">
                 *Use the buttons on the top right of the map to draw the area you want to monitor
             </p>
 
-            {forestArea!=null ?
+            {props.forestArea!=null ?
             <div className="mt-5 w-full flex flex-row items-center bg-base-300 p-4 rounded-xl border border-white/8">
                 <div className="bg-primary rounded-full mr-4">
                     <IoMdCheckmark className="text-xl m-3"/>
                 </div>
                 <div>
-                    <h1 className="text-lg font-semibold text-accent">Area Selected ({forestArea}km²)</h1>
+                    <h1 className="text-lg font-semibold text-accent">Area Selected ({props.forestArea}km²)</h1>
                     <p className="text-sm text-secondary-content">You can proceed to the next step, or clear and choose a different area.</p>
                 </div>
 

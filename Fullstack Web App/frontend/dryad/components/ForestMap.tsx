@@ -1,7 +1,7 @@
 "use client"
 
 import L from 'leaflet';
-import { Ref, useEffect, useRef } from 'react';
+import { Ref, RefObject, useEffect, useRef } from 'react';
 import { FeatureGroup, MapContainer, TileLayer, useMap } from 'react-leaflet'
 import type { FeatureGroup as LeafletFeatureGroup } from "leaflet";
 import { EditControl } from 'react-leaflet-draw';
@@ -17,7 +17,8 @@ interface ForestMapProps {
     longitude : number;
     handleArea : (area : GeoJSON) => void;
     drawingEnabled : boolean;
-    drawnItemsReference : Ref<LeafletFeatureGroup>;
+    drawnItemsReference : RefObject<LeafletFeatureGroup | null>;
+    geoJSON : GeoJSON | null;
 }
 
 export default function ForestMap(props: ForestMapProps) {
@@ -36,6 +37,37 @@ export default function ForestMap(props: ForestMapProps) {
                 );
             }
         }, [location, map]);
+
+        return null;
+    }
+
+    function GeoJSONLoader({
+        geoJSON,
+        featureGroupRef,
+    }: {
+        geoJSON: GeoJSON | null;
+        featureGroupRef: RefObject<LeafletFeatureGroup | null>;
+    }) {
+        useEffect(() => {
+            const featureGroup = featureGroupRef.current;
+
+            if (!featureGroup) {
+                return;
+            }
+
+            // Remove previously loaded geometry
+            featureGroup.clearLayers();
+
+            if (!geoJSON) {
+                return;
+            }
+
+            const geoJsonLayer = L.geoJSON(geoJSON);
+
+            geoJsonLayer.eachLayer((layer) => {
+                featureGroup.addLayer(layer);
+            });
+        }, [geoJSON, featureGroupRef]);
 
         return null;
     }
@@ -72,6 +104,11 @@ export default function ForestMap(props: ForestMapProps) {
             <MapController location={{lat : props.latitude, lon : props.longitude}} />
 
             <FeatureGroup ref={props.drawnItemsReference}>
+                <GeoJSONLoader
+                    geoJSON={props.geoJSON}
+                    featureGroupRef={props.drawnItemsReference}
+                />
+
                 <EditControl
                     position="topright"
                     draw={{

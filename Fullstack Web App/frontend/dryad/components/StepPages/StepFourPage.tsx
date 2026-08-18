@@ -145,8 +145,8 @@ export default function StepFourPage(props: StepPageProps) {
                                         Admin
                                     </a></li>
                                     <li><a className="text-[#4ADE80]"
-                                        onClick={()=>props.roleFunction(index, "Analyst")}>
-                                        Analyst
+                                        onClick={()=>props.roleFunction(index, "Manager")}>
+                                        Manager
                                     </a></li>
                                     <li><a className="text-[#94A3B8]"
                                         onClick={()=>props.roleFunction(index, "Viewer")}>
@@ -173,6 +173,6 @@ export default function StepFourPage(props: StepPageProps) {
             }
         </div>
 
-        <BottomBar next="Continue" back="Cancel" formID="project-form" backEvent={props.backEvent}/>
+        <BottomBar next="Continue" back="Cancel" formID="project-form" backEvent={props.backEvent} nextEvent={props.submitEvent}/>
     </div>);
 }
