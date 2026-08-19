@@ -1,7 +1,7 @@
 "use client"
 
 import L from 'leaflet';
-import { Ref, RefObject, useEffect, useRef } from 'react';
+import { Ref, RefObject, useEffect, useRef, useState } from 'react';
 import { FeatureGroup, MapContainer, TileLayer, useMap } from 'react-leaflet'
 import type { FeatureGroup as LeafletFeatureGroup } from "leaflet";
 import { EditControl } from 'react-leaflet-draw';
@@ -48,6 +48,8 @@ export default function ForestMap(props: ForestMapProps) {
         geoJSON: GeoJSON | null;
         featureGroupRef: RefObject<LeafletFeatureGroup | null>;
     }) {
+        const map = useMap();
+
         useEffect(() => {
             const featureGroup = featureGroupRef.current;
 
@@ -67,7 +69,16 @@ export default function ForestMap(props: ForestMapProps) {
             geoJsonLayer.eachLayer((layer) => {
                 featureGroup.addLayer(layer);
             });
-        }, [geoJSON, featureGroupRef]);
+
+            // Center/zoom map around the loaded shape
+            const bounds = featureGroup.getBounds();
+
+            if (bounds.isValid()) {
+                map.fitBounds(bounds, {
+                    padding: [30, 30],
+                });
+            }
+        }, [geoJSON, featureGroupRef, map]);
 
         return null;
     }
