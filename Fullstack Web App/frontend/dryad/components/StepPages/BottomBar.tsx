@@ -7,6 +7,7 @@ interface BottomBarProps {
     next : string;
     backEvent : ()=> void;
     nextEvent? : ()=> void;
+    ready : boolean;
 }
 
 export default function BottomBar(props: BottomBarProps) {
@@ -20,13 +21,14 @@ export default function BottomBar(props: BottomBarProps) {
             </button>
 
             <button
-                className="btn text-secondary-content font-medium mr-5"
+                className={props.ready ? "btn btn-primary font-medium mr-5" : "btn font-medium mr-5"}
+                disabled={!props.ready}
                 form={props.formID}
                 type="submit"
                 onClick={props.nextEvent ? props.nextEvent : ()=>{}}
                 >
                 {props.next}
-                <FaArrowRight className="text-secondary-content"/>
+                <FaArrowRight/>
             </button>
         </div>);
 }

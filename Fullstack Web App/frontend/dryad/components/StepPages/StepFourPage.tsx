@@ -173,6 +173,6 @@ export default function StepFourPage(props: StepPageProps) {
             }
         </div>
 
-        <BottomBar next="Continue" back="Cancel" formID="project-form" backEvent={props.backEvent} nextEvent={props.submitEvent}/>
+        <BottomBar ready={true} next="Continue" back="Back" formID="project-form" backEvent={props.backEvent} nextEvent={props.submitEvent}/>
     </div>);
 }

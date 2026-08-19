@@ -1,4 +1,4 @@
-  "use client"
+"use client"
 
 import StepOnePage from "@/components/StepPages/StepOnePage";
 import StepTwoPage from "@/components/StepPages/StepTwoPage";
@@ -10,7 +10,7 @@ import type { GeoJSON } from 'geojson';
 import StepThreePage from "@/components/StepPages/StepThreePage";
 import StepFourPage from "@/components/StepPages/StepFourPage";
 import StepFivePage from "@/components/StepPages/StepFivePage";
-import L from "leaflet";
+import L, { LatLng } from "leaflet";
 
 export type Member = {
   id : number;
@@ -28,6 +28,7 @@ export type Project = {
   area : number | null;
   members : Member[];
   region : string | null;
+  center : LatLng | null;
 }
 
 export default function New() {
@@ -39,7 +40,8 @@ export default function New() {
     geoJSON : null,
     members : [],
     area : null,
-    region : null
+    region : null,
+    center : null
   });
 
   const nextPage = () => {
@@ -55,14 +57,17 @@ export default function New() {
     });
   }
 
-  const handleArea = async (geoJSON : GeoJSON | null, area : number | null)=>{
-    const geoJsonLayer = L.geoJSON(geoJSON);
-    const center = geoJsonLayer.getBounds().getCenter();
+  const handleArea = async (geoJSON : GeoJSON | null, area : number | null, center : LatLng | null)=>{
     const response = await fetch(
-      `https://nominatim.openstreetmap.org/reverse?lat=${center.lat}&lon=${center.lng}&format=jsonv2`
+      `https://nominatim.openstreetmap.org/reverse?lat=${center?.lat}&lon=${center?.lng}&format=jsonv2`
     );
     const data = await response.json();
-    setProject({...project, area : area, geoJSON : geoJSON, region : `${data.address.state}, ${data.address.country}`})
+    setProject({...project, 
+      area : area, geoJSON : 
+      geoJSON, 
+      region : `${data.address.state}, ${data.address.country}`,
+      center : center
+    })
   }
 
   const pages = [

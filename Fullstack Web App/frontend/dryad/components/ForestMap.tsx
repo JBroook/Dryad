@@ -3,9 +3,10 @@
 import L from 'leaflet';
 import { Ref, RefObject, useEffect, useRef, useState } from 'react';
 import { FeatureGroup, MapContainer, TileLayer, useMap } from 'react-leaflet'
-import type { FeatureGroup as LeafletFeatureGroup } from "leaflet";
+import type { LatLng, FeatureGroup as LeafletFeatureGroup } from "leaflet";
 import { EditControl } from 'react-leaflet-draw';
 import type { GeoJSON } from 'geojson';
+import * as turf from "@turf/turf";
 
 import 'leaflet/dist/leaflet.css';
 import 'leaflet-draw/dist/leaflet.draw.css';
@@ -15,7 +16,7 @@ interface ForestMapProps {
     searchValue : string;
     latitude : number;
     longitude : number;
-    handleArea : (area : GeoJSON) => void;
+    handleArea : (area : GeoJSON, surfaceArea : number, center : LatLng) => void;
     drawingEnabled : boolean;
     drawnItemsReference : RefObject<LeafletFeatureGroup | null>;
     geoJSON : GeoJSON | null;
@@ -92,14 +93,27 @@ export default function ForestMap(props: ForestMapProps) {
 
         if ('getLatLngs' in polygon && typeof polygon.getLatLngs === 'function') {
             const geoJSON = polygon.toGeoJSON();
-            props.handleArea(geoJSON);
+
+            const geoJsonLayer = L.geoJSON(geoJSON);
+            const center = geoJsonLayer.getBounds().getCenter();
+
+            const areaKMSquare = Math.round(turf.area(geoJSON)/1_000_000);
+
+            props.handleArea(geoJSON, areaKMSquare, center);
         }
     }
 
     const handleRegionEdit = (e : L.DrawEvents.Edited) => {
         e.layers.eachLayer((layer) => {
             if (layer instanceof L.Polygon) {
-                props.handleArea(layer.toGeoJSON());
+                const geoJSON = layer.toGeoJSON();
+
+                const geoJsonLayer = L.geoJSON(geoJSON);
+                const center = geoJsonLayer.getBounds().getCenter();
+
+                const areaKMSquare = Math.round(turf.area(geoJSON)/1_000_000);
+
+                props.handleArea(geoJSON, areaKMSquare, center);
             }
         });
     }

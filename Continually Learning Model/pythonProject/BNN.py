@@ -152,7 +152,6 @@ if __name__ == "__main__":
     plt.show()
 
     for epoch in range(epochs):
-        break
         model.train()
 
         logits = model(input_tensor)["logits"]

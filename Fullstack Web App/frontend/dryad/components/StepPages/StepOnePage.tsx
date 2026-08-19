@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { FaArrowLeft, FaArrowRight } from "react-icons/fa";
 import BottomBar from "./BottomBar";
+import { useState } from "react";
 
 interface StepPageProps {
     submitEvent : () => void;
@@ -13,6 +14,7 @@ interface StepPageProps {
 }
 
 export default function StepOnePage(props: StepPageProps) {
+
     return (
     <div className="h-[calc(100vh-5rem)] flex flex-col">
         <div className="flex flex-row ml-30 mt-8">
@@ -58,6 +60,6 @@ export default function StepOnePage(props: StepPageProps) {
             </div>
         </form>
 
-        <BottomBar next="Continue" back="Cancel" formID="project-form" backEvent={()=> window.history.back()}/>
+        <BottomBar ready={props.nameValue!=""} next="Continue" back="Cancel" formID="project-form" backEvent={()=> window.history.back()}/>
     </div>);
 }

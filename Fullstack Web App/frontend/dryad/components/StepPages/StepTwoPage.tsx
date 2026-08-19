@@ -3,10 +3,9 @@ import BottomBar from "./BottomBar";
 import dynamic from "next/dynamic";
 import { FaSearch } from "react-icons/fa";
 import type { GeoJSON } from 'geojson';
-import * as turf from "@turf/turf";
 import { IoMdCheckmark } from "react-icons/io";
 import { RxCross2 } from "react-icons/rx";
-import type { FeatureGroup as LeafletFeatureGroup } from "leaflet";
+import type { LatLng, FeatureGroup as LeafletFeatureGroup } from "leaflet";
 
 const ForestMap = dynamic(() => import("../ForestMap"), {
     ssr: false,
@@ -17,7 +16,7 @@ interface StepPageProps {
     submitEvent : () => void;
     forestArea : number | null;
     geoJSON : GeoJSON | null;
-    handleArea : (geoJSON : GeoJSON | null, area : number | null) => void;
+    handleArea : (geoJSON : GeoJSON | null, area : number | null, center : LatLng | null) => void;
 }
 
 export default function StepTwoPage(props: StepPageProps) {
@@ -43,15 +42,14 @@ export default function StepTwoPage(props: StepPageProps) {
         setSearchSpinner(false);
     };
 
-    const handleArea = (area : GeoJSON) => {
-        const areaKMSquare = Math.round(turf.area(area)/1_000_000);
-        props.handleArea(area, areaKMSquare);
+    const handleArea = (area : GeoJSON, areaKMSquare : number, center : LatLng) => {
+        props.handleArea(area, areaKMSquare, center);
     }
 
     const drawnItemsReference = useRef<LeafletFeatureGroup | null>(null);
 
     const resetForestArea = () => {
-        props.handleArea(null, null);
+        props.handleArea(null, null, null);
         drawnItemsReference.current?.clearLayers();
     }
 
@@ -116,6 +114,6 @@ export default function StepTwoPage(props: StepPageProps) {
             </div>:<></>}
         </div>
 
-        <BottomBar next="Continue" back="Back" formID="project-form" backEvent={props.backEvent} nextEvent={props.submitEvent}/>
+        <BottomBar ready={props.geoJSON!=null} next="Continue" back="Back" formID="project-form" backEvent={props.backEvent} nextEvent={props.submitEvent}/>
     </div>);
 }

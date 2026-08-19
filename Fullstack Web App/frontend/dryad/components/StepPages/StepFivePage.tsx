@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { FaArrowLeft, FaArrowRight, FaRegClipboard } from "react-icons/fa";
 import BottomBar from "./BottomBar";
 import { IoIosInformationCircleOutline, IoMdWifi } from "react-icons/io";
@@ -6,7 +5,6 @@ import InfoTable from "../InfoTable";
 import { CiGlobe } from "react-icons/ci";
 import { AiOutlineTeam } from "react-icons/ai";
 import { Project } from "@/app/home/projects/new/page";
-import L from "leaflet";
 
 interface StepPageProps {
     submitEvent : () => void;
@@ -17,13 +15,11 @@ interface StepPageProps {
 export default function StepFivePage(props: StepPageProps) {
     const basics = [
         {key : "Name", value : props.project.name},
-        {key : "Description", value : props.project.description},
+        {key : "Description", value : props.project.description!="" ? props.project.description : "-"},
         {key : "Color", value : props.project.color},
     ]
 
-    const geoJsonLayer = L.geoJSON(props.project.geoJSON);
-    const center = geoJsonLayer.getBounds().getCenter();
-    const centerAsString = `${center.lat.toString()}°, ${center.lng.toString()}°`;
+    const centerAsString = `${props.project.center?.lat?.toString()}°, ${props.project.center?.lng?.toString()}°`;
     const location = [
         {key : "Region", value : props.project.region ? props.project.region : "Undefined"},
         {key : "Coordinates", value : centerAsString},
@@ -82,6 +78,6 @@ export default function StepFivePage(props: StepPageProps) {
             />
         </div>
 
-        <BottomBar next="Create Project" back="Back" formID="project-form" backEvent={props.backEvent}/>
+        <BottomBar ready={true} next="Create Project" back="Back" formID="project-form" backEvent={props.backEvent}/>
     </div>);
 }

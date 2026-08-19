@@ -59,6 +59,6 @@ export default function StepThreePage(props: StepPageProps) {
             </div> */}
         </form>
 
-        <BottomBar next="Continue" back="Cancel" formID="project-form" backEvent={props.backEvent}/>
+        <BottomBar ready={true} next="Continue" back="Back" formID="project-form" backEvent={props.backEvent}/>
     </div>);
 }
