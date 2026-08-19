@@ -10,6 +10,7 @@ import type { GeoJSON } from 'geojson';
 import StepThreePage from "@/components/StepPages/StepThreePage";
 import StepFourPage from "@/components/StepPages/StepFourPage";
 import StepFivePage from "@/components/StepPages/StepFivePage";
+import L from "leaflet";
 
 export type Member = {
   id : number;
@@ -26,6 +27,7 @@ export type Project = {
   geoJSON : GeoJSON | null;
   area : number | null;
   members : Member[];
+  region : string | null;
 }
 
 export default function New() {
@@ -36,7 +38,8 @@ export default function New() {
     color : "#4ADE80",
     geoJSON : null,
     members : [],
-    area : null
+    area : null,
+    region : null
   });
 
   const nextPage = () => {
@@ -52,6 +55,16 @@ export default function New() {
     });
   }
 
+  const handleArea = async (geoJSON : GeoJSON | null, area : number | null)=>{
+    const geoJsonLayer = L.geoJSON(geoJSON);
+    const center = geoJsonLayer.getBounds().getCenter();
+    const response = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?lat=${center.lat}&lon=${center.lng}&format=jsonv2`
+    );
+    const data = await response.json();
+    setProject({...project, area : area, geoJSON : geoJSON, region : `${data.address.state}, ${data.address.country}`})
+  }
+
   const pages = [
     <StepOnePage 
       nameValue={project.name}
@@ -65,9 +78,7 @@ export default function New() {
     <StepTwoPage 
       backEvent={()=>setStep(step-1)}
       submitEvent={nextPage}
-      handleArea={(geoJSON : GeoJSON | null, area : number | null)=>{
-        setProject({...project, area : area, geoJSON : geoJSON})
-      }}
+      handleArea={handleArea}
       forestArea={project.area}
       geoJSON={project.geoJSON}
       />,

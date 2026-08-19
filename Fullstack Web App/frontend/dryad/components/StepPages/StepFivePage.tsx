@@ -6,6 +6,7 @@ import InfoTable from "../InfoTable";
 import { CiGlobe } from "react-icons/ci";
 import { AiOutlineTeam } from "react-icons/ai";
 import { Project } from "@/app/home/projects/new/page";
+import L from "leaflet";
 
 interface StepPageProps {
     submitEvent : () => void;
@@ -20,9 +21,12 @@ export default function StepFivePage(props: StepPageProps) {
         {key : "Color", value : props.project.color},
     ]
 
+    const geoJsonLayer = L.geoJSON(props.project.geoJSON);
+    const center = geoJsonLayer.getBounds().getCenter();
+    const centerAsString = `${center.lat.toString()}°, ${center.lng.toString()}°`;
     const location = [
-        {key : "Region", value : props.project.name},
-        {key : "Coordinates", value : props.project.description},
+        {key : "Region", value : props.project.region ? props.project.region : "Undefined"},
+        {key : "Coordinates", value : centerAsString},
         {key : "Monitored Area", value : props.project.area ? props.project.area.toString()+"km²" : "0km²"},
     ]
 

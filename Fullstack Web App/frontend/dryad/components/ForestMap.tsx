@@ -24,19 +24,23 @@ interface ForestMapProps {
 export default function ForestMap(props: ForestMapProps) {
     const position = L.latLng(52.51, 13.38);
 
-    function MapController({ location }: { 
-        location: { lat: number; lon: number } | null 
+    function MapController({
+        location,
+        hasGeoJSON,
+    }: {
+        location: { lat: number; lon: number } | null;
+        hasGeoJSON: boolean;
     }) {
         const map = useMap();
 
         useEffect(() => {
-            if (location) {
+            if (location && !hasGeoJSON) {
                 map.setView(
                     [location.lat, location.lon],
                     13
                 );
             }
-        }, [location, map]);
+        }, [location, hasGeoJSON, map]);
 
         return null;
     }
@@ -112,7 +116,13 @@ export default function ForestMap(props: ForestMapProps) {
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
             />
 
-            <MapController location={{lat : props.latitude, lon : props.longitude}} />
+            <MapController
+                location={{
+                    lat: props.latitude,
+                    lon: props.longitude
+                }}
+                hasGeoJSON={props.geoJSON !== null}
+            />
 
             <FeatureGroup ref={props.drawnItemsReference}>
                 <GeoJSONLoader
