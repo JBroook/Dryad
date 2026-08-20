@@ -4,10 +4,11 @@ from users.serializers import LoginSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet
+from rest_framework import status
 from users.serializers import UserSerializer
 from users.models import User
-from projects.models import Project
-from projects.serializers import ProjectSerializer
+from projects.models import Project, Membership
+from projects.serializers import ProjectSerializer, MembershipSerializer
 
 class LoginView(APIView):
     def post(self, request):
@@ -46,4 +47,7 @@ class ProjectViewSet(ModelViewSet):
     serializer_class = ProjectSerializer
 
     def get_queryset(self):
-        return Project.objects.filter(owner=self.request.user )
+        return Project.objects.filter(owner=self.request.user)
+
+    def perform_create(self, serializer):
+        serializer.save(owner=self.request.user)

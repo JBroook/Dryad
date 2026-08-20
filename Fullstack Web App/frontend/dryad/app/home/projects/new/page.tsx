@@ -3,14 +3,14 @@
 import StepOnePage from "@/components/StepPages/StepOnePage";
 import StepTwoPage from "@/components/StepPages/StepTwoPage";
 import StepPanel from "@/components/StepPanel";
-import Link from "next/link";
 import { useState } from "react";
 import { FaArrowLeft } from "react-icons/fa";
 import type { GeoJSON } from 'geojson';
 import StepThreePage from "@/components/StepPages/StepThreePage";
 import StepFourPage from "@/components/StepPages/StepFourPage";
 import StepFivePage from "@/components/StepPages/StepFivePage";
-import L, { LatLng } from "leaflet";
+import { LatLng } from "leaflet";
+import { apiFetch } from "@/lib/api";
 
 export type Member = {
   id : number;
@@ -58,16 +58,36 @@ export default function New() {
   }
 
   const handleArea = async (geoJSON : GeoJSON | null, area : number | null, center : LatLng | null)=>{
-    const response = await fetch(
-      `https://nominatim.openstreetmap.org/reverse?lat=${center?.lat}&lon=${center?.lng}&format=jsonv2`
-    );
-    const data = await response.json();
+    let newRegion = null;
+    if(geoJSON){
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?lat=${center?.lat}&lon=${center?.lng}&format=jsonv2`
+      );
+      const data = await response.json();
+      newRegion = `${data.address.state}, ${data.address.country}`
+    }
     setProject({...project, 
       area : area, geoJSON : 
       geoJSON, 
-      region : `${data.address.state}, ${data.address.country}`,
+      region : newRegion,
       center : center
     })
+  }
+
+  const createProject = async () => {
+    apiFetch(`http://127.0.0.1:8000/api/projects/`, {
+      method : "POST",
+      body : JSON.stringify({
+        ...project,
+        
+      })
+    })
+    .then(async (res) => {
+      if (!res.ok) throw new Error(await res.text());
+      return res.json();
+    })
+    .then(()=>{})
+    .catch((err) => console.error("Fetch failed:", err));
   }
 
   const pages = [
@@ -107,14 +127,14 @@ export default function New() {
 
     <StepFivePage 
       project={project}
-      submitEvent={nextPage}
+      submitEvent={createProject}
       backEvent={()=>setStep(step-1)}/>,
   ]
   
   return (
   <div className="flex flex-col">
     <div className="fixed top-0 h-20 w-full flex flex-row items-center bg-secondary border-b border-b-white/8 z-1">
-      <button onClick={()=>console.log(project)}
+      <button onClick={()=> window.history.back()}
         className="btn text-secondary-content font-medium ml-5">
         <FaArrowLeft className="text-secondary-content"/>
         Dashboard

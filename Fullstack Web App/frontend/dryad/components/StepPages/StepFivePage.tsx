@@ -35,7 +35,7 @@ export default function StepFivePage(props: StepPageProps) {
 
     const team = [
         {key : "Owner", value : "You"},
-        {key : "Members", value : props.project.members.length.toString()}
+        {key : "Members", value : (props.project.members.length+1).toString()}
     ]
     return (
     <div className="h-[calc(100vh-5rem)] flex flex-col">
