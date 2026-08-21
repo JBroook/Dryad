@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Project, Membership
+from .models import Project, Membership, ThreatClasses
 
 class MembershipSerializer(serializers.ModelSerializer):
     class Meta:
@@ -28,3 +28,9 @@ class ProjectSerializer(serializers.ModelSerializer):
             )
 
         return project
+
+
+class ThreatClassesSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ThreatClasses
+        fields = '__all__'

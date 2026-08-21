@@ -7,6 +7,7 @@ router = DefaultRouter()
 
 router.register(r'users', UserViewSet, basename='user')
 router.register(r'projects', ProjectViewSet, basename='project')
+router.register(r'threat_classes', ProjectViewSet, basename='threat_class')
 
 urlpatterns = [
     path('login/', views.LoginView.as_view(), name="login"),

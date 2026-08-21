@@ -21,6 +21,12 @@ export type Member = {
   role : string;
 }
 
+export type ThreatClass = {
+  name : string;
+  description : string;
+  active : boolean;
+}
+
 export type Project = {
   name : string;
   description : string;
@@ -30,9 +36,19 @@ export type Project = {
   members : Member[];
   region : string | null;
   center : LatLng | null;
+  confidenceThreshold : number;
+  threatClasses : ThreatClass[];
+  alertPreference : string;
 }
 
 export default function New() {
+  const exampleThreats = [
+    {name : "Chainsaw", description : "High-frequency acoustic signature of chainsaws", active : true},
+    {name : "Vehicle", description : "Heavy diesel engine noise patterns", active : true},
+    {name : "Treefall", description : "Impact and cracking sounds of falling trees", active : true},
+    {name : "Generator", description : "Rumbling sounds of generators used to power logging sites", active : true},
+  ];
+
   const [step, setStep] = useState<number>(0);
   const [project, setProject] = useState<Project>({
     name : "",
@@ -42,7 +58,10 @@ export default function New() {
     members : [],
     area : null,
     region : null,
-    center : null
+    center : null,
+    confidenceThreshold : 75,
+    threatClasses : exampleThreats,
+    alertPreference : "all"
   });
 
   const nextPage = () => {
@@ -97,6 +116,12 @@ export default function New() {
     .catch((err) => console.error("Fetch failed:", err));
   }
 
+  const setThreatClasses = (index : number) => {
+    const newProject = {...project};
+    newProject.threatClasses[index].active = !newProject.threatClasses[index].active;
+    setProject(newProject);
+  }
+
   const pages = [
     <StepOnePage 
       nameValue={project.name}
@@ -117,7 +142,14 @@ export default function New() {
 
     <StepThreePage 
       submitEvent={nextPage}
-      backEvent={()=>setStep(step-1)}/>,
+      backEvent={()=>setStep(step-1)}
+      confidenceThreshold={project.confidenceThreshold}
+      setConfidenceThreshold={(e)=>setProject({...project, confidenceThreshold: parseInt(e.target.value)})}
+      alertPreference={project.alertPreference}
+      setAlertPreference={(e)=>setProject({...project, alertPreference: e.target.value})}
+      threatClasses={project.threatClasses}
+      setThreatClasses={setThreatClasses}
+      />,
 
     <StepFourPage 
       membersArray={project.members}

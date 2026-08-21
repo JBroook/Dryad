@@ -4,6 +4,7 @@ from users.models import User
 # Create your models here.
 class ThreatClasses(models.Model):
     name = models.CharField(max_length=50, unique=True)
+    description = models.CharField(max_length=200)
 
     def __str__(self):
         return self.name
