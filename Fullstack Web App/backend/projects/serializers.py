@@ -7,11 +7,15 @@ class MembershipSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 class ProjectSerializer(serializers.ModelSerializer):
-    members = MembershipSerializer(many=True)
+    members = MembershipSerializer(many=True, required=False)
 
     class Meta:
         model = Project
         fields = '__all__'
+        read_only_fields = ['owner']
+        extra_kwargs = {
+            'threat_classes': {'required': False}
+        }
 
     def create(self, validated_data):
         members = validated_data.pop("members", [])
@@ -22,3 +26,5 @@ class ProjectSerializer(serializers.ModelSerializer):
                 project=project,
                 **member
             )
+
+        return project

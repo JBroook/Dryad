@@ -78,6 +78,6 @@ export default function StepFivePage(props: StepPageProps) {
             />
         </div>
 
-        <BottomBar ready={true} next="Create Project" back="Back" formID="project-form" backEvent={props.backEvent}/>
+        <BottomBar ready={true} next="Create Project" back="Back" formID="project-form" backEvent={props.backEvent} nextEvent={props.submitEvent}/>
     </div>);
 }

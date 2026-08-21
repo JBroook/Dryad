@@ -11,6 +11,7 @@ import StepFourPage from "@/components/StepPages/StepFourPage";
 import StepFivePage from "@/components/StepPages/StepFivePage";
 import { LatLng } from "leaflet";
 import { apiFetch } from "@/lib/api";
+import { useRouter } from "next/navigation";
 
 export type Member = {
   id : number;
@@ -74,19 +75,25 @@ export default function New() {
     })
   }
 
+  const router = useRouter();
   const createProject = async () => {
     apiFetch(`http://127.0.0.1:8000/api/projects/`, {
       method : "POST",
+      headers : {
+        "Content-Type" : "application/json",
+      },
       body : JSON.stringify({
         ...project,
-        
+        location : project.region,
+        coordinates : `${project.center!.lat},${project.center!.lng}`,
+        surface_area : project.area
       })
     })
     .then(async (res) => {
       if (!res.ok) throw new Error(await res.text());
       return res.json();
     })
-    .then(()=>{})
+    .then(()=>router.push("/home/projects"))
     .catch((err) => console.error("Fetch failed:", err));
   }
 
@@ -109,12 +116,6 @@ export default function New() {
       />,
 
     <StepThreePage 
-      nameValue={project.name}
-      nameFunction={(e)=>setProject({...project, name: e.target.value})}
-      descriptionValue={project.description}
-      descriptionFunction={(e)=>setProject({...project, description: e.target.value})}
-      colorValue={project.color}
-      colorFunction={(e)=>setProject({...project, color: e.target.value})}
       submitEvent={nextPage}
       backEvent={()=>setStep(step-1)}/>,
 

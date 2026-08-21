@@ -5,6 +5,9 @@ from users.models import User
 class ThreatClasses(models.Model):
     name = models.CharField(max_length=50, unique=True)
 
+    def __str__(self):
+        return self.name
+
 class Project(models.Model):
     name = models.CharField(max_length=50)
     status = models.BooleanField(default=True)
@@ -12,7 +15,7 @@ class Project(models.Model):
     location = models.CharField(max_length=200)
     color = models.CharField(max_length=7)
     owner = models.ForeignKey(User, on_delete=models.CASCADE)
-    description = models.TextField(null=True)
+    description = models.TextField(null=True, blank=True)
     confidence_threshold = models.IntegerField(default=75)
     coordinates = models.CharField(max_length=50)
     surface_area = models.IntegerField()
