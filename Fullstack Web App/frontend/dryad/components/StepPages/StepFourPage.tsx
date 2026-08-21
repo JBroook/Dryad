@@ -69,6 +69,11 @@ export default function StepFourPage(props: StepPageProps) {
         props.membersFunction(props.membersArray.filter((_, i) => i !== index));
     }
 
+    function capitalizeFirstLetter(str : string) {
+        if (!str) return ''; // Handles empty strings safely
+        return str.charAt(0).toUpperCase() + str.slice(1);
+    }
+
     return (
     <div className="h-[calc(100vh-5rem)] flex flex-col">
         <div className="flex flex-row ml-30 mt-8">
@@ -136,20 +141,20 @@ export default function StepFourPage(props: StepPageProps) {
                             <details className="dropdown mr-2">
                                 <summary className="btn m-1">
                                     <IoIosArrowDown />
-                                    {member.role}
+                                    {capitalizeFirstLetter(member.role)}
                                 </summary>
                                 <ul className="menu dropdown-content bg-base-300 rounded-box z-1 w-52 p-2 shadow-sm">
                                     <li><a 
                                         className="text-[#60A5FA]" 
-                                        onClick={()=>props.roleFunction(index, "Admin")}>
+                                        onClick={()=>props.roleFunction(index, "admin")}>
                                         Admin
                                     </a></li>
                                     <li><a className="text-[#4ADE80]"
-                                        onClick={()=>props.roleFunction(index, "Manager")}>
+                                        onClick={()=>props.roleFunction(index, "manager")}>
                                         Manager
                                     </a></li>
                                     <li><a className="text-[#94A3B8]"
-                                        onClick={()=>props.roleFunction(index, "Viewer")}>
+                                        onClick={()=>props.roleFunction(index, "viewer")}>
                                         Viewer
                                     </a></li>
                                 </ul>

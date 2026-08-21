@@ -26,11 +26,13 @@ export default function StepFivePage(props: StepPageProps) {
         {key : "Monitored Area", value : props.project.area ? props.project.area.toString()+"km²" : "0km²"},
     ]
 
+    const threatClasses = props.project.threatClasses
+    .filter((threatClass)=>threatClass.active)
+    .map((threatClass)=>threatClass.name)
     const detection = [
-        {key : "Devices", value : "10"},
-        {key : "Threat Classes", value : "Chainsaw, Vehicles, Treefall, Generator"},
-        {key : "Confidence Threshold", value : "75%"},
-        {key : "Alert Recipients", value : "All"},
+        {key : "Threat Classes", value : threatClasses.join(", ")},
+        {key : "Confidence Threshold", value : `${props.project.confidenceThreshold}%`},
+        {key : "Alert Recipients", value : props.project.alertPreference},
     ]
 
     const team = [

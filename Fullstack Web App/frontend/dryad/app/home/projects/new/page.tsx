@@ -3,7 +3,7 @@
 import StepOnePage from "@/components/StepPages/StepOnePage";
 import StepTwoPage from "@/components/StepPages/StepTwoPage";
 import StepPanel from "@/components/StepPanel";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { FaArrowLeft } from "react-icons/fa";
 import type { GeoJSON } from 'geojson';
 import StepThreePage from "@/components/StepPages/StepThreePage";
@@ -22,6 +22,7 @@ export type Member = {
 }
 
 export type ThreatClass = {
+  id : number;
   name : string;
   description : string;
   active : boolean;
@@ -42,13 +43,6 @@ export type Project = {
 }
 
 export default function New() {
-  const exampleThreats = [
-    {name : "Chainsaw", description : "High-frequency acoustic signature of chainsaws", active : true},
-    {name : "Vehicle", description : "Heavy diesel engine noise patterns", active : true},
-    {name : "Treefall", description : "Impact and cracking sounds of falling trees", active : true},
-    {name : "Generator", description : "Rumbling sounds of generators used to power logging sites", active : true},
-  ];
-
   const [step, setStep] = useState<number>(0);
   const [project, setProject] = useState<Project>({
     name : "",
@@ -60,7 +54,7 @@ export default function New() {
     region : null,
     center : null,
     confidenceThreshold : 75,
-    threatClasses : exampleThreats,
+    threatClasses : [],
     alertPreference : "all"
   });
 
@@ -87,8 +81,8 @@ export default function New() {
       newRegion = `${data.address.state}, ${data.address.country}`
     }
     setProject({...project, 
-      area : area, geoJSON : 
-      geoJSON, 
+      area : area, 
+      geoJSON : geoJSON, 
       region : newRegion,
       center : center
     })
@@ -96,6 +90,8 @@ export default function New() {
 
   const router = useRouter();
   const createProject = async () => {
+    console.log(project)
+
     apiFetch(`http://127.0.0.1:8000/api/projects/`, {
       method : "POST",
       headers : {
@@ -103,9 +99,11 @@ export default function New() {
       },
       body : JSON.stringify({
         ...project,
-        location : project.region,
         coordinates : `${project.center!.lat},${project.center!.lng}`,
-        surface_area : project.area
+        surface_area : project.area,
+        confidence_threshold : project.confidenceThreshold,
+        alert_recipients : project.alertPreference,
+        threat_classes : project.threatClasses.filter((threatClass)=>threatClass.active)
       })
     })
     .then(async (res) => {
@@ -163,6 +161,21 @@ export default function New() {
       submitEvent={createProject}
       backEvent={()=>setStep(step-1)}/>,
   ]
+
+  useEffect(()=>{
+    apiFetch(`http://127.0.0.1:8000/api/threat_classes/`)
+    .then(async (res) => {
+      if (!res.ok) throw new Error(await res.text());
+      return res.json();
+    })
+    .then((data)=>{
+      data = data.map((threatClass : ThreatClass)=>{
+        return {...threatClass, active : true}
+      })
+      setProject({...project, threatClasses : data})
+    })
+    .catch((err) => console.error("Fetch failed:", err));
+  }, [])
   
   return (
   <div className="flex flex-col">

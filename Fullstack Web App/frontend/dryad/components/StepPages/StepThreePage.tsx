@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { FaArrowLeft, FaArrowRight, FaMicrophone, FaTree, FaTruck } from "react-icons/fa";
+import { FaArrowLeft, FaArrowRight, FaMicrophone, FaQuestion, FaTree, FaTruck } from "react-icons/fa";
 import BottomBar from "./BottomBar";
 import { useState } from "react";
 import { GiChainsaw } from "react-icons/gi";
@@ -20,12 +20,18 @@ interface StepPageProps {
 }
 
 export default function StepThreePage(props: StepPageProps) {
-    const associatedIcon : any = {
+    const iconMapping : any = {
         Chainsaw : FaMicrophone,
-        Vehicle : FaTruck,
+        Vehicles : FaTruck,
         Treefall : FaTree,
         Generator : TbEngineFilled
     }
+
+    const associatedIcon = props.threatClasses.map((threatClass)=>{
+        if(Object.hasOwn(iconMapping, threatClass.name)){
+            return iconMapping[threatClass.name]
+        }else return FaQuestion
+    })
 
     return (
     <div className="h-[calc(100vh-5rem)] flex flex-col">
@@ -78,7 +84,7 @@ export default function StepThreePage(props: StepPageProps) {
                                 name={threatClass.name}
                                 description={threatClass.description}
                                 active={threatClass.active}
-                                icon={associatedIcon[threatClass.name]}
+                                icon={associatedIcon[index]}
                             />
                         })}
 
