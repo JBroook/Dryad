@@ -23,7 +23,6 @@ export default function ProjectCard(props : ProjectCardProps) {
       relative
       overflow-hidden
       rounded-2xl
-      bg-base-200
       p-6
       before:absolute
       before:inset-x-0

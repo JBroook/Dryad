@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "3a91363d36113f135eddc7fdf739f23a937d1b0af17a429dbca06813dfc1b514"
+            "sha256": "89c42f3428b4171f66e1d48c2286accf30f079702c5b8c1885cf6dfcce2e79fa"
         },
         "pipfile-spec": 6,
         "requires": {
@@ -42,6 +42,14 @@
             "markers": "python_version >= '3.9'",
             "version": "==4.9.0"
         },
+        "django-filter": {
+            "hashes": [
+                "sha256:760e984a931f4468d096f5541787efb8998c61217b73006163bf2f9523fe8f23",
+                "sha256:9c0f8609057309bba611062fe1b720b4a873652541192d232dd28970383633e3"
+            ],
+            "markers": "python_version >= '3.10'",
+            "version": "==25.2"
+        },
         "djangorestframework": {
             "hashes": [
                 "sha256:89ed713b6dc83e1539f214b7d10808ae19bb8511004beba886225da6d5c9dafa",
@@ -50,6 +58,14 @@
             "index": "pypi",
             "markers": "python_version >= '3.10'",
             "version": "==3.17.2"
+        },
+        "djangorestframework-gis": {
+            "hashes": [
+                "sha256:649ad0cb361dd85f2113b1796248eb2b198a01fa3d64c5e486106224c0ad51fd",
+                "sha256:73acb51918b18e484407c0fff61aca11a1f5a216fa694bc4c0c734b7097ecc77"
+            ],
+            "index": "pypi",
+            "version": "==1.2.1"
         },
         "djangorestframework-simplejwt": {
             "hashes": [
@@ -68,13 +84,22 @@
             "markers": "python_version >= '3.9'",
             "version": "==2.13.0"
         },
+        "python-dotenv": {
+            "hashes": [
+                "sha256:904552145e8bfed22162c09dab1c2b9b54fefa7b23ba780f4f26ca0316b0f0d9",
+                "sha256:a20a594dabeaa385725aa239d5244871c143ecb356add8a20fcf23773a6c3a35"
+            ],
+            "index": "pypi",
+            "markers": "python_version >= '3.10'",
+            "version": "==1.2.3"
+        },
         "sqlparse": {
             "hashes": [
-                "sha256:12a08b3bf3eec877c519589833aed092e2444e68240a3577e8e26148acc7b1ba",
-                "sha256:e20d4a9b0b8585fdf63b10d30066c7c94c5d7a7ec47c889a2d83a3caa93ff28e"
+                "sha256:113c35c75365ab9cc9c7231d68c6428fb11c085fc8e9eb1ad659b7ddbf6cd2b9",
+                "sha256:b861c0288ce2fa56209a9a6412d2e066ac664b3873b89c26c9d8415e8e32996f"
             ],
-            "markers": "python_version >= '3.8'",
-            "version": "==0.5.5"
+            "markers": "python_version >= '3.10'",
+            "version": "==0.6.0"
         },
         "tzdata": {
             "hashes": [
