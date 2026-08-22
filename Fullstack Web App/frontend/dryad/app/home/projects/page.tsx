@@ -36,10 +36,6 @@ export default function Home() {
   const [firstName, setFirstName] = useState<string>("")
   const [allProjects, setAllProjects] = useState<Project[]>([])
 
-  const projs = [
-    0, 1, 2, 3, 4, 5, 6, 7
-  ]
-
   useEffect(()=>{
     const token = localStorage.getItem("access");
 
@@ -134,6 +130,7 @@ export default function Home() {
               members ={20}
               accentColor={project.color}
               tagColor="#4ADE80"
+              openProject={()=>{router.push("/home/project?pid=qxp91lv")}}
             />
           })}
 

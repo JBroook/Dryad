@@ -15,6 +15,7 @@ interface ProjectCardProps {
   members : number;
   accentColor : string;
   tagColor: string;
+  openProject : ()=>void;
 }
 
 export default function ProjectCard(props : ProjectCardProps) {
@@ -36,6 +37,7 @@ export default function ProjectCard(props : ProjectCardProps) {
     style={{
       "--accent-color": props.accentColor,
     } as React.CSSProperties}
+    onClick={()=>props.openProject()}
     >
       <div className="w-full flex flew-row justify-between items-center">
         <div className="badge bg-base-300 mb-2" style={{
