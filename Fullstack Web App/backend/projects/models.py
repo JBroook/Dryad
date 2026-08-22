@@ -1,5 +1,5 @@
-from django.db import models
 from users.models import User
+from django.contrib.gis.db import models
 
 # Create your models here.
 class Project(models.Model):
@@ -12,6 +12,9 @@ class Project(models.Model):
     confidence_threshold = models.IntegerField(default=75)
     coordinates = models.CharField(max_length=50)
     surface_area = models.IntegerField()
+    monitoring_area = models.PolygonField(
+        srid=4326
+    )
 
     class AlertPreference(models.TextChoices):
         ALL = "all", "All"
@@ -36,14 +39,14 @@ class ThreatClass(models.Model):
 
 class ProjectThreatClass(models.Model):
     threat_class = models.ForeignKey(to=ThreatClass, on_delete=models.CASCADE)
-    project = models.ForeignKey(to=Project, on_delete=models.CASCADE)
+    project = models.ForeignKey(to=Project, on_delete=models.CASCADE, related_name="threat_classes")
 
     def __str__(self):
         return self.project.name + ": " + self.threat_class.name
 
 
 class Membership(models.Model):
-    project = models.ForeignKey(to=Project, on_delete=models.CASCADE)
+    project = models.ForeignKey(to=Project, on_delete=models.CASCADE, related_name="members")
     user = models.ForeignKey(to=User, on_delete=models.CASCADE)
     join_date = models.DateField(null=True, blank=True)
     accepted = models.BooleanField(default=False)

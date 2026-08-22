@@ -62,13 +62,20 @@ export default function Home() {
       })
       .catch((err) => console.error("Fetch failed:", err));
 
+    const extractProjectFeatures = (data : any) => {
+      const extractedProjects = data.features.map((feature : any)=>{
+        return feature.properties
+      })
+      setAllProjects(extractedProjects)
+    }
+
     // fetch all projects
     apiFetch(`http://127.0.0.1:8000/api/projects/`)
       .then(async (res) => {
         if (!res.ok) throw new Error(await res.text());
         return res.json();
       })
-      .then((data)=>setAllProjects(data))
+      .then(extractProjectFeatures)
       .catch((err) => console.error("Fetch failed:", err));
   }, [])
 

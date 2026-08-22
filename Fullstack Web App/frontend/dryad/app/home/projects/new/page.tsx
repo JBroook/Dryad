@@ -103,7 +103,8 @@ export default function New() {
         surface_area : project.area,
         confidence_threshold : project.confidenceThreshold,
         alert_recipients : project.alertPreference,
-        threat_classes : project.threatClasses.filter((threatClass)=>threatClass.active)
+        threat_classes : project.threatClasses.filter((threatClass)=>threatClass.active),
+        monitoring_area : project.geoJSON
       })
     })
     .then(async (res) => {

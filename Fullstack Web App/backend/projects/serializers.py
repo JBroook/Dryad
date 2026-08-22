@@ -1,6 +1,9 @@
 from rest_framework import serializers
 from .models import Project, Membership, ThreatClass, ProjectThreatClass
 from users.models import User
+from rest_framework_gis.serializers import GeoFeatureModelSerializer
+from django.contrib.gis.geos import GEOSGeometry
+import json
 
 class MembershipSerializer(serializers.ModelSerializer):
     class Meta:
@@ -14,7 +17,7 @@ class ProjectMemberSerializer(serializers.Serializer):
 class ProjectThreatClassSerializer(serializers.Serializer):
     id = serializers.IntegerField()
 
-class ProjectSerializer(serializers.ModelSerializer):
+class ProjectSerializer(GeoFeatureModelSerializer):
     members = ProjectMemberSerializer(many=True, required=False)
     threat_classes = ProjectThreatClassSerializer(many=True, required=False)
 
@@ -22,13 +25,24 @@ class ProjectSerializer(serializers.ModelSerializer):
         model = Project
         fields = '__all__'
         read_only_fields = ['owner']
+        geo_field = "monitoring_area"
 
     def create(self, validated_data):
         members = validated_data.pop("members", [])
         threat_classes = validated_data.pop("threat_classes", [])
-        project = Project.objects.create(**validated_data)
 
-        print("hello?", validated_data)
+        if "monitoring_area" in validated_data:
+            geojson = validated_data["monitoring_area"]
+
+            if geojson.get("type") == "Feature":
+                geojson = geojson["geometry"]
+
+            validated_data["monitoring_area"] = GEOSGeometry(
+                json.dumps(geojson),
+                srid=4326
+            )
+
+        project = Project.objects.create(**validated_data)
 
         for member in members:
             Membership.objects.create(
