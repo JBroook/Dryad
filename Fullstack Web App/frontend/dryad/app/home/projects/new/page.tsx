@@ -29,6 +29,7 @@ export type ThreatClass = {
 }
 
 export type Project = {
+  id : number;
   name : string;
   description : string;
   color : string;
@@ -40,12 +41,15 @@ export type Project = {
   confidenceThreshold : number;
   threatClasses : ThreatClass[];
   alertPreference : string;
+  status : boolean;
 }
 
 export default function New() {
   const [step, setStep] = useState<number>(0);
   const [project, setProject] = useState<Project>({
+    id : -1,
     name : "",
+    status : true,
     description : "",
     color : "#4ADE80",
     geoJSON : null,

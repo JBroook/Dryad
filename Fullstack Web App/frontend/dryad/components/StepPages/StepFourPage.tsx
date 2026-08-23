@@ -47,7 +47,7 @@ export default function StepFourPage(props: StepPageProps) {
                         firstName : data[0].first_name,
                         lastName : data[0].last_name,
                         email : data[0].email,
-                        role : "Viewer"
+                        role : "viewer"
                     }
                     props.membersFunction([...props.membersArray, newMember])
                 }else{

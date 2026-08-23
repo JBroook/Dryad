@@ -13,15 +13,7 @@ import { GoPulse } from "react-icons/go";
 import { IoMdWifi } from "react-icons/io";
 import { IoWarning } from "react-icons/io5";
 
-type Project = {
-  id : number;
-  name : string;
-  status : boolean;
-  region : string;
-  location : string;
-  color : string;
-  owner : number;
-}
+import type { Project } from "./new/page";
 
 export default function Home() {
   const [authenticated, setAuthenticated] = useState<boolean>(false)
@@ -60,7 +52,11 @@ export default function Home() {
 
     const extractProjectFeatures = (data : any) => {
       const extractedProjects = data.features.map((feature : any)=>{
-        return feature.properties
+        return {
+          ...feature.properties, 
+          area : feature.properties.surface_area,
+          id : feature.id
+        }
       })
       setAllProjects(extractedProjects)
     }
@@ -121,16 +117,15 @@ export default function Home() {
               key={index}
               tag ={project.status ? "Active" : "Inactive"}
               name ={project.name}
-              region ={project.region}
-              location ={project.location}
-              area ="4,820 km²"
+              region ={project.region!}
+              area ={project.area!}
               alerts ={1}
               activeDevices ={3}
               totalDevices ={5}
               members ={20}
               accentColor={project.color}
               tagColor="#4ADE80"
-              openProject={()=>{router.push("/home/project?pid=qxp91lv")}}
+              openProject={()=>{router.push(`/home/project?pid=${project.id}&tab=overview`)}}
             />
           })}
 
@@ -147,7 +142,7 @@ export default function Home() {
         </div>
       </>
       :
-      <div className="w-full h-full flex justify-center items-center">
+      <div className="w-full h-screen flex justify-center items-center">
         <span className="loading loading-spinner"></span>
       </div>
     }
