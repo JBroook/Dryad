@@ -7,10 +7,12 @@ import { FaArrowLeft } from "react-icons/fa";
 
 import type { Project } from "../projects/new/page";
 import { IoIosStats, IoIosWarning, IoMdWifi } from "react-icons/io";
-import { FaFilter, FaMap } from "react-icons/fa6";
+import { FaMap } from "react-icons/fa6";
 import { AiOutlineTeam } from "react-icons/ai";
 import { useRouter } from "next/navigation";
-import { HiOutlineFilter } from "react-icons/hi";
+import IncidentsView from "@/components/ProjectView/IncidentsView";
+
+type Tab = "overview" | "incidents" | "forest_map" | "devices" | "team";
 
 export default function Project() {
   const searchParams = useSearchParams();
@@ -45,6 +47,22 @@ export default function Project() {
     "Tree Falling"
   ]
 
+  const tabComponentMapping = {
+    overview : <></>,
+    incidents : <IncidentsView 
+      filterIndex={filterIndex}
+      filterOptions={filterOptions}
+      setFilterIndex={(index)=>setFilterIndex(index)}
+    />,
+    forest_map : <></>,
+    devices : <></>,
+    team : <></>,
+  }
+
+  const isValidTab = (tab: string | null): tab is Tab => {
+    return tab !== null && tab in tabComponentMapping;
+  };
+
   useEffect(()=>{
     // fetch all projects
     apiFetch(`http://127.0.0.1:8000/api/projects/${projectID}`)
@@ -59,11 +77,11 @@ export default function Project() {
   return (<div className="flex flex-col">
       {project!=null ? 
       <>
-        <div className="w-full bg-secondary border-b border-b-white/8 pt-5 pb-3">
+        <div className="w-full bg-base-200 border-b border-b-white/8 pt-5 pb-3">
           <div className="flex flex-row items-center ml-6">
             <button onClick={()=> window.history.back()}
-              className="btn text-secondary-content font-medium">
-              <FaArrowLeft className="text-secondary-content"/>
+              className="btn btn-secondary font-medium">
+              <FaArrowLeft/>
               Dashboard
             </button>
       
@@ -92,20 +110,11 @@ export default function Project() {
           </div>
         </div>
 
-        <div className="ml-6 flex flex-row items-center mt-5">
-          <HiOutlineFilter className="text-secondary-content text-lg"/>
-          {filterOptions.map((filterOption, index)=>{
-            return (
-            <button 
-              className={index!=filterIndex ? "btn btn-base-200 text-secondary-content border border-white/5 ml-2" :
-                "btn bg-[#0A2513] text-accent border border-accent/50 ml-2"
-              }
-              key={index}
-              onClick={()=>setFilterIndex(index)}>
-              {filterOption}
-            </button>)
-          })}
-        </div>
+        {isValidTab(tab) ? (
+          tabComponentMapping[tab]
+        ) : (
+          <span className="loading loading-spinner"></span>
+        )}
       </>
       :
 

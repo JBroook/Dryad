@@ -65,7 +65,7 @@ export default function Sidebar() {
 
     return (
         <aside className="w-64 h-screen fixed left-0 top-0">
-            <div className="flex flex-col w-full h-full bg-secondary border-r border-r-white/5 border-r-[2px]">
+            <div className="flex flex-col w-full h-full bg-base-200 border-r border-r-white/5 border-r-[2px]">
                 <div className="py-5 pl-5 border-b border-b-white/5 border-b-[2px]">
                     <h1 className="text-3xl font-semibold">Dryad</h1>
                 </div>
@@ -74,7 +74,7 @@ export default function Sidebar() {
                     {sidebarOptions.map((option, index)=>{
                         const Icon = option.icon;
                         const isActive = pathname === option.href;
-                        return (<li key={index} className="py-1 bg-secondary">
+                        return (<li key={index} className="py-1 bg-base-200">
                         <Link 
                             href={option.href}
                             className={`text-md py-2 font-medium ${isActive ? "bg-base-300 text-accent" : "text-secondary-content"}`}
