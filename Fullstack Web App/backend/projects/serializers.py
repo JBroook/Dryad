@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Project, Membership, ThreatClass, ProjectThreatClass
+from .models import Project, Membership, ThreatClass, ProjectThreatClass, Incident, Device
 from users.models import User
 from rest_framework_gis.serializers import GeoFeatureModelSerializer
 from django.contrib.gis.geos import GEOSGeometry
@@ -63,4 +63,17 @@ class ProjectSerializer(GeoFeatureModelSerializer):
 class ThreatClassSerializer(serializers.ModelSerializer):
     class Meta:
         model = ThreatClass
+        fields = '__all__'
+
+class DeviceSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Device
+        fields = '__all__'
+
+class IncidentSerializer(serializers.ModelSerializer):
+    threat_class = ThreatClassSerializer()
+    device = DeviceSerializer()
+
+    class Meta:
+        model = Incident
         fields = '__all__'

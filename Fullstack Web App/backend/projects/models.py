@@ -1,5 +1,6 @@
 from users.models import User
 from django.contrib.gis.db import models
+from django.core.validators import MaxValueValidator, MinValueValidator
 
 # Create your models here.
 class Project(models.Model):
@@ -61,3 +62,31 @@ class Membership(models.Model):
 
     def __str__(self):
         return self.project.name + ": " + self.user.email
+
+class Device(models.Model):
+    name = models.CharField(max_length=50)
+    location = models.PointField()
+
+    def __str__(self):
+        return self.name
+
+class Incident(models.Model):
+    project = models.ForeignKey(to=Project, on_delete=models.CASCADE, related_name="incidents")
+    threat_class = models.ForeignKey(to=ThreatClass, on_delete=models.CASCADE)
+    coordinates = models.PointField()
+    timestamp = models.DateTimeField(auto_now_add=True)
+    confidence = models.IntegerField(validators=[
+        MaxValueValidator(100),
+        MinValueValidator(0)
+    ])
+    device = models.ForeignKey(to=Device, on_delete=models.CASCADE)
+
+    class Status(models.TextChoices):
+        UNCONFIRMED = "unconfirmed", "Unconfirmed"
+        CONFIRMED = "confirmed", "Confirmed"
+        DISMISSED = "dismissed", "Dismissed"
+
+    status = models.CharField(choices=Status.choices, default=Status.UNCONFIRMED)
+
+    def __str__(self):
+        return f"{self.device.name}: {self.threat_class.name} ({self.timestamp})"

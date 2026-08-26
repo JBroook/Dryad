@@ -11,8 +11,26 @@ import { FaMap } from "react-icons/fa6";
 import { AiOutlineTeam } from "react-icons/ai";
 import { useRouter } from "next/navigation";
 import IncidentsView from "@/components/ProjectView/IncidentsView";
+import type { ThreatClass } from "../projects/new/page";
 
 type Tab = "overview" | "incidents" | "forest_map" | "devices" | "team";
+
+type Device = {
+  id : number;
+  name : string;
+  location : string;
+}
+
+export type IncidentType = {
+  id : number;
+  coordinates : string;
+  timestamp : string;
+  confidence : number;
+  status : string;
+  project : number;
+  threatClass : ThreatClass;
+  device : Device;
+}
 
 export default function Project() {
   const searchParams = useSearchParams();
@@ -20,6 +38,7 @@ export default function Project() {
   const tab = searchParams.get("tab");
   const router = useRouter();
   const [project, setProject] = useState<Project | null>(null);
+  const [incidents, setIncidents] = useState<IncidentType[]>([])
   const [filterIndex, setFilterIndex] = useState<number>(0);
 
   const extractProjectFeatures = (data : any) => {
@@ -28,6 +47,12 @@ export default function Project() {
       area : data.properties.surface_area,
       id : data.id
     })
+  }
+
+  const extractIncidents = (data : any)=>{
+    setIncidents(data.map((incident : any)=>{
+      return {...incident, threatClass : incident.threat_class}
+    }))
   }
 
   const tabOptions = [
@@ -50,9 +75,11 @@ export default function Project() {
   const tabComponentMapping = {
     overview : <></>,
     incidents : <IncidentsView 
+      projectID={projectID}
       filterIndex={filterIndex}
       filterOptions={filterOptions}
       setFilterIndex={(index)=>setFilterIndex(index)}
+      incidents={incidents}
     />,
     forest_map : <></>,
     devices : <></>,
@@ -64,13 +91,22 @@ export default function Project() {
   };
 
   useEffect(()=>{
-    // fetch all projects
+    // fetch project info
     apiFetch(`http://127.0.0.1:8000/api/projects/${projectID}`)
       .then(async (res) => {
         if (!res.ok) throw new Error(await res.text());
         return res.json();
       })
       .then((data)=>extractProjectFeatures(data))
+      .catch((err) => console.error("Fetch failed:", err));
+
+    // fetch project incidents
+    apiFetch(`http://127.0.0.1:8000/api/incidents?project=${projectID}`)
+      .then(async (res) => {
+        if (!res.ok) throw new Error(await res.text());
+        return res.json();
+      })
+      .then((data)=>extractIncidents(data))
       .catch((err) => console.error("Fetch failed:", err));
   }, [])
 
@@ -79,7 +115,7 @@ export default function Project() {
       <>
         <div className="w-full bg-base-200 border-b border-b-white/8 pt-5 pb-3">
           <div className="flex flex-row items-center ml-6">
-            <button onClick={()=> window.history.back()}
+            <button onClick={()=>router.push("/home/projects")}
               className="btn btn-secondary font-medium">
               <FaArrowLeft/>
               Dashboard
