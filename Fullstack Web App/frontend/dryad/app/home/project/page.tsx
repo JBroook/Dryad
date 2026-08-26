@@ -73,6 +73,22 @@ export default function Project() {
     "Tree Falling"
   ]
 
+  const searchMember = async (nameEmail : string) => {
+    await apiFetch(`http://127.0.0.1:8000/api/members/?project=${projectID}&search=${nameEmail}`)
+    .then(async (res) => {
+      if (!res.ok) throw new Error(await res.text());
+      return res.json();
+    })
+    .then((data)=>setMembers(data.map((member : any)=>{
+      return {...member, 
+        firstName : member.user.first_name, 
+        lastName : member.user.last_name,
+        email : member.user.email
+      }
+    })))
+    .catch((err) => console.error("Fetch failed:", err));
+  }
+
   const tabComponentMapping = {
     overview : <></>,
     incidents : <IncidentsView 
@@ -82,6 +98,7 @@ export default function Project() {
       setFilterIndex={(index)=>setFilterIndex(index)}
       incidents={incidents}
       members={members}
+      searchMember={searchMember}
     />,
     forest_map : <></>,
     devices : <></>,

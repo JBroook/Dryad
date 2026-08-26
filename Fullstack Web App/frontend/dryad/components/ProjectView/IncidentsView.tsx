@@ -1,8 +1,10 @@
+"use client"
+
 import { HiOutlineFilter } from "react-icons/hi";
 import Incident from "../Incident";
 import { FaTruck } from "react-icons/fa";
 import type { IncidentType } from "@/app/home/project/page";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { apiFetch } from "@/lib/api";
 import { FaPersonCircleCheck } from "react-icons/fa6";
 import { IoSearch } from "react-icons/io5";
@@ -16,11 +18,13 @@ interface IncidentsViewProps {
     setFilterIndex : (index : number) => void;
     incidents : IncidentType[];
     members : Member[];
+    searchMember : (nameEmail : string) => void;
 }
 
 export default function IncidentsView(props: IncidentsViewProps) {
     const [incidentIndex, setIncidentIndex] = useState<number>(-1);
     const [selectedMembers, setSelectedMembers] = useState<Member[]>([]);
+    const [search, setSearch] = useState("");
 
     const confirmModal = (index : number)=>{
         const modal = document.getElementById('confirmModal') as HTMLDialogElement;
@@ -124,6 +128,15 @@ export default function IncidentsView(props: IncidentsViewProps) {
         modal.close();
     }
 
+    useEffect(() => {
+        const timeout = setTimeout(() => {
+            props.searchMember(search)
+        }, 500);
+
+        return () => clearTimeout(timeout);
+    }, [search]);
+
+
     return (<>
     <dialog id="confirmModal" className="modal">
         <div className="modal-box bg-base-200 border border-white/8">
@@ -178,7 +191,7 @@ export default function IncidentsView(props: IncidentsViewProps) {
             </p>
             <label className="input bg-secondary w-full border border-white/8 mt-2">
                 <IoSearch />
-                <input type="search" className="grow" placeholder="Search by name or email..." />
+                <input type="search" className="grow" placeholder="Search by name or email..." onChange={(e)=>setSearch(e.target.value)} />
             </label>
             <div className="divider"></div>
             <div className="max-h-64 overflow-y-auto px-1">

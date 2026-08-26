@@ -8,6 +8,7 @@ from users.serializers import UserSerializer
 from users.models import User
 from projects.models import Project, Incident, ThreatClass, Membership
 from projects.serializers import ProjectSerializer, IncidentSerializer, ThreatClassSerializer, MembershipSerializer
+from django.db.models import Q
 
 class LoginView(APIView):
     def post(self, request):
@@ -76,5 +77,14 @@ class MembershipViewSet(ModelViewSet):
 
         if project_id:
             project = Project.objects.get(pk=project_id)
-            return Membership.objects.filter(project=project)
-    
+            queryset = Membership.objects.filter(project=project)
+
+            search_param = self.request.query_params.get("search")
+            if search_param:
+                queryset = queryset.filter(
+                    Q(user__first_name__icontains=search_param) 
+                    |Q(user__last_name__icontains=search_param)
+                    |Q(user__email__icontains=search_param)
+                )
+                
+            return queryset
