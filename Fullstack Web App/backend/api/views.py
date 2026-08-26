@@ -1,4 +1,4 @@
-from django.shortcuts import render
+from rest_framework import status
 from rest_framework.views import APIView
 from users.serializers import LoginSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -6,8 +6,8 @@ from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet
 from users.serializers import UserSerializer
 from users.models import User
-from projects.models import Project, Incident, ThreatClass, Membership
-from projects.serializers import ProjectSerializer, IncidentSerializer, ThreatClassSerializer, MembershipSerializer
+from projects.models import Project, Incident, ThreatClass, Membership, Patrol
+from projects.serializers import ProjectSerializer, IncidentSerializer, ThreatClassSerializer, MembershipSerializer, PatrolSerializer
 from django.db.models import Q
 
 class LoginView(APIView):
@@ -71,6 +71,7 @@ class IncidentViewSet(ModelViewSet):
 class MembershipViewSet(ModelViewSet):
     queryset = Membership.objects.all()
     serializer_class = MembershipSerializer
+    
 
     def get_queryset(self):
         project_id = self.request.query_params.get("project")
@@ -88,3 +89,20 @@ class MembershipViewSet(ModelViewSet):
                 )
                 
             return queryset
+
+class PatrolViewSet(ModelViewSet):
+    queryset = Patrol.objects.all()
+    serializer_class = PatrolSerializer
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(
+            data=request.data,
+            many=True,
+        )
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+
+        return Response(
+            serializer.data,
+            status=status.HTTP_201_CREATED,
+        )

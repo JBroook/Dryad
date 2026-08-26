@@ -91,25 +91,28 @@ export default function IncidentsView(props: IncidentsViewProps) {
     const assignPatrol = async (e : React.SubmitEvent<HTMLFormElement>) => {
         e.preventDefault();
 
-        // await apiFetch(`http://127.0.0.1:8000/api/members/?project=${props.projectID}/`, {
-        //     method : "PATCH",
-        //     headers : {
-        //         "Content-Type" : "application/json"
-        //     },
-        //     body : JSON.stringify({
-        //         status : "dismissed"
-        //     })
-        // })
-        // .then(async (res) => {
-        //     if (!res.ok) throw new Error(await res.text());
-        //     return res.json();
-        // })
-        // .catch((err) => console.error("Fetch failed:", err));
+        await apiFetch(`http://127.0.0.1:8000/api/patrols/`, {
+            method : "POST",
+            headers : {
+                "Content-Type" : "application/json"
+            },
+            body : JSON.stringify(selectedMembers.map((member)=>{
+                return {
+                    member : member.id,
+                    project : props.projectID,
+                    target : props.incidents[incidentIndex].coordinates
+                }
+            }))
+        })
+        .then(async (res) => {
+            if (!res.ok) throw new Error(await res.text());
+            return res.json();
+        })
+        .catch((err) => console.error("Fetch failed:", err));
 
         const modal = document.getElementById('assignPatrolModal') as HTMLDialogElement;
         modal.close();
         setSelectedMembers([]);
-        console.log("Hello")
     }
 
     const addMember = (index : number) => {
