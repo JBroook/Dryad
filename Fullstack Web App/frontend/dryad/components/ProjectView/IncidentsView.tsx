@@ -20,6 +20,7 @@ interface IncidentsViewProps {
 
 export default function IncidentsView(props: IncidentsViewProps) {
     const [incidentIndex, setIncidentIndex] = useState<number>(-1);
+    const [selectedMembers, setSelectedMembers] = useState<Member[]>([]);
 
     const confirmModal = (index : number)=>{
         const modal = document.getElementById('confirmModal') as HTMLDialogElement;
@@ -103,6 +104,24 @@ export default function IncidentsView(props: IncidentsViewProps) {
 
         const modal = document.getElementById('assignPatrolModal') as HTMLDialogElement;
         modal.close();
+        setSelectedMembers([]);
+        console.log("Hello")
+    }
+
+    const addMember = (index : number) => {
+        if(selectedMembers.includes(props.members[index])){
+            setSelectedMembers(newSelection => newSelection.filter(member => member!=props.members[index]))
+        }else{
+            setSelectedMembers([
+                ...selectedMembers,
+                props.members[index]
+            ])
+        }
+    }
+
+    const closeModal = (id : string) => {
+        const modal = document.getElementById(id) as HTMLDialogElement;
+        modal.close();
     }
 
     return (<>
@@ -118,9 +137,10 @@ export default function IncidentsView(props: IncidentsViewProps) {
             </i></p>
             <div className="modal-action">
             <form onSubmit={confirmIncident}>
-                {/* if there is a button in form, it will close the modal */}
                 <button type="submit" className="btn btn-primary mr-2">Confirm</button>
-                <button formMethod="dialog" className="btn btn-secondary">Cancel</button>
+                <button 
+                type="button"
+                onClick={() => closeModal("confirmModal")} className="btn btn-secondary">Cancel</button>
             </form>
             </div>
         </div>
@@ -138,9 +158,10 @@ export default function IncidentsView(props: IncidentsViewProps) {
             </i></p>
             <div className="modal-action">
             <form onSubmit={dismissIncident}>
-                {/* if there is a button in form, it will close the modal */}
                 <button type="submit" className="btn btn-error mr-2">Dismiss</button>
-                <button formMethod="dialog" className="btn btn-secondary">Cancel</button>
+                <button 
+                type="button"
+                onClick={() => closeModal("dismissModal")} className="btn btn-secondary">Cancel</button>
             </form>
             </div>
         </div>
@@ -162,18 +183,36 @@ export default function IncidentsView(props: IncidentsViewProps) {
             <div className="divider"></div>
             <div className="max-h-64 overflow-y-auto px-1">
                 {props.members.map((member, index)=>{
-                    return (<MemberOption member={member} key={index}/>)
+                    return (<MemberOption 
+                        member={member} 
+                        key={index} 
+                        addMember={()=>addMember(index)}
+                        selected={selectedMembers.includes(member)}/>
+                    )
                 })}
             </div>
-
+            
+            {selectedMembers.length>0 &&
+                <p className="mt-2 font-semibold">
+                    Assign to: {selectedMembers.map((member : Member)=>{
+                        return member.firstName + " " + member.lastName
+                    }).join(", ")}
+                </p>
+            }
             <div className="modal-action">
             <form onSubmit={assignPatrol} className="w-full flex">
-                {/* if there is a button in form, it will close the modal */}
-                <button type="submit" className="btn btn-primary mr-4 flex-1">
+                <button 
+                type="submit" 
+                className="btn btn-primary mr-4 flex-1"
+                disabled={selectedMembers.length==0}>
                     <FaPersonCircleCheck className="text-xl"/>
                     Assign
                 </button>
-                <button formMethod="dialog" className="btn btn-secondary flex-1 border border-white/8">Cancel</button>
+                <button 
+                className="btn btn-secondary flex-1 border border-white/8"
+                type="button"
+                onClick={() => closeModal("assignPatrolModal")}
+                >Cancel</button>
             </form>
             </div>
         </div>

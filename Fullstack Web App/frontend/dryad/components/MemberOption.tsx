@@ -4,9 +4,12 @@ import { MdRemoveRedEye } from "react-icons/md";
 import { FiShield } from "react-icons/fi";
 import { GoPulse } from "react-icons/go";
 import RoleBadge from "./RoleBadge";
+import { IoMdCheckmark } from "react-icons/io";
 
 interface MemberOptionProps {
     member : Member;
+    addMember : ()=>void;
+    selected : boolean;
 }
 
 export default function MemberOption(props : MemberOptionProps) {
@@ -17,7 +20,11 @@ export default function MemberOption(props : MemberOptionProps) {
         viewer : <RoleBadge role="Viewer" color="#94A3B8" icon={MdRemoveRedEye}/>
     }
 
-    return (<div className="rounded-xl bg-secondary p-4 flex mb-2">
+    return (<div className={`rounded-xl p-4 flex mb-2 cursor-pointer items-center ${props.selected ? 
+        "bg-base-300 border border-accent/25" 
+        : 
+        "bg-secondary"}`}
+                onClick={props.addMember}>
         <div className="avatar">
             <div className="w-8 rounded-full">
                 <img src="https://img.daisyui.com/images/profile/demo/yellingcat@192.webp" />
@@ -33,5 +40,10 @@ export default function MemberOption(props : MemberOptionProps) {
             </div>
             <p className="text-secondary-content text-sm">{props.member.email}</p>
         </div>
+
+        {props.selected &&
+        <div className="rounded-full bg-accent text-white text-xl p-1 h-fit ml-auto">
+            <IoMdCheckmark />
+        </div>}
     </div>);
 }

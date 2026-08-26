@@ -90,3 +90,9 @@ class Incident(models.Model):
 
     def __str__(self):
         return f"{self.device.name}: {self.threat_class.name} ({self.timestamp})"
+
+class Patrol(models.Model):
+    target = models.PointField()
+    path = models.LineStringField(blank=True, null=True)
+    member = models.ForeignKey(to=Membership, on_delete=models.CASCADE)
+    project = models.ForeignKey(to=Project, on_delete=models.CASCADE)

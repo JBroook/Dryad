@@ -32,7 +32,7 @@ export default function ThreatClassOption(props : ThreatClassOptionProps) {
 
     {props.active &&
       <div className="rounded-full bg-accent text-white text-xl p-1">
-          <IoMdCheckmark />
+        <IoMdCheckmark />
       </div>
     }
   </div>);
