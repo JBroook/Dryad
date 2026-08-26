@@ -6,8 +6,8 @@ from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet
 from users.serializers import UserSerializer
 from users.models import User
-from projects.models import Project, Incident, ThreatClass
-from projects.serializers import ProjectSerializer, IncidentSerializer, ThreatClassSerializer
+from projects.models import Project, Incident, ThreatClass, Membership
+from projects.serializers import ProjectSerializer, IncidentSerializer, ThreatClassSerializer, MembershipSerializer
 
 class LoginView(APIView):
     def post(self, request):
@@ -66,3 +66,15 @@ class IncidentViewSet(ModelViewSet):
             return Incident.objects.filter(project=project)
         else:
             return self.queryset
+
+class MembershipViewSet(ModelViewSet):
+    queryset = Membership.objects.all()
+    serializer_class = MembershipSerializer
+
+    def get_queryset(self):
+        project_id = self.request.query_params.get("project")
+
+        if project_id:
+            project = Project.objects.get(pk=project_id)
+            return Membership.objects.filter(project=project)
+    

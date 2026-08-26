@@ -5,7 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { FaArrowLeft } from "react-icons/fa";
 
-import type { Project } from "../projects/new/page";
+import type { Member, Project } from "../projects/new/page";
 import { IoIosStats, IoIosWarning, IoMdWifi } from "react-icons/io";
 import { FaMap } from "react-icons/fa6";
 import { AiOutlineTeam } from "react-icons/ai";
@@ -40,6 +40,7 @@ export default function Project() {
   const [project, setProject] = useState<Project | null>(null);
   const [incidents, setIncidents] = useState<IncidentType[]>([])
   const [filterIndex, setFilterIndex] = useState<number>(0);
+  const [members, setMembers] = useState<Member[]>([]);
 
   const extractProjectFeatures = (data : any) => {
     setProject({
@@ -80,6 +81,7 @@ export default function Project() {
       filterOptions={filterOptions}
       setFilterIndex={(index)=>setFilterIndex(index)}
       incidents={incidents}
+      members={members}
     />,
     forest_map : <></>,
     devices : <></>,
@@ -107,6 +109,22 @@ export default function Project() {
         return res.json();
       })
       .then((data)=>extractIncidents(data))
+      .catch((err) => console.error("Fetch failed:", err));
+
+    // fetch project members
+    apiFetch(`http://127.0.0.1:8000/api/members?project=${projectID}`)
+      .then(async (res) => {
+        if (!res.ok) throw new Error(await res.text());
+        return res.json();
+      })
+      .then((data)=>setMembers(data.map((member : any)=>{
+        return {...member, 
+          firstName : member.user.first_name, 
+          lastName : member.user.last_name,
+          email : member.user.email
+        }
+      })))
+      // .then((data)=>console.log(data))
       .catch((err) => console.error("Fetch failed:", err));
   }, [])
 

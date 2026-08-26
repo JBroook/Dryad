@@ -4,8 +4,10 @@ from users.models import User
 from rest_framework_gis.serializers import GeoFeatureModelSerializer
 from django.contrib.gis.geos import GEOSGeometry
 import json
+from users.serializers import UserSerializer
 
 class MembershipSerializer(serializers.ModelSerializer):
+    user = UserSerializer()
     class Meta:
         model = Membership
         fields = '__all__'

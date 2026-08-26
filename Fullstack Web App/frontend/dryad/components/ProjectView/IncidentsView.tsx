@@ -7,11 +7,7 @@ import { apiFetch } from "@/lib/api";
 import { FaPersonCircleCheck } from "react-icons/fa6";
 import { IoSearch } from "react-icons/io5";
 import { Member } from "@/app/home/projects/new/page";
-import { RiVipCrown2Fill } from "react-icons/ri";
-import { MdRemoveRedEye } from "react-icons/md";
-import { FiShield } from "react-icons/fi";
-import { GoPulse } from "react-icons/go";
-import RoleBadge from "../RoleBadge";
+import MemberOption from "../MemberOption";
 
 interface IncidentsViewProps {
     projectID : string | null;
@@ -19,6 +15,7 @@ interface IncidentsViewProps {
     filterIndex : number;
     setFilterIndex : (index : number) => void;
     incidents : IncidentType[];
+    members : Member[];
 }
 
 export default function IncidentsView(props: IncidentsViewProps) {
@@ -89,7 +86,7 @@ export default function IncidentsView(props: IncidentsViewProps) {
     const assignPatrol = async (e : React.SubmitEvent<HTMLFormElement>) => {
         e.preventDefault();
 
-        // await apiFetch(`http://127.0.0.1:8000/api/incidents/${props.incidents[incidentIndex].id}/`, {
+        // await apiFetch(`http://127.0.0.1:8000/api/members/?project=${props.projectID}/`, {
         //     method : "PATCH",
         //     headers : {
         //         "Content-Type" : "application/json"
@@ -106,23 +103,6 @@ export default function IncidentsView(props: IncidentsViewProps) {
 
         const modal = document.getElementById('assignPatrolModal') as HTMLDialogElement;
         modal.close();
-    }
-
-    const members : Member[] = [
-        {
-            id : 1,
-            firstName : "Ana",
-            lastName : "Souza",
-            email : "anasouza@gmail.com",
-            role : "manager"
-        }
-    ]
-
-    const roleBadge: Record<string, React.ReactElement> = {
-        owner : <RoleBadge role="Owner" color="#F59E0B" icon={RiVipCrown2Fill}/>,
-        admin : <RoleBadge role="Admin" color="#60A5FA" icon={FiShield}/>,
-        manager : <RoleBadge role="Manager" color="#4ADE80" icon={GoPulse}/>,
-        viewer : <RoleBadge role="Viewer" color="#94A3B8" icon={MdRemoveRedEye}/>
     }
 
     return (<>
@@ -180,26 +160,9 @@ export default function IncidentsView(props: IncidentsViewProps) {
                 <input type="search" className="grow" placeholder="Search by name or email..." />
             </label>
             <div className="divider"></div>
-            <div className="">
-                {members.map((member, index)=>{
-                    return (
-                    <div className="rounded-xl bg-secondary p-4 flex">
-                        <div className="avatar">
-                            <div className="w-8 rounded-full">
-                                <img src="https://img.daisyui.com/images/profile/demo/yellingcat@192.webp" />
-                            </div>
-                        </div>
-
-                        <div className="ml-4">
-                            <div className="flex">
-                                <h1 className="font-semibold text-base">
-                                    {member.firstName} {member.lastName}
-                                </h1>
-                                {roleBadge[member.role]}
-                            </div>
-                            <p className="text-secondary-content text-sm">{member.email}</p>
-                        </div>
-                    </div>)
+            <div className="max-h-64 overflow-y-auto px-1">
+                {props.members.map((member, index)=>{
+                    return (<MemberOption member={member} key={index}/>)
                 })}
             </div>
 
