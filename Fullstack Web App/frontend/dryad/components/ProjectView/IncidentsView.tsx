@@ -6,14 +6,17 @@ import { FaTruck } from "react-icons/fa";
 import type { IncidentType } from "@/app/home/project/page";
 import { useEffect, useState } from "react";
 import { apiFetch } from "@/lib/api";
-import { FaPersonCircleCheck } from "react-icons/fa6";
+import { FaMicrophone, FaPersonCircleCheck } from "react-icons/fa6";
 import { IoSearch } from "react-icons/io5";
-import { Member } from "@/app/home/projects/new/page";
+import { Member, ThreatClass } from "@/app/home/projects/new/page";
 import MemberOption from "../MemberOption";
 import GlowButton from "../GlowButton";
-import { IoIosOptions } from "react-icons/io";
+import { IoIosOptions, IoMdCheckmark } from "react-icons/io";
 import { TbArrowsSort } from "react-icons/tb";
 import SortButton from "../SortButton";
+import ToggleGlowButton from "../ToggleGlowButton";
+import getThreatIcon from "@/lib/threatIcons";
+import { RxCross2 } from "react-icons/rx";
 
 interface IncidentsViewProps {
     projectID : string | null;
@@ -25,14 +28,27 @@ interface IncidentsViewProps {
     searchMember : (nameEmail : string) => void;
 }
 
+
 export default function IncidentsView(props: IncidentsViewProps) {
     const [incidentIndex, setIncidentIndex] = useState<number>(-1);
     const [selectedMembers, setSelectedMembers] = useState<Member[]>([]);
     const [search, setSearch] = useState<string>("");
     const [sortBy, setSortBy] = useState<string>("date");
-    const [sortToggle, setSortToggle] = useState<
-        {date : boolean, confidence : boolean}
-    >({date : true, confidence : true});
+    const [sortToggle, setSortToggle] = useState<{date : boolean, confidence : boolean}>({date : true, confidence : true});
+    const [showFilters, setShowFilters] = useState<boolean>(false);
+    const [threatClasses, setThreatClasses] = useState<ThreatClass[]>([
+        {id : 0,
+        name : "Chainsaw",
+        description : "sound",
+        active : false}
+    ]);
+    const [minimumConfidence, setMinimumConfidence] = useState<number>(25);
+    type StatusKey = "reviewing" | "confirmed" | "dismissed";
+    const [statusFilter, setStatusFilter] = useState<Record<StatusKey, boolean>>({
+        reviewing : false,
+        confirmed : false,
+        dismissed : false
+    });
 
     const confirmModal = (index : number)=>{
         const modal = document.getElementById('confirmModal') as HTMLDialogElement;
@@ -150,6 +166,26 @@ export default function IncidentsView(props: IncidentsViewProps) {
         }
     }
 
+    const toggleThreatClass = (index : number) => {
+        const newThreatClasses = [...threatClasses]
+        newThreatClasses[index].active = !newThreatClasses[index].active;
+        setThreatClasses(newThreatClasses);
+    }
+
+    const minimumConfidenceOptions = [
+        {name : "All", value : 0},
+        {name : "60%", value : 60},
+        {name : "75%", value : 75},
+        {name : "85%", value : 85},
+        {name : "90%", value : 95},
+    ]
+
+    const statusOptions = [
+        {name : "Reviewing", color : "#F59E0B", value : "reviewing" as StatusKey},
+        {name : "Confirmed", color : "#4ADE80", value : "confirmed" as StatusKey},
+        {name : "Dismissed", color : "#94A3B8", value : "dismissed" as StatusKey},
+    ]
+
     useEffect(() => {
         const timeout = setTimeout(() => {
             props.searchMember(search)
@@ -254,18 +290,6 @@ export default function IncidentsView(props: IncidentsViewProps) {
     </dialog>
 
     <div className="mx-6 flex flex-row items-center mt-5">
-        {/* <HiOutlineFilter className="text-secondary-content text-lg"/>
-        {props.filterOptions.map((filterOption, index)=>{
-        return (
-        <button 
-            className={index!=props.filterIndex ? "btn btn-base-200 text-secondary-content border border-white/5 ml-2" :
-            "btn bg-[#0A2513] text-accent border border-accent/50 ml-2"
-            }
-            key={index}
-            onClick={()=>props.setFilterIndex(index)}>
-            {filterOption}
-        </button>)
-        })} */}
         <label className="input bg-secondary w-full border border-white/8 flex-1">
             <IoSearch />
             <input 
@@ -275,7 +299,7 @@ export default function IncidentsView(props: IncidentsViewProps) {
             onChange={(e)=>setSearch(e.target.value)} />
         </label>
 
-        <GlowButton color="#4ADE80" className="mx-2">
+        <GlowButton color="#4ADE80" className="mx-2" onClick={()=>setShowFilters(!showFilters)}>
             <IoIosOptions />
             Filters
         </GlowButton>
@@ -299,6 +323,87 @@ export default function IncidentsView(props: IncidentsViewProps) {
             Confidence
         </SortButton>
     </div>
+
+    {showFilters && <div className="rounded-xl bg-base-200 border border-white/8 mx-6 my-4 p-4">
+        <p className="font-semibold text-secondary-content text-sm">THREAT TYPE</p>
+        <div className="flex flex-row gap-2 mt-2">
+            {threatClasses.map((threatClass, index)=>{
+                const Icon = getThreatIcon(threatClass.name);
+                return( 
+                <ToggleGlowButton 
+                key={index} 
+                color="#4ADE80" 
+                active={threatClass.active}
+                onClick={()=>toggleThreatClass(index)}>
+                    <Icon />
+                    {threatClass.name}
+                </ToggleGlowButton>)}
+            )}
+        </div>
+
+        <div className="divider"></div>
+
+        <p className="font-semibold text-secondary-content text-sm">STATUS</p>
+        <div className="flex flex-row gap-2 mt-2">
+            {statusOptions.map((option, index)=>{
+                return( 
+                <ToggleGlowButton 
+                key={index} 
+                color={option.color} 
+                active={statusFilter[option.value]}
+                onClick={()=>setStatusFilter({
+                    ...statusFilter,
+                    [option.value] : !statusFilter[option.value]
+                })}>
+                    <IoMdCheckmark />
+                    {option.name}
+                </ToggleGlowButton>)}
+            )}
+        </div>
+
+        <div className="divider"></div>
+
+        <div className="flex justify-between">
+            <p className="font-semibold text-secondary-content text-sm">MIN. CONFIDENCE</p>
+
+            <h3 className="text-base text-accent font-semibold">
+                ≥ {minimumConfidence}%
+            </h3>
+        </div>
+        <div className="flex mt-2 items-center">
+            <input 
+                type="range"
+                min={0} max="100" 
+                value={minimumConfidence} 
+                className="range range-primary w-full flex-1 mr-2"
+                onChange={(e)=>setMinimumConfidence(parseInt(e.target.value))}
+            />
+
+            {
+                minimumConfidenceOptions.map((option, index)=>{
+                    return (
+                    <ToggleGlowButton 
+                        key={index}
+                        className="ml-1"
+                        active={minimumConfidence===option.value} 
+                        color="#4ADE80"
+                        onClick={()=>setMinimumConfidence(option.value)} > 
+                        {option.name}
+                    </ToggleGlowButton>)
+                })
+            }
+        </div>
+
+        <div className="divider"></div>
+
+        <div className="flex">
+            <GlowButton color="#F87171" className="ml-auto">
+                <RxCross2 className="text-xl"/>
+                Reset All Filters
+            </GlowButton>
+        </div>
+
+    </div>}
 
     <div className="mx-6 mt-5">
         {
