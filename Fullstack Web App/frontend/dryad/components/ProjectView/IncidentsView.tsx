@@ -10,6 +10,10 @@ import { FaPersonCircleCheck } from "react-icons/fa6";
 import { IoSearch } from "react-icons/io5";
 import { Member } from "@/app/home/projects/new/page";
 import MemberOption from "../MemberOption";
+import GlowButton from "../GlowButton";
+import { IoIosOptions } from "react-icons/io";
+import { TbArrowsSort } from "react-icons/tb";
+import SortButton from "../SortButton";
 
 interface IncidentsViewProps {
     projectID : string | null;
@@ -24,7 +28,11 @@ interface IncidentsViewProps {
 export default function IncidentsView(props: IncidentsViewProps) {
     const [incidentIndex, setIncidentIndex] = useState<number>(-1);
     const [selectedMembers, setSelectedMembers] = useState<Member[]>([]);
-    const [search, setSearch] = useState("");
+    const [search, setSearch] = useState<string>("");
+    const [sortBy, setSortBy] = useState<string>("date");
+    const [sortToggle, setSortToggle] = useState<
+        {date : boolean, confidence : boolean}
+    >({date : true, confidence : true});
 
     const confirmModal = (index : number)=>{
         const modal = document.getElementById('confirmModal') as HTMLDialogElement;
@@ -131,6 +139,17 @@ export default function IncidentsView(props: IncidentsViewProps) {
         modal.close();
     }
 
+    const handleSort = (type: "date" | "confidence") => {
+        if (sortBy !== type) {
+            setSortBy(type)
+        } else {
+            setSortToggle(prev => ({
+                ...prev,
+                [type]: !prev[type]
+            }))
+        }
+    }
+
     useEffect(() => {
         const timeout = setTimeout(() => {
             props.searchMember(search)
@@ -234,8 +253,8 @@ export default function IncidentsView(props: IncidentsViewProps) {
         </div>
     </dialog>
 
-    <div className="ml-6 flex flex-row items-center mt-5">
-        <HiOutlineFilter className="text-secondary-content text-lg"/>
+    <div className="mx-6 flex flex-row items-center mt-5">
+        {/* <HiOutlineFilter className="text-secondary-content text-lg"/>
         {props.filterOptions.map((filterOption, index)=>{
         return (
         <button 
@@ -246,7 +265,39 @@ export default function IncidentsView(props: IncidentsViewProps) {
             onClick={()=>props.setFilterIndex(index)}>
             {filterOption}
         </button>)
-        })}
+        })} */}
+        <label className="input bg-secondary w-full border border-white/8 flex-1">
+            <IoSearch />
+            <input 
+            type="search" 
+            className="grow" 
+            placeholder="Search" 
+            onChange={(e)=>setSearch(e.target.value)} />
+        </label>
+
+        <GlowButton color="#4ADE80" className="mx-2">
+            <IoIosOptions />
+            Filters
+        </GlowButton>
+
+        <p className="mx-2 text-sm text-secondary-content">Sort:</p>
+
+        
+        <SortButton 
+        active={sortBy=="date"} 
+        className="mx-2" 
+        onClick={()=>handleSort("date")}
+        ascending={sortToggle["date"]}>
+            Date
+        </SortButton>
+
+        <SortButton 
+        active={sortBy=="confidence"} 
+        className="mx-2" 
+        onClick={()=>handleSort("confidence")}
+        ascending={sortToggle["confidence"]}>
+            Confidence
+        </SortButton>
     </div>
 
     <div className="mx-6 mt-5">

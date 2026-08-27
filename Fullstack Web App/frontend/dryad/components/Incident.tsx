@@ -136,14 +136,12 @@ export default function Incident(props : IncidentProps) {
                         Dismiss
                     </button>
 
-                    
-                    </>
-                }
-
-                <button className="btn btn-info" onClick={props.assignPatrol}>
+                    <button className="btn btn-info" onClick={props.assignPatrol}>
                         <FaPersonRunning />
                         Assign Patrol
-                    </button>
+                    </button>   
+                    </>
+                }
 
                 <button className="btn btn-secondary">
                     View on Map
