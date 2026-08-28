@@ -11,6 +11,7 @@ from projects.serializers import ProjectSerializer, IncidentSerializer, ThreatCl
 from django.db.models import Q
 from django_filters.rest_framework import DjangoFilterBackend
 import django_filters
+from rest_framework.filters import OrderingFilter
 
 class LoginView(APIView):
     def post(self, request):
@@ -86,14 +87,22 @@ class IncidentFilter(django_filters.FilterSet):
 class IncidentViewSet(ModelViewSet):
     queryset = Incident.objects.all()
     serializer_class = IncidentSerializer
-    filter_backends = [DjangoFilterBackend]
+    filter_backends = [DjangoFilterBackend, OrderingFilter]
     filterset_class = IncidentFilter
+
+    ordering_fields = [
+        "confidence",
+        "timestamp"
+    ]
+    ordering = [
+        "-timestamp"
+    ]
 
     def get_queryset(self):
         project_id = self.request.query_params.get("project")
 
         if project_id:
-            queryset = Incident.objects.filter(project_id=project_id)
+            queryset = super().get_queryset().filter(project_id=project_id)
 
             search_param = self.request.query_params.get("search")
             if search_param:

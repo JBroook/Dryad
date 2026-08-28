@@ -161,25 +161,44 @@ export default function IncidentsView(props: IncidentsViewProps) {
         }
     }
 
-    const filterIncidents = async () => {
+    const filterSortIncidents = async ({
+        minConfidence = minimumConfidence,
+        status = statusFilter,
+        threatClasses = props.threatClasses,
+        sortKey = sortBy,
+        sortToggles = sortToggle
+    }: {
+        minConfidence?: number;
+        status?: Record<StatusKey, boolean>;
+        threatClasses?: ThreatClass[];
+        sortKey? : string;
+        sortToggles? : {date : boolean, confidence : boolean}
+    } = {}) => {
         const params = new URLSearchParams();
-        params.set("minimum_confidence", minimumConfidence.toString());
+        params.set("minimum_confidence", minConfidence.toString());
 
-        const statuses = Object.keys(statusFilter)
-            .filter(key => statusFilter[key as StatusKey]===true)
+        const statuses = Object.keys(status)
+            .filter(key => status[key as StatusKey]===true)
 
         statuses.forEach(status => {
             params.append("status", status)
         })
 
-        const threats = props.threatClasses
+        const threats = threatClasses
             .filter(threatClass => threatClass.active==true)
             .map((threatClass : ThreatClass)=> threatClass.id)    
         if (threats.length > 0) {
             params.set("threat_classes", threats.join(","));
         }
 
-        await apiFetch(`http://127.0.0.1:8000/api/incidents/?project=${props.projectID}&${params}`)
+        const sortKeyMapping = {
+            "date" : "timestamp",
+            "confidence" : "confidence"
+        }
+        params.set("ordering", `${sortToggles[sortKey as "date" | "confidence"] ? "-" : ""}${sortKeyMapping[sortKey as "date" | "confidence"]}`)
+
+        await apiFetch(
+            `http://127.0.0.1:8000/api/incidents/?project=${props.projectID}&${params}`)
         .then(async (res) => {
         if (!res.ok) throw new Error(await res.text());
         return res.json();
@@ -188,11 +207,16 @@ export default function IncidentsView(props: IncidentsViewProps) {
         .catch((err) => console.error("Fetch failed:", err));
     }
 
-    const toggleThreatClass = async (index : number) => {
-        const newThreatClasses = [...props.threatClasses]
-        newThreatClasses[index].active = !newThreatClasses[index].active;
+    const toggleThreatClass = (index: number) => {
+        const newThreatClasses = props.threatClasses.map((threatClass, i) =>
+            i === index
+                ? { ...threatClass, active: !threatClass.active }
+                : threatClass
+        );
+
         props.setThreatClasses(newThreatClasses);
-    }
+        filterSortIncidents({ threatClasses: newThreatClasses });
+    };
 
     const minimumConfidenceOptions = [
         {name : "All", value : 0},
@@ -209,16 +233,30 @@ export default function IncidentsView(props: IncidentsViewProps) {
     ]
 
     const resetFilters = () => {
+        const newThreatClasses = props.threatClasses.map(
+            (threatClass: ThreatClass) => ({
+                ...threatClass,
+                active: false
+            })
+        );
+
+        const newStatusFilter: Record<StatusKey, boolean> = {
+            unconfirmed: false,
+            confirmed: false,
+            dismissed: false
+        };
+
         setMinimumConfidence(0);
-        props.setThreatClasses(props.threatClasses.map((threatClass : ThreatClass)=>{
-            return {...threatClass, active : false}
-        }))
-        setStatusFilter({
-            unconfirmed : false,
-            confirmed : false,
-            dismissed : false
-        })
-    }
+        props.setThreatClasses(newThreatClasses);
+        setStatusFilter(newStatusFilter);
+
+        filterSortIncidents({
+            minConfidence: 0,
+            status: newStatusFilter,
+            threatClasses: newThreatClasses
+        });
+    };
+
 
     const apiSearchMember = async (nameEmail : string) => {
         await apiFetch(`http://127.0.0.1:8000/api/members/?project=${props.projectID}&search=${nameEmail}`)
@@ -255,7 +293,7 @@ export default function IncidentsView(props: IncidentsViewProps) {
     useEffect(() => {
         const timeout = setTimeout(() => {
             apiSearchMember(searchMember)
-        }, 500);
+        }, 250);
 
         return () => clearTimeout(timeout);
     }, [searchMember]);
@@ -263,7 +301,7 @@ export default function IncidentsView(props: IncidentsViewProps) {
     useEffect(() => {
         const timeout = setTimeout(() => {
             apiSearchIncident(searchIncident)
-        }, 500);
+        }, 250);
 
         return () => clearTimeout(timeout);
     }, [searchIncident]);
@@ -386,7 +424,13 @@ export default function IncidentsView(props: IncidentsViewProps) {
         <SortButton 
         active={sortBy=="date"} 
         className="mx-2" 
-        onClick={()=>handleSort("date")}
+        onClick={()=>{
+            filterSortIncidents({
+                sortKey : "date",
+                sortToggles : {...sortToggle, date : !sortToggle.date}
+            })
+            handleSort("date")
+        }}
         ascending={sortToggle["date"]}>
             Date
         </SortButton>
@@ -394,7 +438,13 @@ export default function IncidentsView(props: IncidentsViewProps) {
         <SortButton 
         active={sortBy=="confidence"} 
         className="mx-2" 
-        onClick={()=>handleSort("confidence")}
+        onClick={()=>{
+            filterSortIncidents({
+                sortKey : "confidence",
+                sortToggles : {...sortToggle, confidence : !sortToggle.confidence}
+            })
+            handleSort("confidence")
+        }}
         ascending={sortToggle["confidence"]}>
             Confidence
         </SortButton>
@@ -413,7 +463,6 @@ export default function IncidentsView(props: IncidentsViewProps) {
                 active={threatClass.active}
                 onClick={()=>{
                     toggleThreatClass(index)
-                    filterIncidents()
                 }}>
                     <Icon />
                     {threatClass.name}
@@ -432,12 +481,13 @@ export default function IncidentsView(props: IncidentsViewProps) {
                 color={option.color} 
                 active={statusFilter[option.value]}
                 onClick={()=>{
-                    setStatusFilter({
+                    const newStatusFilter = {
                         ...statusFilter,
-                        [option.value] : !statusFilter[option.value]
-                    })
-                    
-                    filterIncidents()
+                        [option.value]: !statusFilter[option.value]
+                    };
+
+                    setStatusFilter(newStatusFilter);
+                    filterSortIncidents({ status: newStatusFilter });
                 }}>
                     <IoMdCheckmark />
                     {option.name}
@@ -463,9 +513,10 @@ export default function IncidentsView(props: IncidentsViewProps) {
                 value={minimumConfidence}
                 className="range range-primary w-full flex-1 mr-2"
                 onChange={(e) => {
-                    setMinimumConfidence(parseInt(e.target.value))
-                    
-                    filterIncidents()
+                    const value = parseInt(e.target.value);
+
+                    setMinimumConfidence(value);
+                    filterSortIncidents({ minConfidence: value });
                 }}
             />
 
@@ -477,11 +528,11 @@ export default function IncidentsView(props: IncidentsViewProps) {
                         className="ml-1"
                         active={minimumConfidence===option.value} 
                         color="#4ADE80"
-                        onClick={()=>{
-                            setMinimumConfidence(option.value)
-                            
-                            filterIncidents()
-                        }} > 
+                        onClick={() => {
+                            setMinimumConfidence(option.value);
+                            filterSortIncidents({ minConfidence: option.value });
+                        }}
+                        > 
                         {option.name}
                     </ToggleGlowButton>)
                 })
