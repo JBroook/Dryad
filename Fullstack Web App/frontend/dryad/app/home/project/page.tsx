@@ -41,6 +41,7 @@ export default function Project() {
   const [incidents, setIncidents] = useState<IncidentType[]>([])
   const [filterIndex, setFilterIndex] = useState<number>(0);
   const [members, setMembers] = useState<Member[]>([]);
+  const [threatClasses, setThreatClasses] = useState<ThreatClass[]>([]);
 
   const extractProjectFeatures = (data : any) => {
     setProject({
@@ -73,22 +74,6 @@ export default function Project() {
     "Tree Falling"
   ]
 
-  const searchMember = async (nameEmail : string) => {
-    await apiFetch(`http://127.0.0.1:8000/api/members/?project=${projectID}&search=${nameEmail}`)
-    .then(async (res) => {
-      if (!res.ok) throw new Error(await res.text());
-      return res.json();
-    })
-    .then((data)=>setMembers(data.map((member : any)=>{
-      return {...member, 
-        firstName : member.user.first_name, 
-        lastName : member.user.last_name,
-        email : member.user.email
-      }
-    })))
-    .catch((err) => console.error("Fetch failed:", err));
-  }
-
   const tabComponentMapping = {
     overview : <></>,
     incidents : <IncidentsView 
@@ -97,8 +82,9 @@ export default function Project() {
       filterOptions={filterOptions}
       setFilterIndex={(index)=>setFilterIndex(index)}
       incidents={incidents}
-      members={members}
-      searchMember={searchMember}
+      threatClasses={threatClasses}
+      setThreatClasses={setThreatClasses}
+      setIncidents={setIncidents}
     />,
     forest_map : <></>,
     devices : <></>,
@@ -141,8 +127,16 @@ export default function Project() {
           email : member.user.email
         }
       })))
-      // .then((data)=>console.log(data))
       .catch((err) => console.error("Fetch failed:", err));
+
+    // fetch threat classes for incidents filter
+    apiFetch(`http://127.0.0.1:8000/api/threat_classes/`)
+    .then(async (res) => {
+      if (!res.ok) throw new Error(await res.text());
+      return res.json();
+    })
+    .then((data)=>setThreatClasses(data))
+    .catch((err) => console.error("Fetch failed:", err));
   }, [])
 
   return (<div className="flex flex-col">

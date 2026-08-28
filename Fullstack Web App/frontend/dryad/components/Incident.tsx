@@ -1,3 +1,4 @@
+import getThreatIcon from "@/lib/threatIcons";
 import { useState } from "react";
 import { IconType } from "react-icons";
 import { FaPersonRunning, FaRegClock } from "react-icons/fa6";
@@ -6,7 +7,6 @@ import { MdOutlineLocationOn } from "react-icons/md";
 
 interface IncidentProps {
     color : string;
-    icon : IconType;
     name : string;
     location : string;
     timestamp : string;
@@ -37,7 +37,7 @@ function wktToLatLng(wkt: string): Coordinate {
 }
 
 export default function Incident(props : IncidentProps) {
-    const Icon = props.icon;
+    const Icon = getThreatIcon(props.name);
     const [isOpen, setIsOpen] = useState(false);
     const coordinates = wktToLatLng(props.location)
     const date = new Date(props.timestamp);

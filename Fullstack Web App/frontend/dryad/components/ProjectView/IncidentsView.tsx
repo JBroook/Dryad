@@ -1,18 +1,16 @@
 "use client"
 
-import { HiOutlineFilter } from "react-icons/hi";
 import Incident from "../Incident";
 import { FaTruck } from "react-icons/fa";
 import type { IncidentType } from "@/app/home/project/page";
 import { useEffect, useState } from "react";
 import { apiFetch } from "@/lib/api";
-import { FaMicrophone, FaPersonCircleCheck } from "react-icons/fa6";
+import { FaPersonCircleCheck } from "react-icons/fa6";
 import { IoSearch } from "react-icons/io5";
 import { Member, ThreatClass } from "@/app/home/projects/new/page";
 import MemberOption from "../MemberOption";
 import GlowButton from "../GlowButton";
 import { IoIosOptions, IoMdCheckmark } from "react-icons/io";
-import { TbArrowsSort } from "react-icons/tb";
 import SortButton from "../SortButton";
 import ToggleGlowButton from "../ToggleGlowButton";
 import getThreatIcon from "@/lib/threatIcons";
@@ -24,28 +22,25 @@ interface IncidentsViewProps {
     filterIndex : number;
     setFilterIndex : (index : number) => void;
     incidents : IncidentType[];
-    members : Member[];
-    searchMember : (nameEmail : string) => void;
+    threatClasses : ThreatClass[];
+    setThreatClasses : (newThreatClasses : ThreatClass[]) => void;
+    setIncidents : (incidents : IncidentType[]) => void;
 }
 
 
 export default function IncidentsView(props: IncidentsViewProps) {
     const [incidentIndex, setIncidentIndex] = useState<number>(-1);
+    const [members, setMembers] = useState<Member[]>([]);
     const [selectedMembers, setSelectedMembers] = useState<Member[]>([]);
-    const [search, setSearch] = useState<string>("");
+    const [searchMember, setSearchMember] = useState<string>("");
+    const [searchIncident, setSearchIncident] = useState<string>("");
     const [sortBy, setSortBy] = useState<string>("date");
     const [sortToggle, setSortToggle] = useState<{date : boolean, confidence : boolean}>({date : true, confidence : true});
     const [showFilters, setShowFilters] = useState<boolean>(false);
-    const [threatClasses, setThreatClasses] = useState<ThreatClass[]>([
-        {id : 0,
-        name : "Chainsaw",
-        description : "sound",
-        active : false}
-    ]);
-    const [minimumConfidence, setMinimumConfidence] = useState<number>(25);
-    type StatusKey = "reviewing" | "confirmed" | "dismissed";
+    const [minimumConfidence, setMinimumConfidence] = useState<number>(0);
+    type StatusKey = "unconfirmed" | "confirmed" | "dismissed";
     const [statusFilter, setStatusFilter] = useState<Record<StatusKey, boolean>>({
-        reviewing : false,
+        unconfirmed : false,
         confirmed : false,
         dismissed : false
     });
@@ -140,12 +135,12 @@ export default function IncidentsView(props: IncidentsViewProps) {
     }
 
     const addMember = (index : number) => {
-        if(selectedMembers.includes(props.members[index])){
-            setSelectedMembers(newSelection => newSelection.filter(member => member!=props.members[index]))
+        if(selectedMembers.includes(members[index])){
+            setSelectedMembers(newSelection => newSelection.filter(member => member!=members[index]))
         }else{
             setSelectedMembers([
                 ...selectedMembers,
-                props.members[index]
+                members[index]
             ])
         }
     }
@@ -166,10 +161,37 @@ export default function IncidentsView(props: IncidentsViewProps) {
         }
     }
 
-    const toggleThreatClass = (index : number) => {
-        const newThreatClasses = [...threatClasses]
+    const filterIncidents = async () => {
+        const params = new URLSearchParams();
+        params.set("minimum_confidence", minimumConfidence.toString());
+
+        const statuses = Object.keys(statusFilter)
+            .filter(key => statusFilter[key as StatusKey]===true)
+
+        statuses.forEach(status => {
+            params.append("status", status)
+        })
+
+        const threats = props.threatClasses
+            .filter(threatClass => threatClass.active==true)
+            .map((threatClass : ThreatClass)=> threatClass.id)    
+        if (threats.length > 0) {
+            params.set("threat_classes", threats.join(","));
+        }
+
+        await apiFetch(`http://127.0.0.1:8000/api/incidents/?project=${props.projectID}&${params}`)
+        .then(async (res) => {
+        if (!res.ok) throw new Error(await res.text());
+        return res.json();
+        })
+        .then((data)=>extractIncidents(data))
+        .catch((err) => console.error("Fetch failed:", err));
+    }
+
+    const toggleThreatClass = async (index : number) => {
+        const newThreatClasses = [...props.threatClasses]
         newThreatClasses[index].active = !newThreatClasses[index].active;
-        setThreatClasses(newThreatClasses);
+        props.setThreatClasses(newThreatClasses);
     }
 
     const minimumConfidenceOptions = [
@@ -177,22 +199,74 @@ export default function IncidentsView(props: IncidentsViewProps) {
         {name : "60%", value : 60},
         {name : "75%", value : 75},
         {name : "85%", value : 85},
-        {name : "90%", value : 95},
+        {name : "90%", value : 90},
     ]
 
     const statusOptions = [
-        {name : "Reviewing", color : "#F59E0B", value : "reviewing" as StatusKey},
+        {name : "Reviewing", color : "#F59E0B", value : "unconfirmed" as StatusKey},
         {name : "Confirmed", color : "#4ADE80", value : "confirmed" as StatusKey},
         {name : "Dismissed", color : "#94A3B8", value : "dismissed" as StatusKey},
     ]
 
+    const resetFilters = () => {
+        setMinimumConfidence(0);
+        props.setThreatClasses(props.threatClasses.map((threatClass : ThreatClass)=>{
+            return {...threatClass, active : false}
+        }))
+        setStatusFilter({
+            unconfirmed : false,
+            confirmed : false,
+            dismissed : false
+        })
+    }
+
+    const apiSearchMember = async (nameEmail : string) => {
+        await apiFetch(`http://127.0.0.1:8000/api/members/?project=${props.projectID}&search=${nameEmail}`)
+        .then(async (res) => {
+        if (!res.ok) throw new Error(await res.text());
+        return res.json();
+        })
+        .then((data)=>setMembers(data.map((member : any)=>{
+        return {...member, 
+            firstName : member.user.first_name, 
+            lastName : member.user.last_name,
+            email : member.user.email
+        }
+        })))
+        .catch((err) => console.error("Fetch failed:", err));
+    }
+
+    const extractIncidents = (data : any)=>{
+        props.setIncidents(data.map((incident : any)=>{
+        return {...incident, threatClass : incident.threat_class}
+        }))
+    }
+
+    const apiSearchIncident = async (incidentName : string) => {
+        await apiFetch(`http://127.0.0.1:8000/api/incidents/?project=${props.projectID}&search=${incidentName}`)
+        .then(async (res) => {
+        if (!res.ok) throw new Error(await res.text());
+        return res.json();
+        })
+        .then((data)=>extractIncidents(data))
+        .catch((err) => console.error("Fetch failed:", err));
+    }
+
     useEffect(() => {
         const timeout = setTimeout(() => {
-            props.searchMember(search)
+            apiSearchMember(searchMember)
         }, 500);
 
         return () => clearTimeout(timeout);
-    }, [search]);
+    }, [searchMember]);
+
+    useEffect(() => {
+        const timeout = setTimeout(() => {
+            apiSearchIncident(searchIncident)
+        }, 500);
+
+        return () => clearTimeout(timeout);
+    }, [searchIncident]);
 
 
     return (<>
@@ -249,11 +323,11 @@ export default function IncidentsView(props: IncidentsViewProps) {
             </p>
             <label className="input bg-secondary w-full border border-white/8 mt-2">
                 <IoSearch />
-                <input type="search" className="grow" placeholder="Search by name or email..." onChange={(e)=>setSearch(e.target.value)} />
+                <input type="search" className="grow" placeholder="Search by name or email..." onChange={(e)=>setSearchMember(e.target.value)} />
             </label>
             <div className="divider"></div>
             <div className="max-h-64 overflow-y-auto px-1">
-                {props.members.map((member, index)=>{
+                {members.map((member, index)=>{
                     return (<MemberOption 
                         member={member} 
                         key={index} 
@@ -287,6 +361,7 @@ export default function IncidentsView(props: IncidentsViewProps) {
             </form>
             </div>
         </div>
+        
     </dialog>
 
     <div className="mx-6 flex flex-row items-center mt-5">
@@ -296,13 +371,14 @@ export default function IncidentsView(props: IncidentsViewProps) {
             type="search" 
             className="grow" 
             placeholder="Search" 
-            onChange={(e)=>setSearch(e.target.value)} />
+            value={searchIncident}
+            onChange={(e)=>setSearchIncident(e.target.value)} />
         </label>
 
-        <GlowButton color="#4ADE80" className="mx-2" onClick={()=>setShowFilters(!showFilters)}>
+        <ToggleGlowButton active={showFilters} color="#4ADE80" className="mx-2" onClick={()=>setShowFilters(!showFilters)}>
             <IoIosOptions />
             Filters
-        </GlowButton>
+        </ToggleGlowButton>
 
         <p className="mx-2 text-sm text-secondary-content">Sort:</p>
 
@@ -323,18 +399,22 @@ export default function IncidentsView(props: IncidentsViewProps) {
             Confidence
         </SortButton>
     </div>
+    
 
     {showFilters && <div className="rounded-xl bg-base-200 border border-white/8 mx-6 my-4 p-4">
         <p className="font-semibold text-secondary-content text-sm">THREAT TYPE</p>
         <div className="flex flex-row gap-2 mt-2">
-            {threatClasses.map((threatClass, index)=>{
+            {props.threatClasses.map((threatClass, index)=>{
                 const Icon = getThreatIcon(threatClass.name);
                 return( 
                 <ToggleGlowButton 
                 key={index} 
                 color="#4ADE80" 
                 active={threatClass.active}
-                onClick={()=>toggleThreatClass(index)}>
+                onClick={()=>{
+                    toggleThreatClass(index)
+                    filterIncidents()
+                }}>
                     <Icon />
                     {threatClass.name}
                 </ToggleGlowButton>)}
@@ -351,10 +431,14 @@ export default function IncidentsView(props: IncidentsViewProps) {
                 key={index} 
                 color={option.color} 
                 active={statusFilter[option.value]}
-                onClick={()=>setStatusFilter({
-                    ...statusFilter,
-                    [option.value] : !statusFilter[option.value]
-                })}>
+                onClick={()=>{
+                    setStatusFilter({
+                        ...statusFilter,
+                        [option.value] : !statusFilter[option.value]
+                    })
+                    
+                    filterIncidents()
+                }}>
                     <IoMdCheckmark />
                     {option.name}
                 </ToggleGlowButton>)}
@@ -370,13 +454,19 @@ export default function IncidentsView(props: IncidentsViewProps) {
                 ≥ {minimumConfidence}%
             </h3>
         </div>
+        
         <div className="flex mt-2 items-center">
-            <input 
+            <input
                 type="range"
-                min={0} max="100" 
-                value={minimumConfidence} 
+                min={0}
+                max={100}
+                value={minimumConfidence}
                 className="range range-primary w-full flex-1 mr-2"
-                onChange={(e)=>setMinimumConfidence(parseInt(e.target.value))}
+                onChange={(e) => {
+                    setMinimumConfidence(parseInt(e.target.value))
+                    
+                    filterIncidents()
+                }}
             />
 
             {
@@ -387,7 +477,11 @@ export default function IncidentsView(props: IncidentsViewProps) {
                         className="ml-1"
                         active={minimumConfidence===option.value} 
                         color="#4ADE80"
-                        onClick={()=>setMinimumConfidence(option.value)} > 
+                        onClick={()=>{
+                            setMinimumConfidence(option.value)
+                            
+                            filterIncidents()
+                        }} > 
                         {option.name}
                     </ToggleGlowButton>)
                 })
@@ -397,7 +491,7 @@ export default function IncidentsView(props: IncidentsViewProps) {
         <div className="divider"></div>
 
         <div className="flex">
-            <GlowButton color="#F87171" className="ml-auto">
+            <GlowButton color="#F87171" className="ml-auto" onClick={resetFilters}>
                 <RxCross2 className="text-xl"/>
                 Reset All Filters
             </GlowButton>
@@ -411,7 +505,6 @@ export default function IncidentsView(props: IncidentsViewProps) {
                 return <Incident
                     key={index}
                     color="#F97316"
-                    icon={FaTruck}
                     name={incident.threatClass.name}
                     location={incident.coordinates}
                     timestamp={incident.timestamp}

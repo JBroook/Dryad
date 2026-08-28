@@ -10,6 +10,7 @@ django = "*"
 django-cors-headers = "*"
 python-dotenv = "*"
 djangorestframework-gis = "*"
+django-filter = "*"
 
 [dev-packages]
 

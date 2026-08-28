@@ -74,6 +74,7 @@ export default function Home() {
   return (<>
     {authenticated ?
       <>
+
         <div className="w-full py-5 pl-8 border-b-white/8 border-b border-b-width-[2px] flex flex-row items-center justify-between ">
           <div>
             <h1 className="font-bold text-2xl">
