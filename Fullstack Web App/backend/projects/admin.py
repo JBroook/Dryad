@@ -1,7 +1,10 @@
 from django.contrib import admin
-from .models import Project, ThreatClass, ProjectThreatClass, Membership
+from . import models
 
-admin.site.register(Project)
-admin.site.register(ThreatClass)
-admin.site.register(ProjectThreatClass)
-admin.site.register(Membership)
+admin.site.register(models.Project)
+admin.site.register(models.ThreatClass)
+admin.site.register(models.ProjectThreatClass)
+admin.site.register(models.Membership)
+admin.site.register(models.Incident)
+admin.site.register(models.Device)
+admin.site.register(models.Patrol)

@@ -7,14 +7,14 @@ interface ProjectCardProps {
   tag : string;
   name : string;
   region : string;
-  location : string;
-  area : string;
+  area : number;
   alerts : number;
   activeDevices : number;
   totalDevices : number;
   members : number;
   accentColor : string;
   tagColor: string;
+  openProject : ()=>void;
 }
 
 export default function ProjectCard(props : ProjectCardProps) {
@@ -36,6 +36,7 @@ export default function ProjectCard(props : ProjectCardProps) {
     style={{
       "--accent-color": props.accentColor,
     } as React.CSSProperties}
+    onClick={()=>props.openProject()}
     >
       <div className="w-full flex flew-row justify-between items-center">
         <div className="badge bg-base-300 mb-2" style={{
@@ -46,10 +47,10 @@ export default function ProjectCard(props : ProjectCardProps) {
 
         <MdNavigateNext className="text-xl text-secondary-content"/>
       </div>
-      <h2 className="text-xl font-bold">{props.name} - {props.region}</h2>
+      <h2 className="text-xl font-bold">{props.name}</h2>
       <div className="flex flew-row items-center">
         <MdOutlineLocationOn className="text-secondary-content mr-2"/> 
-        <p className="text-secondary-content">{props.location} • {props.area}</p>
+        <p className="text-secondary-content">{props.region} • {props.area}km²</p>
       </div>
 
       <div className="grid grid-cols-3 gap-3 mt-4">
