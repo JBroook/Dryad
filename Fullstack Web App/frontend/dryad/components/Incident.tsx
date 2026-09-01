@@ -4,6 +4,7 @@ import { IconType } from "react-icons";
 import { FaPersonRunning, FaRegClock } from "react-icons/fa6";
 import { IoIosArrowDown, IoIosArrowUp } from "react-icons/io";
 import { MdOutlineLocationOn } from "react-icons/md";
+import GlowButton from "./GlowButton";
 
 interface IncidentProps {
     color : string;
@@ -128,18 +129,18 @@ export default function Incident(props : IncidentProps) {
             <div className="flex mt-2 gap-2">
                 {props.status=="unconfirmed" &&
                     <>
-                    <button className="btn btn-primary" onClick={props.confirmIncident}>
+                    <GlowButton color="#4ADE80" className="btn btn-primary" onClick={props.confirmIncident}>
                         Confirm
-                    </button>
+                    </GlowButton>
 
-                    <button className="btn btn-error" onClick={props.dismissIncident}>
+                    <GlowButton color="#ef4444" className="btn btn-error" onClick={props.dismissIncident}>
                         Dismiss
-                    </button>
+                    </GlowButton>
 
-                    <button className="btn btn-info" onClick={props.assignPatrol}>
+                    <GlowButton color="#60A5FA" className="btn btn-info" onClick={props.assignPatrol}>
                         <FaPersonRunning />
                         Assign Patrol
-                    </button>   
+                    </GlowButton>   
                     </>
                 }
 
