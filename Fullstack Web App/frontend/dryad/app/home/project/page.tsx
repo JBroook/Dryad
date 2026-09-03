@@ -12,6 +12,8 @@ import { AiOutlineTeam } from "react-icons/ai";
 import { useRouter } from "next/navigation";
 import IncidentsView from "@/components/ProjectView/IncidentsView";
 import type { ThreatClass } from "../projects/new/page";
+import ForestMapView from "@/components/ProjectView/ForestMapView";
+const { wktToGeoJSON } = require('@terraformer/wkt');
 
 type Tab = "overview" | "incidents" | "forest_map" | "devices" | "team";
 
@@ -47,7 +49,8 @@ export default function Project() {
     setProject({
       ...data.properties,
       area : data.properties.surface_area,
-      id : data.id
+      id : data.id,
+      geoJSON : wktToGeoJSON(data.geometry.replace(/^SRID=\d+;/, ""))
     })
   }
 
@@ -86,7 +89,10 @@ export default function Project() {
       setThreatClasses={setThreatClasses}
       setIncidents={setIncidents}
     />,
-    forest_map : <></>,
+    forest_map : <ForestMapView
+      projectID={projectID}
+      geoJSON={project?.geoJSON}
+    />,
     devices : <></>,
     team : <></>,
   }
@@ -101,6 +107,10 @@ export default function Project() {
       .then(async (res) => {
         if (!res.ok) throw new Error(await res.text());
         return res.json();
+      })
+      .then((data)=>{
+        console.log(data)
+        return data
       })
       .then((data)=>extractProjectFeatures(data))
       .catch((err) => console.error("Fetch failed:", err));
@@ -180,6 +190,10 @@ export default function Project() {
         ) : (
           <span className="loading loading-spinner"></span>
         )}
+
+        <button className="btn" onClick={()=>console.log(project)}>
+                Press 2
+            </button>
       </>
       :
 

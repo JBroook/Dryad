@@ -96,3 +96,8 @@ class Patrol(models.Model):
     path = models.LineStringField(blank=True, null=True)
     member = models.ForeignKey(to=Membership, on_delete=models.CASCADE)
     project = models.ForeignKey(to=Project, on_delete=models.CASCADE)
+
+class GridCell(models.Model):
+    project = models.ForeignKey(to=Project, on_delete=models.CASCADE)
+    risk_score = models.FloatField()
+    
