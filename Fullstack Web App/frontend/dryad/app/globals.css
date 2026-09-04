@@ -62,7 +62,7 @@
   --radius-field: 0.5rem;
   --radius-selector: 0.5rem;
   --radius-box: 0.75rem;
-  --border: 1px; /* Added subtle borders to define card edges without high-contrast backgrounds */
+  --border: 0px; /* Added subtle borders to define card edges without high-contrast backgrounds */
 
   --font-sans: var(--font-inter);
 

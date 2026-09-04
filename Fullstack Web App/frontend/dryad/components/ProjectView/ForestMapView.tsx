@@ -140,10 +140,6 @@ export default function ForestMapView(props: ForestMapViewProps) {
             geoJSON={props.geoJSON ?? null}
             editEnabled={false}
             />
-
-            <button className="btn" onClick={()=>console.log(props.geoJSON)}>
-                Press
-            </button>
         </div>
 </>);
 }

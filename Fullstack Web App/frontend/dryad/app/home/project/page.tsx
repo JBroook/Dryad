@@ -7,7 +7,7 @@ import { FaArrowLeft } from "react-icons/fa";
 
 import type { Member, Project } from "../projects/new/page";
 import { IoIosStats, IoIosWarning, IoMdWifi } from "react-icons/io";
-import { FaMap } from "react-icons/fa6";
+import { FaGear, FaMap } from "react-icons/fa6";
 import { AiOutlineTeam } from "react-icons/ai";
 import { useRouter } from "next/navigation";
 import IncidentsView from "@/components/ProjectView/IncidentsView";
@@ -66,6 +66,7 @@ export default function Project() {
     {title : "Forest Map", href : "forest_map", icon : FaMap },
     {title : "Devices", href : "devices", icon : IoMdWifi},
     {title : "Team", href : "team", icon : AiOutlineTeam},
+    {title : "Settings", href : "settings", icon : FaGear},
   ]
 
   const filterOptions = [
@@ -95,6 +96,7 @@ export default function Project() {
     />,
     devices : <></>,
     team : <></>,
+    settings : <></>,
   }
 
   const isValidTab = (tab: string | null): tab is Tab => {
@@ -189,11 +191,7 @@ export default function Project() {
           tabComponentMapping[tab]
         ) : (
           <span className="loading loading-spinner"></span>
-        )}
-
-        <button className="btn" onClick={()=>console.log(project)}>
-                Press 2
-            </button>
+        )}  
       </>
       :
 

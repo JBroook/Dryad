@@ -1,10 +1,12 @@
 from rest_framework import serializers
-from .models import Project, Membership, ThreatClass, ProjectThreatClass, Incident, Device, Patrol
+from .models import GridCell, Project, Membership, ThreatClass, ProjectThreatClass, Incident, Device, Patrol
 from users.models import User
 from rest_framework_gis.serializers import GeoFeatureModelSerializer
 from django.contrib.gis.geos import GEOSGeometry
 import json
 from users.serializers import UserSerializer
+from django.contrib.gis.geos import GEOSGeometry
+from django.db import connection, transaction
 
 class MembershipSerializer(serializers.ModelSerializer):
     user = UserSerializer()
@@ -18,6 +20,59 @@ class ProjectMemberSerializer(serializers.Serializer):
 
 class ProjectThreatClassSerializer(serializers.Serializer):
     id = serializers.IntegerField()
+
+@transaction.atomic
+def generate_grid(project, cell_size=100):
+    # Remove existing cells if we're regenerating
+    project.grid_cells.all().delete()
+
+    with connection.cursor() as cursor:
+        cursor.execute("""
+            SELECT
+                ST_AsEWKT(
+                    ST_Transform(
+                        ST_Intersection(
+                            grid.geom,
+                            ST_Transform(
+                                p.monitoring_area,
+                                32647
+                            )
+                        ),
+                        4326
+                    )
+                )
+            FROM projects_project p
+
+            CROSS JOIN LATERAL
+                ST_SquareGrid(
+                    %s,
+                    ST_Transform(
+                        p.monitoring_area,
+                        32647
+                    )
+                ) AS grid(geom)
+
+            WHERE p.id = %s
+
+            AND ST_Intersects(
+                grid.geom,
+                ST_Transform(
+                    p.monitoring_area,
+                    32647
+                )
+            )
+        """, [cell_size, project.id])
+
+        rows = cursor.fetchall()
+
+    for index, row in enumerate(rows):
+        geometry = GEOSGeometry(row[0])
+
+        GridCell.objects.create(
+            project=project,
+            geometry=geometry,
+            identifier=f"cell-{index}"
+        )
 
 class ProjectSerializer(GeoFeatureModelSerializer):
     members = ProjectMemberSerializer(many=True, required=False)
@@ -46,6 +101,10 @@ class ProjectSerializer(GeoFeatureModelSerializer):
 
         project = Project.objects.create(**validated_data)
 
+        # generate grid
+        generate_grid(project=project, cell_size=100)
+
+        # generate memberships
         for member in members:
             Membership.objects.create(
                 project=project,
@@ -53,6 +112,7 @@ class ProjectSerializer(GeoFeatureModelSerializer):
                 role=member['role']
             )
 
+        # record threat classes to detect
         for threat_class in threat_classes:
             ProjectThreatClass.objects.create(
                 project=project,
