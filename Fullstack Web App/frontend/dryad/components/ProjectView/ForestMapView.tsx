@@ -17,6 +17,7 @@ const ForestMap = dynamic(() => import("../ForestMap"), {
 interface ForestMapViewProps {
     projectID : string | null;
     geoJSON : GeoJSON | null | undefined;
+    gridCells : any;
     // filterOptions : string[];
     // filterIndex : number;
     // setFilterIndex : (index : number) => void;
@@ -139,6 +140,7 @@ export default function ForestMapView(props: ForestMapViewProps) {
             drawnItemsReference={drawnItemsReference}
             geoJSON={props.geoJSON ?? null}
             editEnabled={false}
+            gridCells={props.gridCells}
             />
         </div>
 </>);

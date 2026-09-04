@@ -44,13 +44,14 @@ export default function Project() {
   const [filterIndex, setFilterIndex] = useState<number>(0);
   const [members, setMembers] = useState<Member[]>([]);
   const [threatClasses, setThreatClasses] = useState<ThreatClass[]>([]);
+  const [gridCells, setGridCells] = useState(null);
 
   const extractProjectFeatures = (data : any) => {
     setProject({
       ...data.properties,
       area : data.properties.surface_area,
       id : data.id,
-      geoJSON : wktToGeoJSON(data.geometry.replace(/^SRID=\d+;/, ""))
+      geoJSON : data.monitoring_area
     })
   }
 
@@ -93,6 +94,7 @@ export default function Project() {
     forest_map : <ForestMapView
       projectID={projectID}
       geoJSON={project?.geoJSON}
+      gridCells={gridCells}
     />,
     devices : <></>,
     team : <></>,
@@ -109,10 +111,6 @@ export default function Project() {
       .then(async (res) => {
         if (!res.ok) throw new Error(await res.text());
         return res.json();
-      })
-      .then((data)=>{
-        console.log(data)
-        return data
       })
       .then((data)=>extractProjectFeatures(data))
       .catch((err) => console.error("Fetch failed:", err));
@@ -148,6 +146,15 @@ export default function Project() {
       return res.json();
     })
     .then((data)=>setThreatClasses(data))
+    .catch((err) => console.error("Fetch failed:", err));
+
+    // fetch project grid cells
+    apiFetch(`http://127.0.0.1:8000/api/projects/${projectID}/grid_cells`)
+    .then(async (res) => {
+      if (!res.ok) throw new Error(await res.text());
+      return res.json();
+    })
+    .then((data)=>setGridCells(data))
     .catch((err) => console.error("Fetch failed:", err));
   }, [])
 
