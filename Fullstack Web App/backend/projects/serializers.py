@@ -74,14 +74,27 @@ def generate_grid(project, cell_size=100):
             identifier=f"cell-{index}"
         )
 
+class GridCellSerializer(GeoFeatureModelSerializer):
+    class Meta:
+        model = GridCell
+
+        geo_field = "geometry"
+
+        fields = [
+            "id",
+            "identifier",
+            "risk_score"
+        ]
+
 class ProjectSerializer(GeoFeatureModelSerializer):
     members = ProjectMemberSerializer(many=True, required=False)
     threat_classes = ProjectThreatClassSerializer(many=True, required=False)
+    grid_cells = GridCellSerializer(many=True, required=False)
 
     class Meta:
         model = Project
         fields = '__all__'
-        read_only_fields = ['owner']
+        read_only_fields = ['owner', 'grid_cells']
         geo_field = "monitoring_area"
 
     def create(self, validated_data):

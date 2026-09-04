@@ -11,6 +11,11 @@ router.register(r'threat_classes', views.ThreatClassViewSet, basename='threat_cl
 router.register(r'incidents', views.IncidentViewSet, basename='incident')
 router.register(r'members', views.MembershipViewSet, basename='member')
 router.register(r'patrols', views.PatrolViewSet, basename='patrol')
+router.register(
+    r'projects/(?P<project_id>\d+)/grid_cells', 
+    views.GridCellViewset, 
+    basename='project_grid_cells'
+)
 
 urlpatterns = [
     path('login/', views.LoginView.as_view(), name="login"),
