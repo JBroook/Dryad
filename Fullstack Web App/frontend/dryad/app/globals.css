@@ -95,3 +95,13 @@
   --color-warning: #F59E0B;
   --color-error: #EF4444;
 }
+
+.incident-popup .leaflet-popup-content-wrapper,
+.incident-popup .leaflet-popup-tip {
+  background-color: #202D26;
+  color: white;
+}
+
+.incident-popup .leaflet-popup-content {
+  margin: 0;
+}

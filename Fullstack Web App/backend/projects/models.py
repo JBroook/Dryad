@@ -67,6 +67,7 @@ class Membership(models.Model):
 class Device(models.Model):
     name = models.CharField(max_length=50)
     location = models.PointField()
+    project = models.ForeignKey(to=Project, on_delete=models.CASCADE)
 
     def __str__(self):
         return self.name

@@ -13,8 +13,13 @@ router.register(r'members', views.MembershipViewSet, basename='member')
 router.register(r'patrols', views.PatrolViewSet, basename='patrol')
 router.register(
     r'projects/(?P<project_id>\d+)/grid_cells', 
-    views.GridCellViewset, 
+    views.GridCellViewSet, 
     basename='project_grid_cells'
+)
+router.register(
+    r'projects/(?P<project_id>\d+)/devices', 
+    views.DeviceViewSet, 
+    basename='project_devices'
 )
 
 urlpatterns = [

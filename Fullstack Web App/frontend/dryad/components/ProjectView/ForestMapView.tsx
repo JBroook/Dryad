@@ -7,10 +7,11 @@ import { IoIosArrowUp, IoMdWifi } from "react-icons/io";
 import GlowButton from "../GlowButton";
 import { RxCross2 } from "react-icons/rx";
 import dynamic from "next/dynamic";
-import type { LatLng, FeatureGroup as LeafletFeatureGroup } from "leaflet";
+import type { FeatureGroup as LeafletFeatureGroup } from "leaflet";
 import { IoWarning } from "react-icons/io5";
 import type { GeoJSON } from 'geojson';
-const ForestMap = dynamic(() => import("../ForestMap"), {
+import { Device, IncidentType } from "@/app/home/project/page";
+const ForestMapFull = dynamic(() => import("../ForestMapFull"), {
     ssr: false,
 });
 
@@ -18,13 +19,8 @@ interface ForestMapViewProps {
     projectID : string | null;
     geoJSON : GeoJSON | null | undefined;
     gridCells : any;
-    // filterOptions : string[];
-    // filterIndex : number;
-    // setFilterIndex : (index : number) => void;
-    // incidents : IncidentType[];
-    // threatClasses : ThreatClass[];
-    // setThreatClasses : (newThreatClasses : ThreatClass[]) => void;
-    // setIncidents : (incidents : IncidentType[]) => void;
+    incidents : IncidentType[];
+    devices : Device[];
 }
 
 export default function ForestMapView(props: ForestMapViewProps) {
@@ -33,9 +29,7 @@ export default function ForestMapView(props: ForestMapViewProps) {
         riskHeatmap : {title : "Risk Heatmap", color : "#F97316", active : true, key : "riskHeatmap"},
         devices : {title : "Devices", color : "#4ADE80", active : true, key : "devices"},
     });
-    const [heatmapOpacity, setHeatmapOpacity] = useState<number>(70);
-
-    const [search, setSearch] = useState<string>("");
+    const [heatmapOpacity, setHeatmapOpacity] = useState<number>(15);
     const [latitude, setLatitude] = useState<number>(52.51);
     const [longitude, setLongitude] = useState<number>(13.38);
 
@@ -69,6 +63,7 @@ export default function ForestMapView(props: ForestMapViewProps) {
                         </div>
                         <div>
                             <p className="font-semibold text-sm">Incidents</p>
+                            <p className="text-xs text-secondary-content">Past 30 days</p>
                         </div>
                         </div>
                         <input 
@@ -96,7 +91,14 @@ export default function ForestMapView(props: ForestMapViewProps) {
                             <span>Opacity</span>
                             <span>{heatmapOpacity}%</span>
                         </div>
-                        <input type="range" min={0} max={100} value={heatmapOpacity} onChange={(e)=>setHeatmapOpacity(parseInt(e.target.value))} className="range range-primary" />
+                        <input 
+                        type="range" 
+                        min={0} 
+                        max={100} 
+                        value={heatmapOpacity} 
+                        onChange={(e)=>setHeatmapOpacity(parseInt(e.target.value))} 
+                        disabled={!mapTags.riskHeatmap.active}
+                        className="range range-primary" />
                     </div>
 
                     <div className="flex items-center justify-between">
@@ -131,17 +133,18 @@ export default function ForestMapView(props: ForestMapViewProps) {
         </div>
 
         <div className="mx-6 mt-2 mb-20">
-            <ForestMap 
-            searchValue={search}
+            <ForestMapFull 
             latitude={latitude}
             longitude={longitude}
-            handleArea={()=>{}}
             drawingEnabled={false}
             drawnItemsReference={drawnItemsReference}
             geoJSON={props.geoJSON ?? null}
-            editEnabled={false}
             gridCells={props.gridCells}
             gridOpacity={mapTags.riskHeatmap.active ? heatmapOpacity/100 : 0}
+            incidents={props.incidents}
+            enableIncidents={mapTags.incidents.active}
+            devices={props.devices}
+            enableDevices={mapTags.devices.active}
             />
         </div>
 </>);

@@ -21,7 +21,6 @@ interface ForestMapProps {
     drawingEnabled : boolean;
     drawnItemsReference : RefObject<LeafletFeatureGroup | null>;
     geoJSON : GeoJSONType | null;
-    editEnabled : boolean;
     gridCells? : any;
     gridOpacity? : number;
 }
@@ -173,10 +172,6 @@ export default function ForestMap({
                         marker: false,
                         polyline: false,
                         circlemarker: false,
-                    }}
-                    edit={{
-                        edit :  props.editEnabled,
-                        remove : props.editEnabled
                     }}
                     onCreated={handleRegionCreation}
                     onEdited={handleRegionEdit}

@@ -6,10 +6,10 @@ from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet
 from users.serializers import UserSerializer
 from users.models import User
-from projects.models import Project, Incident, ThreatClass, Membership, Patrol, GridCell
+from projects.models import Project, Incident, ThreatClass, Membership, Patrol, GridCell, Device
 from projects.serializers import (ProjectSerializer, IncidentSerializer, 
 ThreatClassSerializer, MembershipSerializer, PatrolSerializer,
-GridCellSerializer)
+GridCellSerializer, DeviceSerializer)
 from django.db.models import Q
 from django_filters.rest_framework import DjangoFilterBackend
 import django_filters
@@ -153,7 +153,7 @@ class PatrolViewSet(ModelViewSet):
             status=status.HTTP_201_CREATED,
         )
 
-class GridCellViewset(ModelViewSet):
+class GridCellViewSet(ModelViewSet):
     queryset = GridCell.objects.all()
     serializer_class = GridCellSerializer
     
@@ -165,4 +165,16 @@ class GridCellViewset(ModelViewSet):
         return queryset.filter(
             project_id=project_id
         )
-    
+
+class DeviceViewSet(ModelViewSet):
+    queryset = Device.objects.all()
+    serializer_class = DeviceSerializer
+
+    def get_queryset(self):
+        queryset = self.queryset
+
+        project_id = self.kwargs["project_id"]
+
+        return queryset.filter(
+            project_id=project_id
+        )

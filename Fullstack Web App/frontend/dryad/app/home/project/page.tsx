@@ -17,10 +17,11 @@ import { Coordinate } from "@/components/Incident";
 
 type Tab = "overview" | "incidents" | "forest_map" | "devices" | "team";
 
-type Device = {
+export type Device = {
   id : number;
   name : string;
-  location : string;
+  location : {type : string, coordinates : number[]};
+  project : number;
 }
 
 export type IncidentType = {
@@ -45,6 +46,7 @@ export default function Project() {
   const [members, setMembers] = useState<Member[]>([]);
   const [threatClasses, setThreatClasses] = useState<ThreatClass[]>([]);
   const [gridCells, setGridCells] = useState(null);
+  const [devices, setDevices] = useState<Device[]>([]);
 
   const extractProjectFeatures = (data : any) => {
     setProject({
@@ -101,6 +103,8 @@ export default function Project() {
       projectID={projectID}
       geoJSON={project?.geoJSON}
       gridCells={gridCells}
+      incidents={incidents}
+      devices={devices}
     />,
     devices : <></>,
     team : <></>,
@@ -163,6 +167,15 @@ export default function Project() {
       return res.json();
     })
     .then((data)=>setGridCells(data))
+    .catch((err) => console.error("Fetch failed:", err));
+
+    // fetch project devices
+    apiFetch(`http://127.0.0.1:8000/api/projects/${projectID}/devices`)
+    .then(async (res) => {
+      if (!res.ok) throw new Error(await res.text());
+      return res.json();
+    })
+    .then((data)=>setDevices(data))
     .catch((err) => console.error("Fetch failed:", err));
   }, [])
 
