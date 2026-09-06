@@ -141,6 +141,7 @@ export default function ForestMapView(props: ForestMapViewProps) {
             geoJSON={props.geoJSON ?? null}
             editEnabled={false}
             gridCells={props.gridCells}
+            gridOpacity={mapTags.riskHeatmap.active ? heatmapOpacity/100 : 0}
             />
         </div>
 </>);

@@ -23,9 +23,13 @@ interface ForestMapProps {
     geoJSON : GeoJSONType | null;
     editEnabled : boolean;
     gridCells? : any;
+    gridOpacity? : number;
 }
 
-export default function ForestMap(props: ForestMapProps) {
+export default function ForestMap({
+    gridOpacity = 0.5,
+    ...props
+}: ForestMapProps) {
     const position = L.latLng(52.51, 13.38);
 
     function MapController({
@@ -121,11 +125,6 @@ export default function ForestMap(props: ForestMapProps) {
         });
     }
 
-    useEffect(() => {
-        console.log("GRID CELLS:", props.gridCells);
-        console.log("FIRST GRID CELL:", props.gridCells?.features?.[0]);
-    }, [props.gridCells]);
-
     return ( 
     <div className="map w-full h-[500px] rounded-md overflow-hidden z-0">
         <MapContainer 
@@ -151,9 +150,10 @@ export default function ForestMap(props: ForestMapProps) {
                     data={props.gridCells}
                     style={{
                         color: "red",
+                        opacity : gridOpacity,
                         weight: 2,
                         fillColor: "yellow",
-                        fillOpacity: 0.3,
+                        fillOpacity: gridOpacity,
                     }}
                 />
             )}

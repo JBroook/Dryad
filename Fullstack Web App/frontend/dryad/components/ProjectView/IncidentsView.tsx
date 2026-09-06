@@ -3,7 +3,7 @@
 import Incident from "../Incident";
 import { FaTruck } from "react-icons/fa";
 import type { IncidentType } from "@/app/home/project/page";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { apiFetch } from "@/lib/api";
 import { FaPersonCircleCheck } from "react-icons/fa6";
 import { IoSearch } from "react-icons/io5";
@@ -276,7 +276,13 @@ export default function IncidentsView(props: IncidentsViewProps) {
 
     const extractIncidents = (data : any)=>{
         props.setIncidents(data.map((incident : any)=>{
-        return {...incident, threatClass : incident.threat_class}
+        return {...incident, 
+            threatClass : incident.threat_class,
+            coordinates : {
+            lat : parseFloat(incident.coordinates.coordinates[0]),
+            lng : parseFloat(incident.coordinates.coordinates[1])
+            }
+        }
         }))
     }
 
@@ -298,7 +304,13 @@ export default function IncidentsView(props: IncidentsViewProps) {
         return () => clearTimeout(timeout);
     }, [searchMember]);
 
+    const isFirstRender = useRef(true);
     useEffect(() => {
+        if (isFirstRender.current) {
+            isFirstRender.current = false;
+            return;
+        }
+
         const timeout = setTimeout(() => {
             apiSearchIncident(searchIncident)
         }, 250);
@@ -557,7 +569,7 @@ export default function IncidentsView(props: IncidentsViewProps) {
                     key={index}
                     color="#F97316"
                     name={incident.threatClass.name}
-                    location={incident.coordinates}
+                    coordinates={incident.coordinates}
                     timestamp={incident.timestamp}
                     device={incident.device.name}
                     confidence={incident.confidence}

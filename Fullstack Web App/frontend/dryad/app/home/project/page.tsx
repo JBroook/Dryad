@@ -13,7 +13,7 @@ import { useRouter } from "next/navigation";
 import IncidentsView from "@/components/ProjectView/IncidentsView";
 import type { ThreatClass } from "../projects/new/page";
 import ForestMapView from "@/components/ProjectView/ForestMapView";
-const { wktToGeoJSON } = require('@terraformer/wkt');
+import { Coordinate } from "@/components/Incident";
 
 type Tab = "overview" | "incidents" | "forest_map" | "devices" | "team";
 
@@ -25,7 +25,7 @@ type Device = {
 
 export type IncidentType = {
   id : number;
-  coordinates : string;
+  coordinates : Coordinate;
   timestamp : string;
   confidence : number;
   status : string;
@@ -51,13 +51,19 @@ export default function Project() {
       ...data.properties,
       area : data.properties.surface_area,
       id : data.id,
-      geoJSON : data.monitoring_area
+      geoJSON : data.geometry
     })
   }
 
   const extractIncidents = (data : any)=>{
     setIncidents(data.map((incident : any)=>{
-      return {...incident, threatClass : incident.threat_class}
+      return {...incident, 
+        threatClass : incident.threat_class,
+        coordinates : {
+          lat : parseFloat(incident.coordinates.coordinates[0]),
+          lng : parseFloat(incident.coordinates.coordinates[1])
+        }
+      }
     }))
   }
 
@@ -112,6 +118,7 @@ export default function Project() {
         if (!res.ok) throw new Error(await res.text());
         return res.json();
       })
+      .then((data)=>{console.log(data); return data})
       .then((data)=>extractProjectFeatures(data))
       .catch((err) => console.error("Fetch failed:", err));
 
@@ -121,6 +128,7 @@ export default function Project() {
         if (!res.ok) throw new Error(await res.text());
         return res.json();
       })
+      .then((data)=>{console.log(data); return data})
       .then((data)=>extractIncidents(data))
       .catch((err) => console.error("Fetch failed:", err));
 
