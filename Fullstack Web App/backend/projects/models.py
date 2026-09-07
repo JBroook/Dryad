@@ -3,6 +3,7 @@ from django.contrib.gis.db import models
 from django.core.validators import MaxValueValidator, MinValueValidator
 
 # Create your models here.
+
 class Project(models.Model):
     name = models.CharField(max_length=50)
     status = models.BooleanField(default=True)
@@ -66,6 +67,7 @@ class Membership(models.Model):
 class Device(models.Model):
     name = models.CharField(max_length=50)
     location = models.PointField()
+    project = models.ForeignKey(to=Project, on_delete=models.CASCADE)
 
     def __str__(self):
         return self.name
@@ -96,3 +98,11 @@ class Patrol(models.Model):
     path = models.LineStringField(blank=True, null=True)
     member = models.ForeignKey(to=Membership, on_delete=models.CASCADE)
     project = models.ForeignKey(to=Project, on_delete=models.CASCADE)
+
+class GridCell(models.Model):
+    project = models.ForeignKey(to=Project, on_delete=models.CASCADE, related_name="grid_cells")
+    risk_score = models.FloatField(default=0)
+    geometry = models.PolygonField(
+        srid=4326
+    )
+    identifier = models.CharField(max_length=10)

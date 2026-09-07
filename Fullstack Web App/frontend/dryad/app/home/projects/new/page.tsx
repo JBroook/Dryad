@@ -184,7 +184,7 @@ export default function New() {
   
   return (
   <div className="flex flex-col">
-    <div className="fixed top-0 h-20 w-full flex flex-row items-center bg-secondary border-b border-b-white/8 z-1">
+    <div className="fixed top-0 h-20 w-full flex flex-row items-center bg-base-200 border-b border-b-white/8 z-1">
       <button onClick={()=> window.history.back()}
         className="btn text-secondary-content font-medium ml-5">
         <FaArrowLeft className="text-secondary-content"/>

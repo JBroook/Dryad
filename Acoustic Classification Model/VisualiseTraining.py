@@ -16,6 +16,10 @@ for fold in grouped_by_fold:
     loss = [d['loss'] for d in fold_epochs]
     epochs = [d['epoch'] for d in fold_epochs]
 
-    plt.plot(epochs, acc)
+    plt.plot(epochs, acc, label=f"Fold {fold+1}")
+
+plt.legend()
+plt.xlabel("Epoch")
+plt.ylabel("Accuracy")
 
 plt.show()

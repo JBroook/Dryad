@@ -9,7 +9,7 @@ import GlowButton from "./GlowButton";
 interface IncidentProps {
     color : string;
     name : string;
-    location : string;
+    coordinates : Coordinate;
     timestamp : string;
     device : string;
     confidence : number;
@@ -19,28 +19,14 @@ interface IncidentProps {
     status : string;
 }
 
-type Coordinate = {
+export type Coordinate = {
     lat : number;
     lng : number;
-}
-
-function wktToLatLng(wkt: string): Coordinate {
-  const match = wkt.match(/POINT\s*\(\s*([-.\d]+)\s+([-.\d]+)\s*\)/i);
-
-  if (!match) {
-    throw new Error(`Invalid POINT WKT: ${wkt}`);
-  }
-
-  const longitude = parseFloat(match[1]);
-  const latitude = parseFloat(match[2]);
-
-  return {lat : latitude, lng : longitude};
 }
 
 export default function Incident(props : IncidentProps) {
     const Icon = getThreatIcon(props.name);
     const [isOpen, setIsOpen] = useState(false);
-    const coordinates = wktToLatLng(props.location)
     const date = new Date(props.timestamp);
 
     const casualDate = date.toLocaleDateString("en-US", {
@@ -73,7 +59,7 @@ export default function Incident(props : IncidentProps) {
 
                 <div className="flex flex-row items-center text-secondary-content text-sm">
                     <MdOutlineLocationOn className="mr-1"/> 
-                    <p className="mr-3">{`${coordinates.lat.toFixed(5)}°, ${coordinates.lat.toPrecision(5)}°`}</p>
+                    <p className="mr-3">{`${props.coordinates.lat?.toPrecision(5)}°, ${props.coordinates.lng?.toPrecision(5)}°`}</p>
 
                     <FaRegClock className="mr-1"/> 
                     <p className="mr-3">{casualDate}</p>
@@ -103,7 +89,7 @@ export default function Incident(props : IncidentProps) {
                 <div className="flex-1 bg-secondary rounded-xl p-4 mr-2">
                     <p className="text-secondary-content text-sm mb-2">GPS Coordinates</p>
                     <h1>
-                        {`${coordinates.lat.toFixed(5)}°, ${coordinates.lat.toPrecision(5)}°`}
+                        {`${props.coordinates.lat?.toPrecision(5)}°, ${props.coordinates.lng?.toPrecision(5)}°`}
                     </h1>
                 </div>
 

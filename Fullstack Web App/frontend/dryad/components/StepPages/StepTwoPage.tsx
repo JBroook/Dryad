@@ -90,6 +90,7 @@ export default function StepTwoPage(props: StepPageProps) {
                 drawingEnabled={props.forestArea==null}
                 drawnItemsReference={drawnItemsReference}
                 geoJSON={props.geoJSON}
+                editEnabled={true}
                 />
 
             <p className="text-secondary-content text-md mt-1">

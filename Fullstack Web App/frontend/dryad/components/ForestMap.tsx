@@ -5,7 +5,8 @@ import { Ref, RefObject, useEffect, useRef, useState } from 'react';
 import { FeatureGroup, MapContainer, TileLayer, useMap } from 'react-leaflet'
 import type { LatLng, FeatureGroup as LeafletFeatureGroup } from "leaflet";
 import { EditControl } from 'react-leaflet-draw';
-import type { GeoJSON } from 'geojson';
+import type { GeoJSON as GeoJSONType} from 'geojson';
+import { GeoJSON } from "react-leaflet";
 import * as turf from "@turf/turf";
 
 import 'leaflet/dist/leaflet.css';
@@ -16,13 +17,18 @@ interface ForestMapProps {
     searchValue : string;
     latitude : number;
     longitude : number;
-    handleArea : (area : GeoJSON, surfaceArea : number, center : LatLng) => void;
+    handleArea : (area : GeoJSONType, surfaceArea : number, center : LatLng) => void;
     drawingEnabled : boolean;
     drawnItemsReference : RefObject<LeafletFeatureGroup | null>;
-    geoJSON : GeoJSON | null;
+    geoJSON : GeoJSONType | null;
+    gridCells? : any;
+    gridOpacity? : number;
 }
 
-export default function ForestMap(props: ForestMapProps) {
+export default function ForestMap({
+    gridOpacity = 0.5,
+    ...props
+}: ForestMapProps) {
     const position = L.latLng(52.51, 13.38);
 
     function MapController({
@@ -50,7 +56,7 @@ export default function ForestMap(props: ForestMapProps) {
         geoJSON,
         featureGroupRef,
     }: {
-        geoJSON: GeoJSON | null;
+        geoJSON: GeoJSONType | null;
         featureGroupRef: RefObject<LeafletFeatureGroup | null>;
     }) {
         const map = useMap();
@@ -137,6 +143,19 @@ export default function ForestMap(props: ForestMapProps) {
                 }}
                 hasGeoJSON={props.geoJSON !== null}
             />
+
+            {props.gridCells && (
+                <GeoJSON
+                    data={props.gridCells}
+                    style={{
+                        color: "red",
+                        opacity : gridOpacity,
+                        weight: 2,
+                        fillColor: "yellow",
+                        fillOpacity: gridOpacity,
+                    }}
+                />
+            )}
 
             <FeatureGroup ref={props.drawnItemsReference}>
                 <GeoJSONLoader

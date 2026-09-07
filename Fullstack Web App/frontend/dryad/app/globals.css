@@ -23,27 +23,33 @@
 
   --font-sans: var(--font-inter);
 
-  --color-primary: #16A34A;
+  /* Primary: Deep forest green for clear button visibility */
+  --color-primary: #15803D;
   --color-primary-content: #ffffff;
 
-  --color-secondary: #E8F5EC;
-  --color-secondary-content: #0A1410;
+  /* Secondary: Soft sage for badge backgrounds */
+  --color-secondary: #DCFCE7;
+  --color-secondary-content: #14532D;
 
-  --color-accent: #22C55E;
+  /* Accent: Mint tone for subtle highlights */
+  --color-accent: #10B981;
   --color-accent-content: #ffffff;
 
-  --color-neutral: #1f2937;
-  --color-neutral-content: #f9fafb;
+  --color-neutral: #1E293B;
+  --color-neutral-content: #F8FAFC;
 
-  --color-base-100: #ffffff;
-  --color-base-200: #f3f7f4;
-  --color-base-300: #e5ebe7;
-  --color-base-content: #0A1410;
+  /* Base Surfaces: Creates real visual boundaries for cards & sidebar */
+  --color-base-100: #FFFFFF; /* Card surface */
+  --color-base-200: #F1F5F9; /* Page background & sidebar (cool gray/slate tint) */
+  --color-base-300: #E2E8F0; /* Visible borders & outlines */
 
-  --color-info: #0ea5e9;
-  --color-success: #22c55e;
-  --color-warning: #f59e0b;
-  --color-error: #ef4444;
+  /* Text: High contrast charcoal */
+  --color-base-content: #0F172A;
+
+  --color-info: #0284C7;
+  --color-success: #16A34A;
+  --color-warning: #D97706;
+  --color-error: #DC2626;
 }
 
 /* Dark */
@@ -56,29 +62,46 @@
   --radius-field: 0.5rem;
   --radius-selector: 0.5rem;
   --radius-box: 0.75rem;
-  --border: 0px;
+  --border: 0px; /* Added subtle borders to define card edges without high-contrast backgrounds */
 
   --font-sans: var(--font-inter);
 
-  --color-primary: #16A34A;
-  --color-primary-content: #ffffff;
+  /* Primary: Desaturated from bright green to a softer forest tone */
+  --color-primary: #22C55E;
+  --color-primary-content: #121A15;
 
-  --color-secondary: #19221E;
-  --color-secondary-content: #898D8A;
+  /* Secondary: Lightened for better visibility on dark surfaces */
+  --color-secondary: #222F28;
+  --color-secondary-content: #A3B1A8;
 
-  --color-accent: #4ADE80;
-  --color-accent-content: #ffffff;
+  /* Accent: Toned down to prevent glare */
+  --color-accent: #34D399;
+  --color-accent-content: #0B1912;
 
-  --color-neutral: #1f2937;
-  --color-neutral-content: #f9fafb;
+  --color-neutral: #243029;
+  --color-neutral-content: #E2E8F0;
 
-  --color-base-100: #070F09;
-  --color-base-200: #0a1913;
-  --color-base-300: #0C2618;
-  --color-base-content: #ffffff;
+  /* Base: Raised from near-black (#070F09) to dark slate shades to eliminate visual halation */
+  --color-base-100: #121A15; /* Main background */
+  --color-base-200: #18231D; /* Card background */
+  --color-base-300: #202D26; /* Hover / Elevated surfaces */
 
-  --color-info: #60A5FA;
-  --color-success: #22c55e;
-  --color-warning: #F87171;
-  --color-error: #ef4444;
+  /* Base Content: Off-white instead of pure #ffffff to stop text glowing */
+  --color-base-content: #E2E8F0;
+
+  /* Status Colors: Slightly softened saturations */
+  --color-info: #3B82F6;
+  --color-success: #10B981;
+  --color-warning: #F59E0B;
+  --color-error: #EF4444;
+}
+
+.incident-popup .leaflet-popup-content-wrapper,
+.incident-popup .leaflet-popup-tip {
+  background-color: #202D26;
+  color: white;
+}
+
+.incident-popup .leaflet-popup-content {
+  margin: 0;
 }

@@ -12,7 +12,7 @@ interface BottomBarProps {
 
 export default function BottomBar(props: BottomBarProps) {
     return (
-        <div className="bg-secondary w-full h-18 shrink-0 border-t border-t-white/8 flex flex-row items-center justify-between">
+        <div className="bg-base-200 w-full h-18 shrink-0 border-t border-t-white/8 flex flex-row items-center justify-between">
             <button 
                 className="btn text-secondary-content font-medium ml-5"
                 onClick={props.backEvent}>

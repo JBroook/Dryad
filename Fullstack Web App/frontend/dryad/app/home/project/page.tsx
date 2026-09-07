@@ -7,23 +7,26 @@ import { FaArrowLeft } from "react-icons/fa";
 
 import type { Member, Project } from "../projects/new/page";
 import { IoIosStats, IoIosWarning, IoMdWifi } from "react-icons/io";
-import { FaMap } from "react-icons/fa6";
+import { FaGear, FaMap } from "react-icons/fa6";
 import { AiOutlineTeam } from "react-icons/ai";
 import { useRouter } from "next/navigation";
 import IncidentsView from "@/components/ProjectView/IncidentsView";
 import type { ThreatClass } from "../projects/new/page";
+import ForestMapView from "@/components/ProjectView/ForestMapView";
+import { Coordinate } from "@/components/Incident";
 
 type Tab = "overview" | "incidents" | "forest_map" | "devices" | "team";
 
-type Device = {
+export type Device = {
   id : number;
   name : string;
-  location : string;
+  location : {type : string, coordinates : number[]};
+  project : number;
 }
 
 export type IncidentType = {
   id : number;
-  coordinates : string;
+  coordinates : Coordinate;
   timestamp : string;
   confidence : number;
   status : string;
@@ -42,18 +45,27 @@ export default function Project() {
   const [filterIndex, setFilterIndex] = useState<number>(0);
   const [members, setMembers] = useState<Member[]>([]);
   const [threatClasses, setThreatClasses] = useState<ThreatClass[]>([]);
+  const [gridCells, setGridCells] = useState(null);
+  const [devices, setDevices] = useState<Device[]>([]);
 
   const extractProjectFeatures = (data : any) => {
     setProject({
       ...data.properties,
       area : data.properties.surface_area,
-      id : data.id
+      id : data.id,
+      geoJSON : data.geometry
     })
   }
 
   const extractIncidents = (data : any)=>{
     setIncidents(data.map((incident : any)=>{
-      return {...incident, threatClass : incident.threat_class}
+      return {...incident, 
+        threatClass : incident.threat_class,
+        coordinates : {
+          lat : parseFloat(incident.coordinates.coordinates[0]),
+          lng : parseFloat(incident.coordinates.coordinates[1])
+        }
+      }
     }))
   }
 
@@ -63,6 +75,7 @@ export default function Project() {
     {title : "Forest Map", href : "forest_map", icon : FaMap },
     {title : "Devices", href : "devices", icon : IoMdWifi},
     {title : "Team", href : "team", icon : AiOutlineTeam},
+    {title : "Settings", href : "settings", icon : FaGear},
   ]
 
   const filterOptions = [
@@ -86,9 +99,16 @@ export default function Project() {
       setThreatClasses={setThreatClasses}
       setIncidents={setIncidents}
     />,
-    forest_map : <></>,
+    forest_map : <ForestMapView
+      projectID={projectID}
+      geoJSON={project?.geoJSON}
+      gridCells={gridCells}
+      incidents={incidents}
+      devices={devices}
+    />,
     devices : <></>,
     team : <></>,
+    settings : <></>,
   }
 
   const isValidTab = (tab: string | null): tab is Tab => {
@@ -102,6 +122,7 @@ export default function Project() {
         if (!res.ok) throw new Error(await res.text());
         return res.json();
       })
+      .then((data)=>{console.log(data); return data})
       .then((data)=>extractProjectFeatures(data))
       .catch((err) => console.error("Fetch failed:", err));
 
@@ -111,6 +132,7 @@ export default function Project() {
         if (!res.ok) throw new Error(await res.text());
         return res.json();
       })
+      .then((data)=>{console.log(data); return data})
       .then((data)=>extractIncidents(data))
       .catch((err) => console.error("Fetch failed:", err));
 
@@ -136,6 +158,24 @@ export default function Project() {
       return res.json();
     })
     .then((data)=>setThreatClasses(data))
+    .catch((err) => console.error("Fetch failed:", err));
+
+    // fetch project grid cells
+    apiFetch(`http://127.0.0.1:8000/api/projects/${projectID}/grid_cells`)
+    .then(async (res) => {
+      if (!res.ok) throw new Error(await res.text());
+      return res.json();
+    })
+    .then((data)=>setGridCells(data))
+    .catch((err) => console.error("Fetch failed:", err));
+
+    // fetch project devices
+    apiFetch(`http://127.0.0.1:8000/api/projects/${projectID}/devices`)
+    .then(async (res) => {
+      if (!res.ok) throw new Error(await res.text());
+      return res.json();
+    })
+    .then((data)=>setDevices(data))
     .catch((err) => console.error("Fetch failed:", err));
   }, [])
 
@@ -179,7 +219,7 @@ export default function Project() {
           tabComponentMapping[tab]
         ) : (
           <span className="loading loading-spinner"></span>
-        )}
+        )}  
       </>
       :
 

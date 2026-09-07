@@ -112,7 +112,7 @@ export default function Home() {
         <h2 className="ml-8 mt-8 mb-4 font-semibold">
           Your Projects
         </h2>
-        <div className="grid grid-cols-3 gap-x-3 gap-y-5 px-8 w-full mb-32">
+        <div className="grid grid-cols-[repeat(auto-fit,minmax(280px,1fr))] gap-x-3 gap-y-5 px-8 w-full mb-32">
           {allProjects.map((project, index)=>{
             return <ProjectCard
               key={index}
@@ -132,7 +132,7 @@ export default function Home() {
 
           <Link className="flex flex-col justify-center 
           items-center rounded-xl border border-white/8
-          cursor-pointer hover:bg-white/4"
+          cursor-pointer hover:bg-base-300 min-h-50 bg-base-200"
           href="/home/projects/new"
           >
               <div className="rounded-full border border-primary bg-base-300 p-2 mb-2">

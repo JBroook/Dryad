@@ -25,7 +25,7 @@ export default function StepPanel(props: StepPanelProps) {
 
     return (<aside className="w-64 shrink-0 ">
         <div className="fixed 
-        top-20 w-64 bg-secondary bottom-0 border-l 
+        top-20 w-64 bg-base-200 bottom-0 border-l 
         border-l-white/8 border-l-width-[2px]
         flex flex-col items-center px-5 pt-10
         ">
