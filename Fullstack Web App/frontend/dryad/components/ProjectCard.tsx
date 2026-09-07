@@ -31,7 +31,8 @@ export default function ProjectCard(props : ProjectCardProps) {
       before:bg-[var(--accent-color)]
       border border-white/8 border-width-[2px]
       cursor-pointer
-      hover:bg-white/4
+      hover:bg-base-300
+      bg-base-200
     `}
     style={{
       "--accent-color": props.accentColor,
