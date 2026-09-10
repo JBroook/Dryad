@@ -14,6 +14,7 @@ import IncidentsView from "@/components/ProjectView/IncidentsView";
 import type { ThreatClass } from "../projects/new/page";
 import ForestMapView from "@/components/ProjectView/ForestMapView";
 import { Coordinate } from "@/components/Incident";
+import DevicesView from "@/components/ProjectView/DevicesView";
 
 type Tab = "overview" | "incidents" | "forest_map" | "devices" | "team";
 
@@ -106,7 +107,9 @@ export default function Project() {
       incidents={incidents}
       devices={devices}
     />,
-    devices : <></>,
+    devices : <DevicesView 
+      projectID={projectID}
+      devices={devices}/>,
     team : <></>,
     settings : <></>,
   }
