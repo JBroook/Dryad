@@ -23,6 +23,9 @@ export type Device = {
   name : string;
   location : {type : string, coordinates : number[]};
   project : number;
+  lastSeen : string;
+  status : string;
+  battery : number;
 }
 
 export type IncidentType = {
@@ -109,7 +112,8 @@ export default function Project() {
     />,
     devices : <DevicesView 
       projectID={projectID}
-      devices={devices}/>,
+      devices={devices}
+      setDevices={setDevices}/>,
     team : <></>,
     settings : <></>,
   }
@@ -178,7 +182,14 @@ export default function Project() {
       if (!res.ok) throw new Error(await res.text());
       return res.json();
     })
-    .then((data)=>setDevices(data))
+    .then((data)=>{
+      setDevices(data.map((device: any) => {
+        return {
+          ...device,
+          lastSeen: device.last_seen,
+        };
+      }));
+    })
     .catch((err) => console.error("Fetch failed:", err));
   }, [])
 

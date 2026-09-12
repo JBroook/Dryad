@@ -1,3 +1,6 @@
+from django.utils import timezone
+import secrets
+import string
 from rest_framework import status
 from rest_framework.views import APIView
 from users.serializers import LoginSerializer
@@ -6,8 +9,8 @@ from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet
 from users.serializers import UserSerializer
 from users.models import User
-from projects.models import Project, Incident, ThreatClass, Membership, Patrol, GridCell, Device
-from projects.serializers import (ProjectSerializer, IncidentSerializer, 
+from projects.models import ConnectionCode, Project, Incident, ThreatClass, Membership, Patrol, GridCell, Device
+from projects.serializers import (DeviceConnectSerializer, ProjectSerializer, IncidentSerializer, 
 ThreatClassSerializer, MembershipSerializer, PatrolSerializer,
 GridCellSerializer, DeviceSerializer)
 from django.db.models import Q
@@ -177,4 +180,92 @@ class DeviceViewSet(ModelViewSet):
 
         return queryset.filter(
             project_id=project_id
+        )
+
+class ProjectGetCodeView(APIView):
+    def post(self, request, project_id):
+        characters = string.ascii_uppercase + string.digits
+        code = ''.join(secrets.choice(characters) for _ in range(6))
+
+        ConnectionCode.objects.create(
+            code = code,
+            project=Project.objects.get(pk=project_id)
+        )
+
+        return Response(
+            {"code" : code},
+            status=status.HTTP_201_CREATED
+        )
+
+class DeviceConnectionView(APIView):
+    def post(self, request):
+        serializer = DeviceConnectSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        code = serializer.validated_data["code"]
+        coordinate = serializer.validated_data["coordinate"]
+        battery = serializer.validated_data["battery"]
+
+        try:
+            connection_code = ConnectionCode.objects.get(code=code)
+        except ConnectionCode.DoesNotExist:
+            return Response({
+                "detail" : "Invalid Connection Code"
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        if not connection_code.is_valid:
+            return Response(
+                {"detail": "Connection code has expired or was already used."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        device = Device.objects.create(
+            name=f"Device-{code}",
+            location = coordinate,
+            project = connection_code.project,
+            battery=battery,
+            status="online"
+        )
+
+        connection_code.used_at = timezone.now()
+        connection_code.device = device
+        connection_code.save(update_fields=["used_at","device"])
+
+        return Response(
+            {
+                "message": "Device connected successfully.",
+                "device_id": device.id,
+            },
+            status=status.HTTP_201_CREATED,
+        )
+
+    def get(self, request):
+        code = request.query_params.get("code")
+
+        try:
+            connection_code = ConnectionCode.objects.get(code=code)
+        except ConnectionCode.DoesNotExist:
+            return Response(
+                {"status": "not_found"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        if connection_code.expires_at < timezone.now():
+            return Response(
+                {"status": "expired"},
+                status=status.HTTP_200_OK,
+            )
+
+        if connection_code.used_at:
+            return Response(
+                {
+                    "status": "claimed",
+                    "device": DeviceSerializer(connection_code.device).data
+                },
+                status=status.HTTP_200_OK,
+            )
+
+        return Response(
+            {"status": "available"},
+            status=status.HTTP_200_OK,
         )

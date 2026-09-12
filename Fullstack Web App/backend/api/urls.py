@@ -1,6 +1,5 @@
 from django.urls import path, include
 from . import views
-from .  import views
 from rest_framework.routers import DefaultRouter
 
 router = DefaultRouter()
@@ -24,5 +23,7 @@ router.register(
 
 urlpatterns = [
     path('login/', views.LoginView.as_view(), name="login"),
-    path('', include(router.urls))
+    path('', include(router.urls)),
+    path('projects/<int:project_id>/connection_code', views.ProjectGetCodeView.as_view(), name="project_code"),
+    path('devices/connect', views.DeviceConnectionView.as_view(), name="connect_device")
 ]
