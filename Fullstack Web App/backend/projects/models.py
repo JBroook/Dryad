@@ -1,3 +1,6 @@
+from datetime import timedelta
+from django.utils import timezone
+
 from users.models import User
 from django.contrib.gis.db import models
 from django.core.validators import MaxValueValidator, MinValueValidator
@@ -68,6 +71,17 @@ class Device(models.Model):
     name = models.CharField(max_length=50)
     location = models.PointField()
     project = models.ForeignKey(to=Project, on_delete=models.CASCADE)
+    battery = models.IntegerField()
+
+    class Status(models.TextChoices):
+        ONLINE = "online", "Online"
+        OFFLINE = "offline", "Offline"
+
+    status = models.CharField(
+        choices=Status.choices
+    )
+
+    last_seen = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
         return self.name
@@ -106,3 +120,26 @@ class GridCell(models.Model):
         srid=4326
     )
     identifier = models.CharField(max_length=10)
+
+class ConnectionCode(models.Model):
+    code = models.CharField(max_length=6, unique=True)
+    project = models.ForeignKey(to=Project, on_delete=models.CASCADE)
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField()
+    used_at = models.DateTimeField(null=True, blank=True)
+    device = models.ForeignKey(to=Device, on_delete=models.CASCADE, blank=True, null=True)
+
+    @property
+    def is_valid(self):
+        return (
+            self.used_at is None
+            and timezone.now() < self.expires_at
+        )
+
+    def __str__(self):
+        return self.code
+
+    def save(self, *args, **kwargs):
+        if not self.pk:
+            self.expires_at = timezone.now() + timedelta(minutes=5)
+        super().save(*args, **kwargs)

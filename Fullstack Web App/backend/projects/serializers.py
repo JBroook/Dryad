@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import GridCell, Project, Membership, ThreatClass, ProjectThreatClass, Incident, Device, Patrol
+from .models import ConnectionCode, GridCell, Project, Membership, ThreatClass, ProjectThreatClass, Incident, Device, Patrol
 from users.models import User
 from rest_framework_gis.serializers import GeoFeatureModelSerializer
 from django.contrib.gis.geos import GEOSGeometry
@@ -7,6 +7,7 @@ import json
 from users.serializers import UserSerializer
 from django.contrib.gis.geos import GEOSGeometry
 from django.db import connection, transaction
+from rest_framework_gis.fields import GeometryField
 
 class MembershipSerializer(serializers.ModelSerializer):
     user = UserSerializer()
@@ -158,3 +159,13 @@ class IncidentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Incident
         fields = '__all__'
+
+class DeviceConnectSerializer(serializers.Serializer):
+    code = serializers.CharField(max_length=6)
+    coordinate = GeometryField()
+    battery = serializers.IntegerField()
+
+    def validate_coordinate(self, value):
+        if value.geom_type != "Point":
+            raise serializers.ValidationError("Coordinate must be a Point.")
+        return value

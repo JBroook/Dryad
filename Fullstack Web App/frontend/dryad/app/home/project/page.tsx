@@ -14,6 +14,7 @@ import IncidentsView from "@/components/ProjectView/IncidentsView";
 import type { ThreatClass } from "../projects/new/page";
 import ForestMapView from "@/components/ProjectView/ForestMapView";
 import { Coordinate } from "@/components/Incident";
+import DevicesView from "@/components/ProjectView/DevicesView";
 
 type Tab = "overview" | "incidents" | "forest_map" | "devices" | "team";
 
@@ -22,6 +23,9 @@ export type Device = {
   name : string;
   location : {type : string, coordinates : number[]};
   project : number;
+  lastSeen : string;
+  status : string;
+  battery : number;
 }
 
 export type IncidentType = {
@@ -106,7 +110,10 @@ export default function Project() {
       incidents={incidents}
       devices={devices}
     />,
-    devices : <></>,
+    devices : <DevicesView 
+      projectID={projectID}
+      devices={devices}
+      setDevices={setDevices}/>,
     team : <></>,
     settings : <></>,
   }
@@ -175,7 +182,14 @@ export default function Project() {
       if (!res.ok) throw new Error(await res.text());
       return res.json();
     })
-    .then((data)=>setDevices(data))
+    .then((data)=>{
+      setDevices(data.map((device: any) => {
+        return {
+          ...device,
+          lastSeen: device.last_seen,
+        };
+      }));
+    })
     .catch((err) => console.error("Fetch failed:", err));
   }, [])
 
