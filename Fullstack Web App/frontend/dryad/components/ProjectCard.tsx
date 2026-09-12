@@ -33,28 +33,31 @@ export default function ProjectCard(props : ProjectCardProps) {
       cursor-pointer
       hover:bg-base-300
       bg-base-200
+      flex flex-col
     `}
     style={{
       "--accent-color": props.accentColor,
     } as React.CSSProperties}
     onClick={()=>props.openProject()}
     >
-      <div className="w-full flex flew-row justify-between items-center">
-        <div className="badge bg-base-300 mb-2" style={{
-          color:props.tagColor,
-          backgroundImage: "none",}}>
-          • {props.tag}
+      <div className="flex-1">
+        <div className="w-full flex justify-between items-center">
+          <div className="badge bg-base-300 mb-2" style={{
+            color:props.tagColor,
+            backgroundImage: "none",}}>
+            • {props.tag}
+          </div>
+
+          <MdNavigateNext className="text-xl text-secondary-content"/>
         </div>
-
-        <MdNavigateNext className="text-xl text-secondary-content"/>
-      </div>
-      <h2 className="text-xl font-bold">{props.name}</h2>
-      <div className="flex flew-row items-center">
-        <MdOutlineLocationOn className="text-secondary-content mr-2"/> 
-        <p className="text-secondary-content">{props.region} • {props.area}km²</p>
+        <h2 className="text-xl font-bold">{props.name}</h2>
+        <p className="text-secondary-content">
+          <MdOutlineLocationOn className="inline-block align-middle mr-1" />
+          {props.region} • {props.area}km²
+        </p>
       </div>
 
-      <div className="grid grid-cols-3 gap-3 mt-4">
+      <div className="grid grid-cols-3 gap-3 mt-3">
         <HollowCard className="flex flex-col justify-center items-center py-2 border-none">
           <h2 className="font-semibold text-warning text-lg">
             {props.alerts}

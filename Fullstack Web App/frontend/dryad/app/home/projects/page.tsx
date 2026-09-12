@@ -112,7 +112,8 @@ export default function Home() {
         <h2 className="ml-8 mt-8 mb-4 font-semibold">
           Your Projects
         </h2>
-        <div className="grid grid-cols-[repeat(auto-fit,minmax(280px,1fr))] gap-x-3 gap-y-5 px-8 w-full mb-32">
+        <div className="grid w-full max-w-full grid-cols-[repeat(auto-fit,minmax(280px,1fr))] gap-x-3 gap-y-5 px-8 mb-32">
+
           {allProjects.map((project, index)=>{
             return <ProjectCard
               key={index}

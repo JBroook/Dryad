@@ -268,7 +268,8 @@ export default function IncidentsView(props: IncidentsViewProps) {
         return {...member, 
             firstName : member.user.first_name, 
             lastName : member.user.last_name,
-            email : member.user.email
+            email : member.user.email,
+            joinDate : member.join_date
         }
         })))
         .catch((err) => console.error("Fetch failed:", err));

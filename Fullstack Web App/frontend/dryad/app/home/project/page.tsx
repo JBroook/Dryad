@@ -15,6 +15,7 @@ import type { ThreatClass } from "../projects/new/page";
 import ForestMapView from "@/components/ProjectView/ForestMapView";
 import { Coordinate } from "@/components/Incident";
 import DevicesView from "@/components/ProjectView/DevicesView";
+import TeamView from "@/components/ProjectView/TeamView";
 
 type Tab = "overview" | "incidents" | "forest_map" | "devices" | "team";
 
@@ -114,7 +115,11 @@ export default function Project() {
       projectID={projectID}
       devices={devices}
       setDevices={setDevices}/>,
-    team : <></>,
+    team : <TeamView
+      projectID={projectID}
+      members={members}
+      setMembers={setMembers}
+    />,
     settings : <></>,
   }
 
@@ -153,7 +158,8 @@ export default function Project() {
         return {...member, 
           firstName : member.user.first_name, 
           lastName : member.user.last_name,
-          email : member.user.email
+          email : member.user.email,
+          joinDate : member.join_date
         }
       })))
       .catch((err) => console.error("Fetch failed:", err));
