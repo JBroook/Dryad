@@ -4,12 +4,13 @@ import GlowButton from "../GlowButton";
 import DeviceCard from "../DeviceCard";
 import { Device } from "@/app/home/project/page";
 import { FaPlus } from "react-icons/fa";
-import { useEffect, useState } from "react";
+import { ReactEventHandler, SubmitEventHandler, useEffect, useState } from "react";
 import { IoMdWifi } from "react-icons/io";
 import { RxCross2 } from "react-icons/rx";
 import { IoCopy } from "react-icons/io5";
 import { apiFetch } from "@/lib/api";
 import { copyTextToClipboard } from "@/lib/general";
+import { FaCheck } from "react-icons/fa6";
 
 interface DevicesViewProps {
     projectID : string | null;
@@ -22,6 +23,10 @@ export default function DevicesView(props: DevicesViewProps) {
     const [removeDeviceIndex, setRemoveDeviceIndex] = useState(-1);
     const [deviceCode, setDeviceCode] = useState<string>("");
     const [polling, setPolling] = useState<boolean>(false);
+    const [connectionState, setConnectionState] = useState<"available" | "claimed" | "expired">("available");
+    const [newDeviceName, setNewDeviceName] = useState("");
+    const [newDeviceID, setNewDeviceID] = useState<number>(-1)
+
     const onlineDevices = props.devices.reduce(
         (count, device) => count + (device.status==="online" ? 1 : 0),
         0
@@ -115,6 +120,20 @@ export default function DevicesView(props: DevicesViewProps) {
         .catch((err) => console.error("Fetch failed:", err));
     }
 
+    const changeNewDeviceName = async (e : React.SubmitEvent<HTMLFormElement>) => {
+        e.preventDefault();
+
+        closeModal("deviceModal")
+        await renameDevice(newDeviceID, newDeviceName);
+        setNewDeviceName("");
+        setConnectionState("available");
+    }
+
+    const resetPolling = () => {
+        setConnectionState("available");
+        openDeviceModal();
+    }
+
     useEffect(() => {
         if (!polling || !deviceCode) return;
 
@@ -138,7 +157,7 @@ export default function DevicesView(props: DevicesViewProps) {
                 if (cancelled) return;
 
                 if (data.status !== "available") {
-                    closeModal("deviceModal");
+                    setPolling(false);
 
                     if(data.status==="claimed"){
                         props.setDevices([...props.devices,
@@ -147,6 +166,10 @@ export default function DevicesView(props: DevicesViewProps) {
                                 lastSeen : data.device.last_seen
                             }
                         ])
+                        setConnectionState(data.status);
+                        setNewDeviceID(data.device.id);
+                    }else if(data.status==="expired"){
+                        setConnectionState(data.status);
                     }
                     return;
                 }
@@ -168,6 +191,84 @@ export default function DevicesView(props: DevicesViewProps) {
             clearTimeout(timeoutId);
         };
     }, [polling, deviceCode]);
+
+    const deviceModalContent = () => {
+        if(connectionState==="available"){
+            return (<>
+            <p className="pt-4 text-base text-secondary-content">
+                Power on your device and enter the following code to pair it to this project.
+            </p>
+
+            <div className="rounded-xl bg-base-300 flex flex-col gap-4 py-6 mt-4 items-center">
+                <p className="font-semibold text-secondary-content text-sm">ENTER CODE</p>
+                {deviceCode!=="" &&
+                    <h1 className="font-mono text-accent text-4xl">{deviceCode}</h1>
+                }
+                <button className="btn btn-base-100 text-secondary-content"
+                onClick={()=>copyTextToClipboard(deviceCode)}>
+                    <IoCopy />
+                    Copy Code
+                </button>
+            </div>
+
+            <div className="bg-warning/15 flex flex-row items-center text-warning mt-4 p-2 rounded-xl px-4">
+                This code is valid for 5 minutes
+            </div>
+            </>)
+        }else if(connectionState==="claimed"){
+            return (<>
+                <div className="w-full max-w-md space-y-6">
+                    <div className="flex items-center gap-3 rounded-2xl bg-primary/15 border border-primary/25 px-4 py-3.5 mt-4">
+                        <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary">
+                            <FaCheck />
+                        </div>
+                        <span className="font-semibold text-primary">
+                        Device paired successfully!
+                        </span>
+                    </div>
+
+                    <p className="text-base leading-relaxed text-[#7c8c85]">
+                        Code <strong className="font-bold text-white">{deviceCode}</strong> was
+                        accepted. Give this device a name so you can identify it later.
+                    </p>
+
+                    <form onSubmit={changeNewDeviceName} className="space-y-6">
+                        <div className="form-control w-full space-y-2">
+                        <label className="label p-0">
+                            <span className="label-text text-base font-medium text-[#7c8c85]">
+                            Device Name <span className="text-[#55635d]">(optional)</span>
+                            </span>
+                        </label>
+                        <input
+                            type="text"
+                            value={newDeviceName}
+                            onChange={(e) => setNewDeviceName(e.target.value)}
+                            placeholder={`Device-${deviceCode}`}
+                            className="input input-bordered w-full rounded-2xl border-[#1e2924] bg-[#141b18] px-4 py-3 text-base text-[#a2b2aa] placeholder-[#4a5751] focus:border-[#22c55e] focus:outline-none"
+                        />
+                        </div>
+
+                        <button
+                        type="submit"
+                        className="btn btn-primary w-full"
+                        >
+                        Confirm
+                        </button>
+                    </form>
+                </div>
+            </>);
+        }else if(connectionState==="expired"){
+            return (<>
+            <p className="pt-4 text-base text-secondary-content mb-4">
+                Your code has expired. Please try again with a different code.
+            </p>
+            <button className="btn btn-primary w-full"
+            onClick={resetPolling}>
+                Retry
+            </button>
+            </>);
+        }
+    }
 
     return (<>
         <dialog id="deleteModal" className="modal">
@@ -207,25 +308,8 @@ export default function DevicesView(props: DevicesViewProps) {
                         <RxCross2/>
                     </button>
                 </div>
-                <p className="pt-4 text-base text-secondary-content">
-                    Power on your device and enter the following code to pair it to this project.
-                </p>
-
-                <div className="rounded-xl bg-base-300 flex flex-col gap-4 py-6 mt-4 items-center">
-                    <p className="font-semibold text-secondary-content text-sm">ENTER CODE</p>
-                    {deviceCode!=="" &&
-                        <h1 className="font-mono text-accent text-4xl">{deviceCode}</h1>
-                    }
-                    <button className="btn btn-base-100 text-secondary-content"
-                    onClick={()=>copyTextToClipboard(deviceCode)}>
-                        <IoCopy />
-                        Copy Code
-                    </button>
-                </div>
-
-                <div className="bg-warning/15 flex flex-row items-center text-warning mt-4 p-2 rounded-xl px-4">
-                    This code is valid for 5 minutes
-                </div>
+                
+                {deviceModalContent()}
             </div>
         </dialog> 
 

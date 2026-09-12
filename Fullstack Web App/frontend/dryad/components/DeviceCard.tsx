@@ -52,7 +52,7 @@ export default function DeviceCard(props : DeviceCardProps) {
     }
     
     return (
-    <div className="py-4 px-6 rounded-xl bg-base-200 border border-white/8">
+    <div className="py-4 px-6 rounded-xl bg-base-200 border border-white/8" style={{opacity : (props.device.status==="online" ? 1:0.5)}}>
         <div className="flex flex-row justify-between">
             <div className="flex flex-row items-center">
                 <FaWifi className={`mr-2 ${props.device.status==="online" ? "text-accent" : "text-secondary-content"}`}/>
@@ -81,9 +81,9 @@ export default function DeviceCard(props : DeviceCardProps) {
                     <div className="badge badge-soft badge-[#6B7280] font-semibold">Offline</div>
                 }
 
-                <details className="dropdown">
+                <details className="dropdown dropdown-left">
                     <summary className="btn p-1"><BsThreeDots/></summary>
-                    <ul className="menu dropdown-content bg-secondary rounded-box z-1 w-52 p-2">
+                    <ul className="menu dropdown-content bg-secondary rounded-box z-1 w-52 p-2 mr-2">
                         <li><a onClick={()=>props.toggleDevice(props.device.id)}>
                             {props.device.status==="offline" ? 
                                 <>
