@@ -120,24 +120,63 @@ class IncidentViewSet(ModelViewSet):
 class MembershipViewSet(ModelViewSet):
     queryset = Membership.objects.all()
     serializer_class = MembershipSerializer
-    
 
     def get_queryset(self):
-        project_id = self.request.query_params.get("project")
+        queryset = self.queryset
+        
+        project_id = self.kwargs["project_id"]
 
-        if project_id:
+        queryset = queryset.filter(
+            project_id=project_id
+        )
+
+        search_param = self.request.query_params.get("search")
+        if search_param:
+            queryset = queryset.filter(
+                Q(user__first_name__icontains=search_param) 
+                |Q(user__last_name__icontains=search_param)
+                |Q(user__email__icontains=search_param)
+            )
+            
+        return queryset
+
+class InviteMemberView(APIView):
+    def post(self, request, project_id):
+        email = request.query_params.get("email")
+
+        if not email:
+             return Response(
+                {"details" : "Email address is required"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            user = User.objects.get(email=email)
+        except User.DoesNotExist:
+            return Response(
+                {"details" : "User with this email does not exists"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        try:
             project = Project.objects.get(pk=project_id)
-            queryset = Membership.objects.filter(project=project)
+        except Project.DoesNotExist:
+            return Response(
+                {"details" : "This project doesn't exist"},
+                status=status.HTTP_404_NOT_FOUND
+            )
 
-            search_param = self.request.query_params.get("search")
-            if search_param:
-                queryset = queryset.filter(
-                    Q(user__first_name__icontains=search_param) 
-                    |Q(user__last_name__icontains=search_param)
-                    |Q(user__email__icontains=search_param)
-                )
-                
-            return queryset
+        membership = Membership.objects.create(
+            project=project,
+            user=user,
+            role="viewer"
+        )
+        
+        return Response(
+            MembershipSerializer(membership).data,
+            status=status.HTTP_201_CREATED
+        )
+    
 
 class PatrolViewSet(ModelViewSet):
     queryset = Patrol.objects.all()

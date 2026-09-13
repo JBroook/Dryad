@@ -149,7 +149,7 @@ export default function Project() {
       .catch((err) => console.error("Fetch failed:", err));
 
     // fetch project members
-    apiFetch(`http://127.0.0.1:8000/api/members?project=${projectID}`)
+    apiFetch(`http://127.0.0.1:8000/api/projects/${projectID}/members`)
       .then(async (res) => {
         if (!res.ok) throw new Error(await res.text());
         return res.json();

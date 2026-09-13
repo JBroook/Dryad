@@ -12,6 +12,7 @@ import { IoIosArrowDown } from "react-icons/io";
 import { RxCross2 } from "react-icons/rx";
 import { apiFetch } from "@/lib/api";
 import { Member } from "@/app/home/projects/new/page";
+import { capitalizeFirstLetter } from "@/lib/general";
 
 interface StepPageProps {
     submitEvent : () => void;
@@ -47,6 +48,7 @@ export default function StepFourPage(props: StepPageProps) {
                         firstName : data[0].first_name,
                         lastName : data[0].last_name,
                         email : data[0].email,
+                        joinDate : data[0].join_date,
                         role : "viewer"
                     }
                     props.membersFunction([...props.membersArray, newMember])
@@ -67,11 +69,6 @@ export default function StepFourPage(props: StepPageProps) {
 
     const removeMember = (index : number) => {
         props.membersFunction(props.membersArray.filter((_, i) => i !== index));
-    }
-
-    function capitalizeFirstLetter(str : string) {
-        if (!str) return ''; // Handles empty strings safely
-        return str.charAt(0).toUpperCase() + str.slice(1);
     }
 
     return (
