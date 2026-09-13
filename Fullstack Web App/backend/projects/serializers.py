@@ -14,6 +14,7 @@ class MembershipSerializer(serializers.ModelSerializer):
     class Meta:
         model = Membership
         fields = '__all__'
+        ready_only = ['user']
 
 class ProjectMemberSerializer(serializers.Serializer):
     id = serializers.IntegerField()

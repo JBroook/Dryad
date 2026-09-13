@@ -259,7 +259,7 @@ export default function IncidentsView(props: IncidentsViewProps) {
 
 
     const apiSearchMember = async (nameEmail : string) => {
-        await apiFetch(`http://127.0.0.1:8000/api/members/?project=${props.projectID}&search=${nameEmail}`)
+        await apiFetch(`http://127.0.0.1:8000/api/projects/${props.projectID}/members?search=${nameEmail}`)
         .then(async (res) => {
         if (!res.ok) throw new Error(await res.text());
         return res.json();
@@ -268,7 +268,8 @@ export default function IncidentsView(props: IncidentsViewProps) {
         return {...member, 
             firstName : member.user.first_name, 
             lastName : member.user.last_name,
-            email : member.user.email
+            email : member.user.email,
+            joinDate : member.join_date
         }
         })))
         .catch((err) => console.error("Fetch failed:", err));

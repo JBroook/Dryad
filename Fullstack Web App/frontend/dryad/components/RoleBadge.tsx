@@ -14,6 +14,6 @@ export default function RoleBadge(props : RoleBadgeProps) {
         backgroundColor : `${props.color}1A`
     }}>
         <Icon />
-        Manager
+        {props.role}
     </div>);
 }
