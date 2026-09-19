@@ -8,7 +8,11 @@ router.register(r'users', views.UserViewSet, basename='user')
 router.register(r'projects', views.ProjectViewSet, basename='project')
 router.register(r'threat_classes', views.ThreatClassViewSet, basename='threat_class')
 router.register(r'incidents', views.IncidentViewSet, basename='incident')
-router.register(r'patrols', views.PatrolViewSet, basename='patrol')
+router.register(
+    r'users/(?P<user_id>\d+)/patrols', 
+    views.PatrolViewSet, 
+    basename='user_patrol'
+)
 router.register(
     r'projects/(?P<project_id>\d+)/members', 
     views.MembershipViewSet, 
@@ -24,6 +28,7 @@ router.register(
     views.DeviceViewSet, 
     basename='project_devices'
 )
+
 
 urlpatterns = [
     path('login/', views.LoginView.as_view(), name="login"),

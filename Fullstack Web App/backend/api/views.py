@@ -195,6 +195,14 @@ class PatrolViewSet(ModelViewSet):
             status=status.HTTP_201_CREATED,
         )
 
+    def get_queryset(self):
+        queryset = self.queryset
+        user_id = self.kwargs["user_id"]
+
+        return queryset.filter(
+            member__user_id=user_id
+        )
+
 class GridCellViewSet(ModelViewSet):
     queryset = GridCell.objects.all()
     serializer_class = GridCellSerializer

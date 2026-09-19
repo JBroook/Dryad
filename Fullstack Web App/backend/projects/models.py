@@ -109,9 +109,10 @@ class Incident(models.Model):
 
 class Patrol(models.Model):
     target = models.PointField()
-    path = models.LineStringField(blank=True, null=True)
     member = models.ForeignKey(to=Membership, on_delete=models.CASCADE)
     project = models.ForeignKey(to=Project, on_delete=models.CASCADE)
+    incident = models.ForeignKey(to=Incident, on_delete=models.CASCADE)
+    assigned_by = models.ForeignKey(to=Membership, on_delete=models.CASCADE, related_name="assignments")
 
 class GridCell(models.Model):
     project = models.ForeignKey(to=Project, on_delete=models.CASCADE, related_name="grid_cells")
