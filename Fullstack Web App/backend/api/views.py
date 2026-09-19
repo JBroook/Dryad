@@ -316,3 +316,40 @@ class DeviceConnectionView(APIView):
             {"status": "available"},
             status=status.HTTP_200_OK,
         )
+
+class PatrolCompletionView(APIView):
+    def post(self, request, patrol_id):
+        try:
+            patrol = Patrol.objects.get(pk=patrol_id)
+        except Patrol.DoesNotExist:
+            return Response({"details" : "Patrol does not exist"}, status=status.HTTP_404_NOT_FOUND)
+
+        patrol_status = request.data.get("patrol_status")
+        incident_status = request.data.get("incident_status")
+
+        if patrol_status:
+            patrol.status = patrol_status
+            patrol.save()
+
+            if patrol_status!="cancelled":
+                if not incident_status:
+                    return Response(
+                        {"details" : "Incident status not provided"}, 
+                        status=status.HTTP_400_BAD_REQUEST
+                        ) 
+                
+                patrol.incident.status = incident_status
+                patrol.incident.save()
+
+                return Response({
+                    "details" : "Success!"
+                }, status=status.HTTP_200_OK)
+            else:
+                return Response({
+                    "details" : "Success!"
+                }, status=status.HTTP_200_OK)
+        else:
+            return Response(
+                {"details" : "Patrol status not provided"}, 
+                status=status.HTTP_400_BAD_REQUEST
+                )

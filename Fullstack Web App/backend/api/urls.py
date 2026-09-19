@@ -35,5 +35,6 @@ urlpatterns = [
     path('', include(router.urls)),
     path('projects/<int:project_id>/connection_code', views.ProjectGetCodeView.as_view(), name="project_code"),
     path('devices/connect', views.DeviceConnectionView.as_view(), name="connect_device"),
-    path('projects/<int:project_id>/invite', views.InviteMemberView.as_view(), name="invite")
+    path('projects/<int:project_id>/invite', views.InviteMemberView.as_view(), name="invite"),
+    path('patrols/<int:patrol_id>/complete_patrol', views.PatrolCompletionView.as_view(), name="complete_patrol"),
 ]

@@ -1,31 +1,48 @@
 import getThreatIcon from "@/lib/threatIcons";
 import { useState } from "react";
-import { FaPersonRunning, FaRegClock } from "react-icons/fa6";
+import { FaCopy, FaLocationArrow, FaMicrophone, FaPersonRunning, FaRegClock, FaRegUser } from "react-icons/fa6";
 import { IoIosArrowDown, IoIosArrowUp } from "react-icons/io";
-import { MdOutlineLocationOn } from "react-icons/md";
+import { MdOutlineLocationOn, MdRemoveRedEye } from "react-icons/md";
 import GlowButton from "./GlowButton";
 import { Patrol } from "@/app/home/patrols/page";
+import { capitalizeFirstLetter, copyTextToClipboard, timeAgo } from "@/lib/general";
+import { TbMapRoute } from "react-icons/tb";
+import { FiExternalLink } from "react-icons/fi";
+import { useRouter } from "next/navigation";
+import { RxCross2 } from "react-icons/rx";
 
 interface PatrolCardProps {
     color : string;
     patrol : Patrol
-    confirmIncident : ()=>void;
-    dismissIncident : ()=>void;
-    assignPatrol : ()=>void;
+    confirmPatrol : ()=>void;
+    dismissPatrol : ()=>void;
+    cancelPatrol : ()=>void;
 }
 
 export default function PatrolCard(props : PatrolCardProps) {
     const incident = props.patrol.incident;
     const Icon = getThreatIcon(incident.threatClass.name);
     const [isOpen, setIsOpen] = useState(false);
-    const date = new Date(incident.timestamp);
+    const assignedDate = new Date(props.patrol.assignedAt);
+    const formalAssignedDate = assignedDate.toLocaleString("en-US");
+    const timeAgoAssignedDate = timeAgo(props.patrol.assignedAt)
 
-    const casualDate = date.toLocaleDateString("en-US", {
-        month: "long",
-        day: "numeric",
-    });
+    const timestamp = timeAgo(incident.timestamp)
 
-    const formalDateTime = date.toLocaleString("en-US");
+    // const roleBadge: Record<string, React.ReactElement> = {
+    //     owner : <RoleBadge role="Owner" color="#F59E0B" icon={RiVipCrown2Fill}/>,
+    //     admin : <RoleBadge role="Admin" color="#60A5FA" icon={FiShield}/>,
+    //     manager : <RoleBadge role="Manager" color="#4ADE80" icon={GoPulse}/>,
+    //     viewer : <RoleBadge role="Viewer" color="#94A3B8" icon={MdRemoveRedEye}/>
+    // }
+    const router = useRouter();
+
+    const openGoogleMaps = (lat : number, lng : number) => {
+        window.open(
+        `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`,
+        "_blank"
+        );
+    };
 
     return (
     <div className="collapse rounded-2xl w-full border border-2 border-white/5 px-2 bg-base-200 mb-4">
@@ -45,7 +62,7 @@ export default function PatrolCard(props : PatrolCardProps) {
 
             <div className="ml-4">
                 <div className="flex flex-row mb-1">
-                    <h1 className="font-semibold">{incident.threatClass.name}</h1>
+                    <h1 className="font-semibold">{incident.threatClass.name} Activity</h1>
                 </div>
 
                 <div className="flex flex-row items-center text-secondary-content text-sm">
@@ -53,20 +70,13 @@ export default function PatrolCard(props : PatrolCardProps) {
                     <p className="mr-3">{`${incident.coordinates.lat?.toPrecision(5)}°, ${incident.coordinates.lng?.toPrecision(5)}°`}</p>
 
                     <FaRegClock className="mr-1"/> 
-                    <p className="mr-3">{casualDate}</p>
+                    <p className="mr-3">{timestamp}</p>
 
-                    <p>Device: {incident.device.name}</p>
+                    <p>Project: {props.patrol.project.name}</p>
                 </div>
             </div>
 
             <div className="ml-auto flex flex-row items-center">
-                <div className="flex flex-col items-end">
-                    <h1 className="font-semibold text-2xl text-accent">
-                        {incident.confidence}%
-                    </h1>
-                    <p className="text-secondary-content text-sm">confidence</p>
-                </div>
-
                 {isOpen ?
                     <IoIosArrowUp className="text-2xl text-secondary-content ml-4" />
                     :
@@ -77,18 +87,55 @@ export default function PatrolCard(props : PatrolCardProps) {
 
         <div className="collapse-content w-full">
             <div className="w-full flex">
-                <div className="flex-1 bg-secondary rounded-xl p-4 mr-2">
-                    <p className="text-secondary-content text-sm mb-2">GPS Coordinates</p>
-                    <h1>
-                        {`${incident.coordinates.lat?.toPrecision(5)}°, ${incident.coordinates.lng?.toPrecision(5)}°`}
+                <div className="flex-1 bg-base-300 rounded-xl p-4 mr-2">
+                    <div className="flex gap-2 items-center">
+                        <FaRegUser className="text-xs"/> <p className="text-secondary-content text-sm">Assigned By</p>
+                    </div>
+                    <h1 className="font-semibold mt-1">
+                        {props.patrol.assignedBy.firstName} {props.patrol.assignedBy.lastName}
                     </h1>
+                    <p className="text-sm text-secondary-content mt-1">
+                        {capitalizeFirstLetter(props.patrol.assignedBy.role)}
+                    </p>
                 </div>
 
-                <div className="flex-1 bg-secondary rounded-xl p-4 ml-2">
-                    <p className="text-secondary-content text-sm mb-2">Exact Timestamp</p>
-                    <h1>
-                        {formalDateTime}
+                <div className="flex-1 bg-secondary rounded-xl p-4 mr-2">
+                    <div className="flex gap-2 items-center">
+                        <FaRegClock className="text-xs"/> <p className="text-secondary-content text-sm">Assigned At</p>
+                    </div>
+                    <h1 className="font-semibold mt-1">
+                        {formalAssignedDate}
                     </h1>
+                    <p className="text-sm text-secondary-content mt-1">
+                        {timeAgoAssignedDate}
+                    </p>
+                </div>
+
+                <div className="flex-1 bg-secondary rounded-xl p-4 mr-2">
+                    <div className="flex gap-2 items-center">
+                        <MdOutlineLocationOn className="text-xs"/> <p className="text-secondary-content text-sm">GPS Coordinates</p>
+                    </div>
+                    <h1 className="font-semibold mt-1">
+                        {`${incident.coordinates.lat?.toPrecision(5)}°, ${incident.coordinates.lng?.toPrecision(5)}°`}
+                    </h1>
+                    <button className="btn btn-xs mt-1" 
+                    onClick={()=>copyTextToClipboard(`${incident.coordinates.lat?.toPrecision(5)}°, ${incident.coordinates.lng?.toPrecision(5)}°`)}>
+                        <FaCopy />
+                        Copy
+                    </button>
+                </div>
+
+                <div className="flex-1 bg-secondary rounded-xl p-4">
+                    <div className="flex gap-2 items-center">
+                        <FaMicrophone className="text-xs"/> <p className="text-secondary-content text-sm">Detected By</p>
+                    </div>
+                    
+                    <h1 className="font-semibold mt-1">
+                        {incident.device.name}
+                    </h1>
+                    <p className="text-accent text-sm mt-1">
+                        {incident.confidence}% Confidence
+                    </p>
                 </div>
             </div>
 
@@ -103,27 +150,42 @@ export default function PatrolCard(props : PatrolCardProps) {
 
             <progress className="progress progress-primary w-full mt-2" value={incident.confidence} max="100"></progress>
 
-            <div className="flex mt-2 gap-2">
-                {incident.status=="unconfirmed" &&
-                    <>
-                    <GlowButton color="#4ADE80" className="btn btn-primary" onClick={props.confirmIncident}>
-                        Confirm
+            <div className="flex mt-2 justify-between">
+                <div className="flex gap-2">
+                    <GlowButton className="btn btn-secondary" color="#4ADE80"
+                    onClick={()=>router.push(`/home/project?pid=${props.patrol.project.id}&tab=forest_map`)}>
+                        <TbMapRoute/>
+                        View on Map
                     </GlowButton>
 
-                    <GlowButton color="#ef4444" className="btn btn-error" onClick={props.dismissIncident}>
-                        Dismiss
+                    <GlowButton className="btn btn-secondary" color="#60A5FA"
+                    onClick={()=>openGoogleMaps(incident.coordinates.lat, incident.coordinates.lng)}>
+                        <FaLocationArrow />
+                        Navigate
+                        <FiExternalLink />
                     </GlowButton>
+                </div>
 
-                    <GlowButton color="#60A5FA" className="btn btn-info" onClick={props.assignPatrol}>
-                        <FaPersonRunning />
-                        Assign Patrol
-                    </GlowButton>   
-                    </>
-                }
+                <div className="flex gap-2">
+                    {props.patrol.status==="pending" &&
+                        <>
+                        <GlowButton color="#94A3B8" onClick={props.cancelPatrol}>
+                            <RxCross2/>
+                            Cancel
+                        </GlowButton>
 
-                <button className="btn btn-secondary">
-                    View on Map
-                </button>
+                        <GlowButton color="#4ADE80" onClick={props.confirmPatrol}>
+                            Confirm
+                        </GlowButton>
+
+                        <GlowButton color="#ef4444" onClick={props.dismissPatrol}>
+                            Dismiss
+                        </GlowButton>
+                        </>
+                    }
+                </div>
+
+                
             </div>
         </div>
     </div>);

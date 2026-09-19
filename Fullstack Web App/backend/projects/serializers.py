@@ -155,8 +155,26 @@ class IncidentSerializer(serializers.ModelSerializer):
         model = Incident
         fields = '__all__'
 
+class MembershipUserSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ['first_name', 'last_name']
+
+class PatrolAssignerSerializer(serializers.ModelSerializer):
+    user = MembershipUserSerializer()
+    class Meta:
+        model = Membership
+        fields = ['user', 'role']
+
+class PatrolProjectNameSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Project
+        fields = ['id','name']
+
 class PatrolSerializer(serializers.ModelSerializer):
     incident = IncidentSerializer()
+    project = PatrolProjectNameSerializer()
+    assigned_by = PatrolAssignerSerializer()
     class Meta:
         model = Patrol
         fields = '__all__'
