@@ -123,12 +123,24 @@ class Patrol(models.Model):
     status = models.CharField(choices=Status.choices, default=Status.PENDING)
 
 class GridCell(models.Model):
-    project = models.ForeignKey(to=Project, on_delete=models.CASCADE, related_name="grid_cells")
+    project = models.ForeignKey(
+        to=Project,
+        on_delete=models.CASCADE,
+        related_name="grid_cells"
+    )
+
     risk_score = models.FloatField(default=0)
+
     geometry = models.PolygonField(
         srid=4326
     )
+
     identifier = models.CharField(max_length=10)
+
+    elevation = models.FloatField(null=True, blank=True)
+    slope = models.FloatField(null=True, blank=True)
+
+    distance_to_road = models.FloatField(null=True, blank=True)
 
 class ConnectionCode(models.Model):
     code = models.CharField(max_length=6, unique=True)

@@ -6,10 +6,6 @@
   <component name="ChangeListManager">
     <list default="true" id="3f32e91f-5408-4877-9ca6-eb5b303e1324" name="Changes" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/BNN.py" beforeDir="false" afterPath="$PROJECT_DIR$/BNN.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../../Fullstack Web App/frontend/dryad/components/StepPages/StepFivePage.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/../../Fullstack Web App/frontend/dryad/components/StepPages/StepFivePage.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../../Fullstack Web App/frontend/dryad/components/StepPages/StepFourPage.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/../../Fullstack Web App/frontend/dryad/components/StepPages/StepFourPage.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../../Fullstack Web App/frontend/dryad/components/StepPages/StepThreePage.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/../../Fullstack Web App/frontend/dryad/components/StepPages/StepThreePage.tsx" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -49,16 +45,16 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent">{
-  &quot;keyToString&quot;: {
-    &quot;Python.BNN.executor&quot;: &quot;Run&quot;,
-    &quot;Python.SyntheticData.executor&quot;: &quot;Run&quot;,
-    &quot;Python.test.executor&quot;: &quot;Run&quot;,
-    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;Project-Creation&quot;,
-    &quot;last_opened_file_path&quot;: &quot;C:/Users/User/Documents/GitHub/ALLProject2024&quot;
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "Python.BNN.executor": "Run",
+    "Python.SyntheticData.executor": "Run",
+    "Python.test.executor": "Run",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "git-widget-placeholder": "Patrol-Management",
+    "last_opened_file_path": "C:/Users/User/Documents/GitHub/ALLProject2024"
   }
-}</component>
+}]]></component>
   <component name="SharedIndexes">
     <attachedChunks>
       <set>
