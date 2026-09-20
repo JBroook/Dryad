@@ -1,6 +1,6 @@
 import random
 
-from .terrain import download_dem, generate_slope_raster, populate_terrain_data
+from .terrain import download_dem, download_osm_roads, generate_slope_raster, populate_road_distances, populate_terrain_data, save_osm_roads
 from rest_framework import serializers
 from .models import ConnectionCode, GridCell, Project, Membership, ThreatClass, ProjectThreatClass, Incident, Device, Patrol
 from users.models import User
@@ -71,14 +71,21 @@ def generate_grid(project, cell_size=100):
 
         rows = cursor.fetchall()
 
+    grid_cells = []
+
     for index, row in enumerate(rows):
         geometry = GEOSGeometry(row[0])
 
-        GridCell.objects.create(
+        grid_cells.append(GridCell(
             project=project,
             geometry=geometry,
             identifier=f"cell-{index}"
-        )
+        ))
+
+    GridCell.objects.bulk_create(
+        grid_cells,
+        ignore_conflicts=True
+    )
 
     # get slope and elevation data from OpenTopography
     dem_path = settings.BASE_DIR / "data" / "dem" / f"project_{project.id}_dem.tif"
@@ -94,6 +101,11 @@ def generate_grid(project, cell_size=100):
     )
 
     populate_terrain_data(project, dem_path, slope_path)
+
+    # get distance to roads from Overpass
+    data = download_osm_roads(project)
+    save_osm_roads(data)
+    populate_road_distances(project)
 
 class GridCellSerializer(GeoFeatureModelSerializer):
     class Meta:

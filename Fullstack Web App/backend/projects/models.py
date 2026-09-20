@@ -164,3 +164,7 @@ class ConnectionCode(models.Model):
         if not self.pk:
             self.expires_at = timezone.now() + timedelta(minutes=5)
         super().save(*args, **kwargs)
+
+class OSMRoad(models.Model):
+    osm_id = models.BigIntegerField(unique=True)
+    geometry = models.LineStringField(srid=4326)
