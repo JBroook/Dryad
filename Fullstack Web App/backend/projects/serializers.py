@@ -147,12 +147,6 @@ class DeviceSerializer(serializers.ModelSerializer):
         model = Device
         fields = '__all__'
 
-class PatrolSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Patrol
-        fields = '__all__'
-        geo_field = 'target'
-
 class IncidentSerializer(serializers.ModelSerializer):
     threat_class = ThreatClassSerializer()
     device = DeviceSerializer()
@@ -160,6 +154,31 @@ class IncidentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Incident
         fields = '__all__'
+
+class MembershipUserSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ['first_name', 'last_name']
+
+class PatrolAssignerSerializer(serializers.ModelSerializer):
+    user = MembershipUserSerializer()
+    class Meta:
+        model = Membership
+        fields = ['user', 'role']
+
+class PatrolProjectNameSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Project
+        fields = ['id','name']
+
+class PatrolSerializer(serializers.ModelSerializer):
+    incident = IncidentSerializer()
+    project = PatrolProjectNameSerializer()
+    assigned_by = PatrolAssignerSerializer()
+    class Meta:
+        model = Patrol
+        fields = '__all__'
+        geo_field = 'target'
 
 class DeviceConnectSerializer(serializers.Serializer):
     code = serializers.CharField(max_length=6)

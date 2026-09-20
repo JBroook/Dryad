@@ -8,7 +8,11 @@ router.register(r'users', views.UserViewSet, basename='user')
 router.register(r'projects', views.ProjectViewSet, basename='project')
 router.register(r'threat_classes', views.ThreatClassViewSet, basename='threat_class')
 router.register(r'incidents', views.IncidentViewSet, basename='incident')
-router.register(r'patrols', views.PatrolViewSet, basename='patrol')
+router.register(
+    r'users/(?P<user_id>\d+)/patrols', 
+    views.PatrolViewSet, 
+    basename='user_patrol'
+)
 router.register(
     r'projects/(?P<project_id>\d+)/members', 
     views.MembershipViewSet, 
@@ -25,10 +29,12 @@ router.register(
     basename='project_devices'
 )
 
+
 urlpatterns = [
     path('login/', views.LoginView.as_view(), name="login"),
     path('', include(router.urls)),
     path('projects/<int:project_id>/connection_code', views.ProjectGetCodeView.as_view(), name="project_code"),
     path('devices/connect', views.DeviceConnectionView.as_view(), name="connect_device"),
-    path('projects/<int:project_id>/invite', views.InviteMemberView.as_view(), name="invite")
+    path('projects/<int:project_id>/invite', views.InviteMemberView.as_view(), name="invite"),
+    path('patrols/<int:patrol_id>/complete_patrol', views.PatrolCompletionView.as_view(), name="complete_patrol"),
 ]

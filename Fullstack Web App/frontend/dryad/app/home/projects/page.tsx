@@ -17,6 +17,7 @@ import type { Project } from "./new/page";
 
 export default function Home() {
   const [authenticated, setAuthenticated] = useState<boolean>(false)
+  const [projectsLoaded, setProjectsLoaded] = useState<boolean>(false)
   const router = useRouter();
   const overviewCards = [
     {title : "Active Projects", number : 2, icon : BsTree, iconColor : "#4ADE80"},
@@ -59,6 +60,7 @@ export default function Home() {
         }
       })
       setAllProjects(extractedProjects)
+      setProjectsLoaded(true);
     }
 
     // fetch all projects
@@ -112,36 +114,42 @@ export default function Home() {
         <h2 className="ml-8 mt-8 mb-4 font-semibold">
           Your Projects
         </h2>
-        <div className="grid w-full max-w-full grid-cols-[repeat(auto-fit,minmax(280px,1fr))] gap-x-3 gap-y-5 px-8 mb-32">
+        {  !projectsLoaded ? 
+          <div className="w-full h-fit py-25 flex justify-center items-center">
+            <span className="loading loading-spinner"></span>
+          </div>
+        :
+          <div className="grid w-full max-w-full grid-cols-[repeat(auto-fit,minmax(280px,1fr))] gap-x-3 gap-y-5 px-8 mb-32">
 
-          {allProjects.map((project, index)=>{
-            return <ProjectCard
-              key={index}
-              tag ={project.status ? "Active" : "Inactive"}
-              name ={project.name}
-              region ={project.region!}
-              area ={project.area!}
-              alerts ={1}
-              activeDevices ={3}
-              totalDevices ={5}
-              members ={20}
-              accentColor={project.color}
-              tagColor="#4ADE80"
-              openProject={()=>{router.push(`/home/project?pid=${project.id}&tab=overview`)}}
-            />
-          })}
+            {allProjects.map((project, index)=>{
+              return <ProjectCard
+                key={index}
+                tag ={project.status ? "Active" : "Inactive"}
+                name ={project.name}
+                region ={project.region!}
+                area ={project.area!}
+                alerts ={1}
+                activeDevices ={3}
+                totalDevices ={5}
+                members ={20}
+                accentColor={project.color}
+                tagColor="#4ADE80"
+                openProject={()=>{router.push(`/home/project?pid=${project.id}&tab=overview`)}}
+              />
+            })}
 
-          <Link className="flex flex-col justify-center 
-          items-center rounded-xl border border-white/8
-          cursor-pointer hover:bg-base-300 min-h-50 bg-base-200"
-          href="/home/projects/new"
-          >
-              <div className="rounded-full border border-primary bg-base-300 p-2 mb-2">
-                <FaPlus className="text-accent"/>
-              </div>
-            <p className="text-secondary-content text-sm">Add new project</p>
-          </Link>
-        </div>
+            <Link className="flex flex-col justify-center 
+            items-center rounded-xl border border-white/8
+            cursor-pointer hover:bg-base-300 min-h-50 bg-base-200 max-w-[400px]"
+            href="/home/projects/new"
+            >
+                <div className="rounded-full border border-primary bg-base-300 p-2 mb-2">
+                  <FaPlus className="text-accent"/>
+                </div>
+              <p className="text-secondary-content text-sm">Add new project</p>
+            </Link>
+          </div>
+          }
       </>
       :
       <div className="w-full h-screen flex justify-center items-center">
