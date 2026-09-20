@@ -97,6 +97,11 @@ export default function New() {
   const createProject = async () => {
     console.log(project)
 
+    const monitoringArea =
+      project.geoJSON && "geometry" in project.geoJSON
+        ? project.geoJSON.geometry
+        : project.geoJSON;
+
     apiFetch(`http://127.0.0.1:8000/api/projects/`, {
       method : "POST",
       headers : {
@@ -109,7 +114,7 @@ export default function New() {
         confidence_threshold : project.confidenceThreshold,
         alert_recipients : project.alertPreference,
         threat_classes : project.threatClasses.filter((threatClass)=>threatClass.active),
-        monitoring_area : project.geoJSON
+        monitoring_area : monitoringArea
       })
     })
     .then(async (res) => {

@@ -1,3 +1,6 @@
+import random
+
+from .terrain import download_dem, generate_slope_raster, populate_terrain_data
 from rest_framework import serializers
 from .models import ConnectionCode, GridCell, Project, Membership, ThreatClass, ProjectThreatClass, Incident, Device, Patrol
 from users.models import User
@@ -8,6 +11,7 @@ from users.serializers import UserSerializer
 from django.contrib.gis.geos import GEOSGeometry
 from django.db import connection, transaction
 from rest_framework_gis.fields import GeometryField
+from django.conf import settings
 
 class MembershipSerializer(serializers.ModelSerializer):
     user = UserSerializer()
@@ -76,6 +80,21 @@ def generate_grid(project, cell_size=100):
             identifier=f"cell-{index}"
         )
 
+    # get slope and elevation data from OpenTopography
+    dem_path = settings.BASE_DIR / "data" / "dem" / f"project_{project.id}_dem.tif"
+    slope_path = settings.BASE_DIR / "data" / "dem" / f"project_{project.id}_slope.tif"
+    download_dem(
+        project,
+        dem_path
+    )
+
+    generate_slope_raster(
+        dem_path,
+        slope_path
+    )
+
+    populate_terrain_data(project, dem_path, slope_path)
+
 class GridCellSerializer(GeoFeatureModelSerializer):
     class Meta:
         model = GridCell
@@ -85,34 +104,25 @@ class GridCellSerializer(GeoFeatureModelSerializer):
         fields = [
             "id",
             "identifier",
-            "risk_score"
+            "risk_score",
+            "elevation",
+            "slope"
         ]
 
 class ProjectSerializer(GeoFeatureModelSerializer):
     members = ProjectMemberSerializer(many=True, required=False)
     threat_classes = ProjectThreatClassSerializer(many=True, required=False)
-    grid_cells = GridCellSerializer(many=True, required=False)
+    # grid_cells = GridCellSerializer(many=True, required=False)
 
     class Meta:
         model = Project
         fields = '__all__'
-        read_only_fields = ['owner', 'grid_cells']
+        read_only_fields = ['owner']
         geo_field = "monitoring_area"
 
     def create(self, validated_data):
         members = validated_data.pop("members", [])
         threat_classes = validated_data.pop("threat_classes", [])
-
-        if "monitoring_area" in validated_data:
-            geojson = validated_data["monitoring_area"]
-
-            if geojson.get("type") == "Feature":
-                geojson = geojson["geometry"]
-
-            validated_data["monitoring_area"] = GEOSGeometry(
-                json.dumps(geojson),
-                srid=4326
-            )
 
         project = Project.objects.create(**validated_data)
 

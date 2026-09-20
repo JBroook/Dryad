@@ -102,6 +102,14 @@ export default function ForestMapFull({
         return null;
     }
 
+    const getRiskColor = (risk: number) => {
+        if (risk >= 0.8) return "#d73027"; // very high
+        if (risk >= 0.6) return "#fc8d59"; // high
+        if (risk >= 0.4) return "#fee08b"; // medium
+        if (risk >= 0.2) return "#d9ef8b"; // low
+        return "#91cf60";                  // very low
+    };
+
     return ( 
     <div className="map w-full h-[500px] rounded-md overflow-hidden z-0">
         <MapContainer 
@@ -125,15 +133,22 @@ export default function ForestMapFull({
             {props.gridCells && (
                 <GeoJSON
                     data={props.gridCells}
-                    style={{
-                        color: "red",
-                        opacity : gridOpacity,
-                        weight: 2,
-                        fillColor: "yellow",
-                        fillOpacity: gridOpacity,
+                    style={(feature) => {
+                        const risk = Number(
+                            feature?.properties?.risk_score ?? 0
+                        );
+
+                        return {
+                            color: "#555",
+                            weight: 1,
+                            opacity: gridOpacity,
+                            fillColor: getRiskColor(risk),
+                            fillOpacity: gridOpacity,
+                        };
                     }}
                 />
             )}
+
 
             {props.enableIncidents && props.incidents?.map((incident : IncidentType, index)=>{
                 const Icon = getThreatIcon(incident.threatClass.name);
