@@ -15,6 +15,7 @@ requests = "*"
 rasterio = "*"
 torch = "*"
 scikit-learn = "*"
+pandas = "*"
 
 [dev-packages]
 

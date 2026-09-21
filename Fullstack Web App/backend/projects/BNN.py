@@ -1,10 +1,18 @@
-from django.db.models import Count
-from django.contrib.gis.db.models.functions import Distance
+from collections import defaultdict
+import random
 from datetime import timedelta
+
+from sklearn.preprocessing import StandardScaler
 from .models import Incident
 import math
 import torch
 import torch.nn as nn
+
+from sklearn.metrics import (
+    precision_score,
+    recall_score,
+    average_precision_score,
+)
 
 FEATURES = [
     "elevation",
@@ -16,10 +24,10 @@ FEATURES = [
     "attacks_last_30d",
     "days_since_last_attack",
 
-    "hour_sin",
-    "hour_cos",
-    "day_sin",
-    "day_cos",
+    # "hour_sin",
+    # "hour_cos",
+    # "day_sin",
+    # "day_cos",
 ]
 
 def cyclical(value, period):
@@ -48,32 +56,65 @@ def get_neighbour_attack_count(project, grid_cell, timestamp):
         timestamp__gte=timestamp - timedelta(days=7),
     ).count()
 
-
-def get_attack_history(project, grid_cell, timestamp):
-    confirmed = Incident.objects.filter(
-        project=project,
-        grid_cell=grid_cell,
-        status=Incident.Status.CONFIRMED,
-        timestamp__lt=timestamp,
+def load_incidents(project, start_time, end_time):
+    return list(
+        Incident.objects.filter(
+            project=project,
+            status=Incident.Status.CONFIRMED,
+            timestamp__gte=start_time,
+            timestamp__lte=end_time,
+        )
+        .values(
+            "grid_cell_id",
+            "timestamp",
+        )
+        .order_by("timestamp")
     )
 
-    attacks_last_24h = confirmed.filter(
-        timestamp__gte=timestamp - timedelta(hours=24)
-    ).count()
+def group_incidents_by_cell(incidents):
 
-    attacks_last_7d = confirmed.filter(
-        timestamp__gte=timestamp - timedelta(days=7)
-    ).count()
+    grouped = defaultdict(list)
 
-    attacks_last_30d = confirmed.filter(
-        timestamp__gte=timestamp - timedelta(days=30)
-    ).count()
+    for incident in incidents:
+        grouped[incident["grid_cell_id"]].append(
+            incident["timestamp"]
+        )
 
-    last_attack = confirmed.order_by("-timestamp").first()
+    return grouped
+
+def get_attack_history_from_memory(
+    timestamps,
+    observation_time,
+):
+    attacks_last_24h = 0
+    attacks_last_7d = 0
+    attacks_last_30d = 0
+
+    day_1 = observation_time - timedelta(hours=24)
+    day_7 = observation_time - timedelta(days=7)
+    day_30 = observation_time - timedelta(days=30)
+
+    last_attack = None
+
+    for timestamp in timestamps:
+
+        if timestamp >= observation_time:
+            break
+
+        if timestamp >= day_30:
+            attacks_last_30d += 1
+
+        if timestamp >= day_7:
+            attacks_last_7d += 1
+
+        if timestamp >= day_1:
+            attacks_last_24h += 1
+
+        last_attack = timestamp
 
     if last_attack:
         days_since_last_attack = (
-            timestamp - last_attack.timestamp
+            observation_time - last_attack
         ).total_seconds() / 86400
     else:
         days_since_last_attack = 999
@@ -86,73 +127,148 @@ def get_attack_history(project, grid_cell, timestamp):
     }
 
 
-def get_future_attack_target(project, grid_cell, timestamp):
+def get_future_attack_target_from_memory(
+    timestamps,
+    observation_time,
+):
+    future_end = observation_time + timedelta(days=7)
 
-    return Incident.objects.filter(
-        project=project,
-        grid_cell=grid_cell,
-        status=Incident.Status.CONFIRMED,
-        timestamp__gt=timestamp,
-        timestamp__lte=timestamp + timedelta(days=7),
-    ).exists()
+    for timestamp in timestamps:
 
-def build_training_sample(project, grid_cell, timestamp):
+        if timestamp <= observation_time:
+            continue
 
-    history = get_attack_history(
-        project,
-        grid_cell,
-        timestamp
+        if timestamp <= future_end:
+            return 1
+
+        break
+
+    return 0
+
+def build_training_sample(
+    grid_cell,
+    observation_time,
+    incident_timestamps,
+):
+
+    history = get_attack_history_from_memory(
+        incident_timestamps,
+        observation_time,
     )
 
     hour_sin, hour_cos = cyclical(
-        timestamp.hour,
-        24
+        observation_time.hour,
+        24,
     )
 
     day_sin, day_cos = cyclical(
-        timestamp.weekday(),
-        7
+        observation_time.weekday(),
+        7,
     )
 
-    target = get_future_attack_target(
-        project,
-        grid_cell,
-        timestamp
+    target = get_future_attack_target_from_memory(
+        incident_timestamps,
+        observation_time,
     )
 
     return {
-        # Environmental
-        "elevation": grid_cell.elevation,
-        "slope": grid_cell.slope,
-        "distance_to_road": grid_cell.distance_to_road,
+        "elevation": grid_cell.elevation or 0,
+        "slope": grid_cell.slope or 0,
+        "distance_to_road": grid_cell.distance_to_road or 0,
 
-        # Temporal history
-        "attacks_last_24h": history["attacks_last_24h"],
-        "attacks_last_7d": history["attacks_last_7d"],
-        "attacks_last_30d": history["attacks_last_30d"],
-        "days_since_last_attack": history["days_since_last_attack"],
+        "attacks_last_24h":
+            history["attacks_last_24h"],
 
-        # Time
+        "attacks_last_7d":
+            history["attacks_last_7d"],
+
+        "attacks_last_30d":
+            history["attacks_last_30d"],
+
+        "days_since_last_attack":
+            history["days_since_last_attack"],
+
         "hour_sin": hour_sin,
         "hour_cos": hour_cos,
+
         "day_sin": day_sin,
         "day_cos": day_cos,
 
-        # Target
-        "target": int(target),
+        "target": target,
 
-        # Useful metadata
         "grid_cell_id": grid_cell.id,
-        "timestamp": timestamp,
+        "timestamp": observation_time,
     }
+
+def generate_training_samples(
+    project,
+    start_time,
+    end_time,
+    interval_days=1,
+):
+    # We need 30 days of history for the
+    # attacks_last_30d feature.
+    incident_start = (
+        start_time - timedelta(days=30)
+    )
+
+    # We need another 7 days after the
+    # observation time for the target.
+    incident_end = (
+        end_time + timedelta(days=7)
+    )
+
+    incidents = load_incidents(
+        project,
+        incident_start,
+        incident_end,
+    )
+
+    incidents_by_cell = group_incidents_by_cell(
+        incidents
+    )
+
+    cells = list(
+        project.grid_cells.all()
+    )
+
+    samples = []
+
+    for cell in cells:
+
+        timestamps = incidents_by_cell.get(
+            cell.id,
+            [],
+        )
+
+        current_time = start_time
+
+        while current_time <= end_time:
+
+            sample = build_training_sample(
+                cell,
+                current_time,
+                timestamps,
+            )
+
+            samples.append(sample)
+
+            current_time += timedelta(
+                days=interval_days
+            )
+
+    return samples
 
 def samples_to_tensors(samples):
     X = torch.tensor(
         [
-            [sample[f] for f in FEATURES]
+            [
+                sample[feature]
+                for feature in FEATURES
+            ]
             for sample in samples
         ],
-        dtype=torch.float32
+        dtype=torch.float32,
     )
 
     y = torch.tensor(
@@ -160,7 +276,7 @@ def samples_to_tensors(samples):
             sample["target"]
             for sample in samples
         ],
-        dtype=torch.float32
+        dtype=torch.float32,
     )
 
     return X, y
@@ -168,6 +284,7 @@ def samples_to_tensors(samples):
 
 class RiskMLP(nn.Module):
     def __init__(self, input_size):
+
         super().__init__()
 
         self.network = nn.Sequential(
@@ -177,56 +294,194 @@ class RiskMLP(nn.Module):
             nn.Linear(32, 16),
             nn.ReLU(),
 
-            nn.Linear(16, 1)
+            nn.Linear(16, 1),
         )
 
     def forward(self, x):
         return self.network(x).squeeze(-1)
 
-from sklearn.preprocessing import StandardScaler
+def undersample(
+    samples,
+    negative_ratio=3,
+    seed=42,
+):
+    positives = [
+        s for s in samples
+        if s["target"] == 1
+    ]
 
-# build_training_sample(project=)
+    negatives = [
+        s for s in samples
+        if s["target"] == 0
+    ]
 
-scaler = StandardScaler()
+    random.seed(seed)
 
-X_scaled = scaler.fit_transform(X)
-
-X_scaled = torch.tensor(
-    X_scaled,
-    dtype=torch.float32
-)
-
-model = RiskMLP(len(FEATURES))
-
-criterion = nn.BCEWithLogitsLoss()
-
-optimizer = torch.optim.Adam(
-    model.parameters(),
-    lr=0.001
-)
-
-for epoch in range(100):
-
-    optimizer.zero_grad()
-
-    logits = model(X_scaled)
-
-    loss = criterion(logits, y)
-
-    loss.backward()
-
-    optimizer.step()
-
-    if epoch % 10 == 0:
-        print(
-            f"Epoch {epoch}: "
-            f"loss={loss.item():.4f}"
-        )
-
-with torch.no_grad():
-
-    probabilities = torch.sigmoid(
-        model(X_scaled)
+    number_of_negatives = min(
+        len(negatives),
+        len(positives) * negative_ratio,
     )
 
-print(probabilities)
+    negatives = random.sample(
+        negatives,
+        number_of_negatives,
+    )
+
+    result = positives + negatives
+
+    random.shuffle(result)
+
+    return result
+
+def chronological_split(
+    samples,
+    test_days=7,
+):
+    samples = sorted(
+        samples,
+        key=lambda x: x["timestamp"],
+    )
+
+    cutoff = (
+        samples[-1]["timestamp"]
+        - __import__("datetime").timedelta(
+            days=test_days
+        )
+    )
+
+    train = [
+        s for s in samples
+        if s["timestamp"] < cutoff
+    ]
+
+    test = [
+        s for s in samples
+        if s["timestamp"] >= cutoff
+    ]
+
+    return train, test
+
+def train_mlp(train_samples):
+
+    X, y = samples_to_tensors(
+        train_samples
+    )
+
+    scaler = StandardScaler()
+
+    X_scaled = scaler.fit_transform(
+        X.numpy()
+    )
+
+    X_scaled = torch.tensor(
+        X_scaled,
+        dtype=torch.float32,
+    )
+
+    model = RiskMLP(
+        input_size=len(FEATURES)
+    )
+
+    # Positive-class weighting.
+    positives = y.sum()
+    negatives = len(y) - positives
+
+    pos_weight = negatives / max(
+        positives,
+        1,
+    )
+
+    criterion = torch.nn.BCEWithLogitsLoss(
+        pos_weight=pos_weight
+    )
+
+    optimizer = torch.optim.Adam(
+        model.parameters(),
+        lr=0.001,
+    )
+
+    for epoch in range(100):
+
+        optimizer.zero_grad()
+
+        logits = model(X_scaled)
+
+        loss = criterion(
+            logits,
+            y,
+        )
+
+        loss.backward()
+
+        optimizer.step()
+
+        if epoch % 10 == 0:
+
+            print(
+                f"Epoch {epoch}: "
+                f"loss={loss.item():.4f}"
+            )
+
+    return model, scaler
+
+
+def evaluate_model(
+    model,
+    scaler,
+    test_samples,
+):
+
+    X, y = samples_to_tensors(
+        test_samples
+    )
+
+    X_scaled = scaler.transform(
+        X.numpy()
+    )
+
+    X_scaled = torch.tensor(
+        X_scaled,
+        dtype=torch.float32,
+    )
+
+    model.eval()
+
+    with torch.no_grad():
+
+        probabilities = torch.sigmoid(
+            model(X_scaled)
+        )
+
+    predictions = (
+        probabilities >= 0.5
+    ).int()
+
+    y_true = y.int()
+
+    print(
+        "Precision:",
+        precision_score(
+            y_true,
+            predictions,
+            zero_division=0,
+        )
+    )
+
+    print(
+        "Recall:",
+        recall_score(
+            y_true,
+            predictions,
+            zero_division=0,
+        )
+    )
+
+    print(
+        "PR-AUC:",
+        average_precision_score(
+            y_true,
+            probabilities,
+        )
+    )
+
+    return probabilities

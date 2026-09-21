@@ -1,34 +1,40 @@
+import math
 import random
 from datetime import timedelta
 
 from django.core.management.base import BaseCommand, CommandError
 from django.utils import timezone
+from django.contrib.gis.geos import Point
 
 from projects.models import Project, Incident, ThreatClass
 
 
 class Command(BaseCommand):
-    help = "Generate synthetic confirmed incidents for a Dryad project."
+    help = (
+        "Generate synthetic confirmed incidents with spatial "
+        "and temporal attack behaviour."
+    )
 
     def add_arguments(self, parser):
+
         parser.add_argument(
             "project_id",
             type=int,
-            help="ID of the project to populate"
+            help="ID of the project to populate",
         )
 
         parser.add_argument(
             "--days",
             type=int,
             default=90,
-            help="Number of days of fake incident history to generate"
+            help="Number of days of fake incident history to generate",
         )
 
         parser.add_argument(
             "--incidents",
             type=int,
-            default=100,
-            help="Approximate number of incidents to generate"
+            default=5000,
+            help="Approximate number of incidents to generate",
         )
 
         parser.add_argument(
@@ -40,23 +46,23 @@ class Command(BaseCommand):
                 "boundary",
             ],
             default="road",
-            help="Synthetic attacker behaviour"
+            help="Base environmental attacker behaviour",
         )
 
         parser.add_argument(
             "--seed",
             type=int,
             default=2026,
-            help="Random seed for reproducibility"
+            help="Random seed for reproducibility",
         )
 
         parser.add_argument(
             "--clear",
             action="store_true",
-            help="Delete existing incidents for this project first"
+            help="Delete existing incidents for this project first",
         )
 
-    def handle(self, *args, **options):
+    def handle(self, *args, **options):    
 
         random.seed(options["seed"])
 
@@ -72,9 +78,13 @@ class Command(BaseCommand):
                 f"Project {project_id} does not exist."
             )
 
-        cells = list(
-            project.grid_cells.all()
+        cells = list(project.grid_cells.all())
+
+        Incident.objects.filter(project_id=project_id).delete()
+        self.stdout.write(
+            f"Previous incidents deleted"
         )
+
 
         if not cells:
             raise CommandError(
@@ -82,6 +92,7 @@ class Command(BaseCommand):
             )
 
         if options["clear"]:
+
             deleted, _ = Incident.objects.filter(
                 project=project
             ).delete()
@@ -89,6 +100,10 @@ class Command(BaseCommand):
             self.stdout.write(
                 f"Deleted {deleted} existing incidents."
             )
+
+        threat_class = ThreatClass.objects.get(
+            name="Chainsaw"
+        )
 
         self.stdout.write(
             f"Project: {project.name}"
@@ -102,23 +117,30 @@ class Command(BaseCommand):
             f"Scenario: {scenario}"
         )
 
+        self.stdout.write(
+            f"Target incidents: {requested_incidents}"
+        )
+
         # ---------------------------------------------------------
-        # Calculate cell weights according to attacker behaviour
+        # Pre-calculate environmental weights
         # ---------------------------------------------------------
 
-        weights = []
+        environmental_weights = {}
 
         for cell in cells:
 
-            weight = self.calculate_weight(
+            weight = self.calculate_environment_weight(
                 cell,
-                scenario
+                scenario,
             )
 
-            weights.append(max(weight, 0.01))
+            environmental_weights[cell.id] = max(
+                weight,
+                0.001,
+            )
 
         # ---------------------------------------------------------
-        # Generate incidents
+        # Generate incidents chronologically
         # ---------------------------------------------------------
 
         end_time = timezone.now()
@@ -128,75 +150,159 @@ class Command(BaseCommand):
             timedelta(days=days)
         )
 
+        # Store previous attacks in memory.
+        #
+        # cell_id -> list of timestamps
+        #
+        attack_history = {
+            cell.id: []
+            for cell in cells
+        }
+
+        # Store all generated incidents.
         incidents = []
 
-        for _ in range(requested_incidents):
+        # ---------------------------------------------------------
+        # We generate incidents one at a time.
+        #
+        # Unlike the old generator, the probability of selecting
+        # a cell now depends on attacks that have already happened.
+        # ---------------------------------------------------------
+
+        for incident_number in range(
+            requested_incidents
+        ):
+
+            # Random timestamp.
+            #
+            # Sorting later means the temporal influence is based
+            # only on incidents that happened earlier.
+            timestamp = (
+                start_time
+                + timedelta(
+                    seconds=random.randint(
+                        0,
+                        int(
+                            (end_time - start_time)
+                            .total_seconds()
+                        ),
+                    )
+                )
+            )
+
+            # -----------------------------------------------------
+            # Calculate selection weights.
+            # -----------------------------------------------------
+
+            weights = []
+
+            for cell in cells:
+
+                environmental_weight = (
+                    environmental_weights[cell.id]
+                )
+
+                temporal_weight = (
+                    self.calculate_temporal_weight(
+                        cell.id,
+                        timestamp,
+                        attack_history,
+                    )
+                )
+
+                weight = (
+                    environmental_weight
+                    * temporal_weight
+                )
+
+                weights.append(
+                    max(weight, 0.001)
+                )
+
+            # -----------------------------------------------------
+            # Select cell.
+            # -----------------------------------------------------
 
             cell = random.choices(
                 cells,
                 weights=weights,
-                k=1
+                k=1,
             )[0]
 
-            # Random timestamp within the requested period
-            random_days = random.randint(0, days - 1)
-            random_hour = random.randint(0, 23)
-            random_minute = random.randint(0, 59)
+            # -----------------------------------------------------
+            # Store attack history.
+            # -----------------------------------------------------
 
-            timestamp = (
-                start_time
-                + timedelta(days=random_days)
-                + timedelta(
-                    hours=random_hour,
-                    minutes=random_minute
-                )
-)
-
-            incidents.append(
-                Incident(
-                    project=project,
-                    grid_cell=cell,
-                    timestamp=timestamp,
-                    coordinates=cell.geometry.centroid,
-
-                    # Synthetic incidents are treated as
-                    # ground-truth confirmed incidents.
-                    status=Incident.Status.CONFIRMED,
-
-                    # Synthetic confidence isn't important
-                    # for the risk model, but gives the records
-                    # realistic values.
-                    confidence=random.uniform(
-                        80,
-                        99
-                    ),
-
-                    threat_class=ThreatClass.objects.get(name="Chainsaw"),
-                )
+            attack_history[cell.id].append(
+                timestamp
             )
 
+            incidents.append(
+                {
+                    "project": project,
+                    "grid_cell": cell,
+                    "timestamp": timestamp,
+                    "coordinates": cell.geometry.centroid,
+                    "status": Incident.Status.CONFIRMED,
+                    "confidence": random.uniform(
+                        80,
+                        99,
+                    ),
+                    "threat_class": threat_class,
+                }
+            )
+
+            # Progress indicator.
+            if (
+                incident_number + 1
+            ) % 1000 == 0:
+
+                self.stdout.write(
+                    f"Generated "
+                    f"{incident_number + 1}/"
+                    f"{requested_incidents}"
+                )
+
+        # ---------------------------------------------------------
+        # Sort chronologically before creating database records.
+        # ---------------------------------------------------------
+
+        incidents.sort(
+            key=lambda incident: incident["timestamp"]
+        )
+
+        incident_objects = [
+            Incident(**incident)
+            for incident in incidents
+        ]
+
         Incident.objects.bulk_create(
-            incidents
+            incident_objects
         )
 
         self.stdout.write(
             self.style.SUCCESS(
-                f"Created {len(incidents)} fake incidents."
+                f"Created "
+                f"{len(incident_objects)} "
+                f"synthetic incidents."
             )
         )
 
         # ---------------------------------------------------------
-        # Show distribution
+        # Show most frequently attacked cells.
         # ---------------------------------------------------------
 
         counts = {}
 
-        for incident in incidents:
+        for incident in incident_objects:
 
-            identifier = incident.grid_cell.identifier
+            identifier = (
+                incident.grid_cell.identifier
+            )
 
             counts[identifier] = (
-                counts.get(identifier, 0) + 1
+                counts.get(identifier, 0)
+                + 1
             )
 
         self.stdout.write(
@@ -206,20 +312,28 @@ class Command(BaseCommand):
         for identifier, count in sorted(
             counts.items(),
             key=lambda x: x[1],
-            reverse=True
+            reverse=True,
         )[:10]:
 
             self.stdout.write(
                 f"  {identifier}: {count}"
             )
 
-    def calculate_weight(self, cell, scenario):
+    # =============================================================
+    # ENVIRONMENTAL BEHAVIOUR
+    # =============================================================
 
+    def calculate_environment_weight(
+        self,
+        cell,
+        scenario,
+    ):
         """
-        Determine how likely a cell is to be selected.
+        Calculate the base probability weight based on
+        environmental characteristics.
 
-        These are deliberately synthetic rules.
-        They are NOT claims about real illegal logging behaviour.
+        These are synthetic assumptions used to test
+        the machine-learning pipeline.
         """
 
         # ---------------------------------------------------------
@@ -241,14 +355,10 @@ class Command(BaseCommand):
                 return 1.0
 
             # Strong preference for cells close to roads.
-            #
-            # 0m   -> ~1.0
-            # 500m -> ~0.37
-            # 1000m -> ~0.14
-            # etc.
 
             return 1.0 / (
-                1.0 + distance / 300.0
+                1.0 +
+                (distance / 150.0) ** 2
             )
 
         # ---------------------------------------------------------
@@ -265,5 +375,100 @@ class Command(BaseCommand):
             # Prefer relatively flat terrain.
 
             return 1.0 / (
-                1.0 + slope / 5.0
+                1.0 +
+                slope / 5.0
             )
+
+        # ---------------------------------------------------------
+        # Boundary-dependent attacker
+        # ---------------------------------------------------------
+
+        if scenario == "boundary":
+
+            distance = getattr(
+                cell,
+                "distance_to_boundary",
+                None,
+            )
+
+            if distance is None:
+                return 1.0
+
+            return 1.0 / (
+                1.0 +
+                distance / 150.0
+            )
+
+        return 1.0
+
+    # =============================================================
+    # TEMPORAL BEHAVIOUR
+    # =============================================================
+
+    def calculate_temporal_weight(
+        self,
+        cell_id,
+        timestamp,
+        attack_history,
+    ):
+        """
+        Increase the probability of an attack occurring in cells
+        that have experienced recent attacks.
+
+        The influence decays exponentially with time.
+
+        Same cell:
+            strong effect
+
+        Nearby cell:
+            not currently modelled here
+
+        Older attack:
+            weaker effect
+        """
+
+        previous_attacks = attack_history[cell_id]
+
+        if not previous_attacks:
+            return 1.0
+
+        # ---------------------------------------------------------
+        # Find most recent attack.
+        # ---------------------------------------------------------
+
+        recent_attack = max(
+            previous_attacks
+        )
+
+        elapsed_hours = (
+            timestamp - recent_attack
+        ).total_seconds() / 3600.0
+
+        # Safety check.
+        if elapsed_hours < 0:
+            return 1.0
+
+        # ---------------------------------------------------------
+        # Temporal persistence.
+        #
+        # Immediately after an attack:
+        #
+        #     weight ≈ 6
+        #
+        # After 1 day:
+        #
+        #     weight ≈ 3
+        #
+        # After several days:
+        #
+        #     approaches 1
+        # ---------------------------------------------------------
+
+        persistence = (
+            5.0 *
+            math.exp(
+                -elapsed_hours / 72.0
+            )
+        )
+
+        return 1.0 + persistence
