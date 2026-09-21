@@ -1,9 +1,11 @@
+from django.conf import settings
 from collections import defaultdict
 import random
 from datetime import timedelta
 
+import joblib
 from sklearn.preprocessing import StandardScaler
-from .models import Incident
+from .models import GridCell, Incident
 import math
 import torch
 import torch.nn as nn
@@ -19,10 +21,10 @@ FEATURES = [
     "slope",
     "distance_to_road",
 
-    "attacks_last_24h",
-    "attacks_last_7d",
-    "attacks_last_30d",
-    "days_since_last_attack",
+    # "attacks_last_24h",
+    # "attacks_last_7d",
+    # "attacks_last_30d",
+    # "days_since_last_attack",
 
     # "hour_sin",
     # "hour_cos",
@@ -485,3 +487,68 @@ def evaluate_model(
     )
 
     return probabilities
+
+MODEL_PATH = settings.BASE_DIR / "data" / "models" / "risk_model.pt"
+SCALER_PATH = settings.BASE_DIR / "data" / "models" / "risk_scaler.pkl"
+
+
+def calculate_project_risk(project):
+
+    scaler = joblib.load(SCALER_PATH)
+
+    model = RiskMLP(
+        input_size=len(FEATURES)
+    )
+
+    model.load_state_dict(
+        torch.load(
+            MODEL_PATH,
+            map_location="cpu"
+        )
+    )
+
+    model.eval()
+
+    cells = list(
+        project.grid_cells.all()
+    )
+
+    values = [
+        [
+            cell.elevation or 0,
+            cell.slope or 0,
+            cell.distance_to_road or 0,
+        ]
+        for cell in cells
+    ]
+
+    scaled_values = scaler.transform(values)
+
+    x = torch.tensor(
+        scaled_values,
+        dtype=torch.float32
+    )
+
+    with torch.no_grad():
+
+        logits = model(x)
+
+        probabilities = torch.sigmoid(
+            logits
+        ).squeeze()
+
+    for cell, probability in zip(
+        cells,
+        probabilities
+    ):
+
+        cell.risk_score = float(
+            probability.item()
+        )
+
+    GridCell.objects.bulk_update(
+        cells,
+        ["risk_score"]
+    )
+
+    return cells

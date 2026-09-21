@@ -38,4 +38,5 @@ urlpatterns = [
     path('projects/<int:project_id>/invite', views.InviteMemberView.as_view(), name="invite"),
     path('patrols/<int:patrol_id>/complete_patrol', views.PatrolCompletionView.as_view(), name="complete_patrol"),
     path('incidents/<int:incident_id>/assign_patrol', views.PatrolAssignView.as_view(), name="assign_patrol"),
+    path('projects/<int:project_id>/calculate_risk', views.CalculateProjectRiskView.as_view(), name="calculate_risk"),
 ]

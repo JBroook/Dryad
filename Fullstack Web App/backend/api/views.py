@@ -1,6 +1,7 @@
 from django.utils import timezone
 import secrets
 import string
+from projects.BNN import calculate_project_risk
 from rest_framework import status
 from rest_framework.views import APIView
 from users.serializers import LoginSerializer
@@ -17,6 +18,7 @@ from django.db.models import Q
 from django_filters.rest_framework import DjangoFilterBackend
 import django_filters
 from rest_framework.filters import OrderingFilter
+from django.shortcuts import get_object_or_404
 
 class LoginView(APIView):
     def post(self, request):
@@ -388,3 +390,17 @@ class PatrolAssignView(APIView):
                 {"details" : "Members not provided"}, 
                 status=status.HTTP_400_BAD_REQUEST
                 )
+
+class CalculateProjectRiskView(APIView):
+    def post(self, request, project_id):
+        project = get_object_or_404(
+            Project,
+            id=project_id
+        )
+
+        calculate_project_risk(project)
+
+        return Response({
+            "message": "Risk calculation completed.",
+            "project": project.id,
+        }, status=status.HTTP_200_OK)

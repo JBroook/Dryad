@@ -108,6 +108,7 @@ export default function Project() {
       projectID={projectID}
       geoJSON={project?.geoJSON}
       gridCells={gridCells}
+      setGridCells={setGridCells}
       incidents={incidents}
       devices={devices}
     />,

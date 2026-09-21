@@ -272,10 +272,10 @@ import joblib
 
 torch.save(
     model.state_dict(),
-    "risk_model.pt"
+    "data/models/risk_model.pt"
 )
 
 joblib.dump(
     scaler,
-    "risk_scaler.pkl"
+    "data/models/risk_scaler.pkl"
 )
