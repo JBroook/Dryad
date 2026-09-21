@@ -238,31 +238,6 @@ probabilities = evaluate_model(
     test_samples,
 )
 
-
-# --------------------------------------------------
-# Inspect predictions
-# --------------------------------------------------
-
-# print(
-#     "\nFirst 20 predictions:"
-# )
-
-# for sample, probability in zip(
-#     test_samples[:20],
-#     probabilities[:20],
-# ):
-
-#     print(
-#         sample["grid_cell_id"],
-#         sample["timestamp"],
-#         sample["target"],
-#         round(
-#             probability.item(),
-#             4,
-#         ),
-#     )
-
-
 print(
     "\nDone."
 )
