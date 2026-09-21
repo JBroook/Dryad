@@ -143,7 +143,7 @@ export default function ForestMapFull({
                             weight: 1,
                             opacity: gridOpacity,
                             fillColor: getRiskColor(risk),
-                            fillOpacity: gridOpacity,
+                            fillOpacity: gridOpacity*risk,
                         };
                     }}
                 />

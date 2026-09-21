@@ -20,6 +20,7 @@ class Project(models.Model):
     monitoring_area = models.PolygonField(
         srid=4326
     )
+    created_at = models.DateTimeField()
 
     class AlertPreference(models.TextChoices):
         ALL = "all", "All"
@@ -86,42 +87,6 @@ class Device(models.Model):
     def __str__(self):
         return self.name
 
-class Incident(models.Model):
-    project = models.ForeignKey(to=Project, on_delete=models.CASCADE, related_name="incidents")
-    threat_class = models.ForeignKey(to=ThreatClass, on_delete=models.CASCADE)
-    coordinates = models.PointField()
-    timestamp = models.DateTimeField(auto_now_add=True)
-    confidence = models.IntegerField(validators=[
-        MaxValueValidator(100),
-        MinValueValidator(0)
-    ])
-    device = models.ForeignKey(to=Device, on_delete=models.CASCADE)
-
-    class Status(models.TextChoices):
-        UNCONFIRMED = "unconfirmed", "Unconfirmed"
-        CONFIRMED = "confirmed", "Confirmed"
-        DISMISSED = "dismissed", "Dismissed"
-
-    status = models.CharField(choices=Status.choices, default=Status.UNCONFIRMED)
-
-    def __str__(self):
-        return f"{self.device.name}: {self.threat_class.name} ({self.timestamp})"
-
-class Patrol(models.Model):
-    target = models.PointField()
-    member = models.ForeignKey(to=Membership, on_delete=models.CASCADE)
-    project = models.ForeignKey(to=Project, on_delete=models.CASCADE)
-    incident = models.ForeignKey(to=Incident, on_delete=models.CASCADE)
-    assigned_by = models.ForeignKey(to=Membership, on_delete=models.CASCADE, related_name="assignments")
-    assigned_at = models.DateTimeField(auto_now_add=True)
-
-    class Status(models.TextChoices):
-            PENDING = "pending", "Pending"
-            COMPLETED = "completed", "Completed"
-            CANCELLED = "cancelled", "Cancelled"
-    
-    status = models.CharField(choices=Status.choices, default=Status.PENDING)
-
 class GridCell(models.Model):
     project = models.ForeignKey(
         to=Project,
@@ -141,6 +106,44 @@ class GridCell(models.Model):
     slope = models.FloatField(null=True, blank=True)
 
     distance_to_road = models.FloatField(null=True, blank=True)
+
+class Incident(models.Model):
+    project = models.ForeignKey(to=Project, on_delete=models.CASCADE, related_name="incidents")
+    threat_class = models.ForeignKey(to=ThreatClass, on_delete=models.CASCADE)
+    coordinates = models.PointField()
+    timestamp = models.DateTimeField(default=timezone.now)
+    confidence = models.IntegerField(validators=[
+        MaxValueValidator(100),
+        MinValueValidator(0)
+    ])
+    device = models.ForeignKey(to=Device, on_delete=models.CASCADE, blank=True, null=True)
+    grid_cell = models.ForeignKey(to=GridCell, on_delete=models.CASCADE)
+
+    class Status(models.TextChoices):
+        UNCONFIRMED = "unconfirmed", "Unconfirmed"
+        CONFIRMED = "confirmed", "Confirmed"
+        DISMISSED = "dismissed", "Dismissed"
+
+    status = models.CharField(choices=Status.choices, default=Status.UNCONFIRMED)
+
+    def __str__(self):
+        return f"{self.project.name}: {self.threat_class.name}"
+
+class Patrol(models.Model):
+    target = models.PointField()
+    member = models.ForeignKey(to=Membership, on_delete=models.CASCADE)
+    project = models.ForeignKey(to=Project, on_delete=models.CASCADE)
+    incident = models.ForeignKey(to=Incident, on_delete=models.CASCADE)
+    assigned_by = models.ForeignKey(to=Membership, on_delete=models.CASCADE, related_name="assignments")
+    assigned_at = models.DateTimeField(auto_now_add=True)
+
+    class Status(models.TextChoices):
+            PENDING = "pending", "Pending"
+            COMPLETED = "completed", "Completed"
+            CANCELLED = "cancelled", "Cancelled"
+    
+    status = models.CharField(choices=Status.choices, default=Status.PENDING)
+
 
 class ConnectionCode(models.Model):
     code = models.CharField(max_length=6, unique=True)

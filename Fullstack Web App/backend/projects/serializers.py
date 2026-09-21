@@ -79,6 +79,7 @@ def generate_grid(project, cell_size=100):
         grid_cells.append(GridCell(
             project=project,
             geometry=geometry,
+            risk_score=random.random(),
             identifier=f"cell-{index}"
         ))
 

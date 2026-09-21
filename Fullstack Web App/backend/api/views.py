@@ -353,3 +353,38 @@ class PatrolCompletionView(APIView):
                 {"details" : "Patrol status not provided"}, 
                 status=status.HTTP_400_BAD_REQUEST
                 )
+
+class PatrolAssignView(APIView):
+    def post(self, request, incident_id):
+        try:
+            incident = Incident.objects.get(pk=incident_id)
+        except Incident.DoesNotExist:
+            return Response({"details" : "Incident does not exist"}, status=status.HTTP_404_NOT_FOUND)
+
+        assigner_id = request.data.get("assigner_id")
+        assignee_id = request.data.get("assignee_id")
+
+        if assigner_id and assignee_id:
+            try:
+                assignee = Membership.objects.get(pk=assignee_id)
+                assigner = Membership.objects.get(pk=assigner_id)
+            except Membership.DoesNotExist:
+                return Response({"details" : "Members do not exist"}, status=status.HTTP_404_NOT_FOUND)
+
+            patrol = Patrol.objects.create(
+                project=incident.project,
+                incident=incident,
+                member=assignee,
+                target=incident.coordinates,
+                assigned_by=assigner
+            )
+
+            return Response(
+                PatrolSerializer(patrol).data,
+                status=status.HTTP_200_OK
+            )
+        else:
+            return Response(
+                {"details" : "Members not provided"}, 
+                status=status.HTTP_400_BAD_REQUEST
+                )

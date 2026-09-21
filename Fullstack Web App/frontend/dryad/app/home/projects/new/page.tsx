@@ -19,6 +19,12 @@ export type Member = {
   email : string;
   role : string;
   joinDate : string;
+  user?: {
+    id: number;
+    first_name: string;
+    last_name: string;
+    email: string;
+  };
 }
 
 export type ThreatClass = {

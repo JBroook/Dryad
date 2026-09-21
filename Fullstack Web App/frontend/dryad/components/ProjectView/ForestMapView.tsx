@@ -29,7 +29,7 @@ export default function ForestMapView(props: ForestMapViewProps) {
         riskHeatmap : {title : "Risk Heatmap", color : "#F97316", active : true, key : "riskHeatmap"},
         devices : {title : "Devices", color : "#4ADE80", active : true, key : "devices"},
     });
-    const [heatmapOpacity, setHeatmapOpacity] = useState<number>(15);
+    const [heatmapOpacity, setHeatmapOpacity] = useState<number>(50);
     const [latitude, setLatitude] = useState<number>(52.51);
     const [longitude, setLongitude] = useState<number>(13.38);
 
