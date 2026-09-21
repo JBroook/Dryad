@@ -1,18 +1,24 @@
-import { FaArrowLeft, FaArrowRight, FaRegClipboard } from "react-icons/fa";
+import { FaRegClipboard } from "react-icons/fa";
 import BottomBar from "./BottomBar";
 import { IoIosInformationCircleOutline, IoMdWifi } from "react-icons/io";
 import InfoTable from "../InfoTable";
 import { CiGlobe } from "react-icons/ci";
 import { AiOutlineTeam } from "react-icons/ai";
 import { Project } from "@/app/home/projects/new/page";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
 
 interface StepPageProps {
-    submitEvent : () => void;
+    submitEvent : () => Promise<number | null>;
     backEvent : () => void;
     project : Project;
 }
 
 export default function StepFivePage(props: StepPageProps) {
+    const router = useRouter();
+    const [creationComplete, setCreationComplete] = useState<boolean>(false);
+    const [projectId, setProjectId] = useState<number | null>(null);
+
     const basics = [
         {key : "Name", value : props.project.name},
         {key : "Description", value : props.project.description!="" ? props.project.description : "-"},
@@ -39,7 +45,57 @@ export default function StepFivePage(props: StepPageProps) {
         {key : "Owner", value : "You"},
         {key : "Members", value : (props.project.members.length+1).toString()}
     ]
-    return (
+
+    const openModal = ()=>{
+        const modal = document.getElementById('submitModal') as HTMLDialogElement;
+        modal.showModal();
+    }
+
+    const submitEvent = async ()=>{
+        openModal();
+        const createdProjectId = await props.submitEvent();
+
+        if (createdProjectId) {
+            setProjectId(createdProjectId);
+            setCreationComplete(true);
+        }
+    }
+
+    return (<>
+    <dialog id="submitModal" className="modal">
+        <div className="modal-box bg-base-200 border border-white/8 flex flex-col items-center">
+                {!creationComplete ?
+                <>
+                    <h3 className="font-bold text-lg">Project Creation in Progress...</h3>
+                    <p className="py-4 text-sm text-secondary-content">
+                    Please wait while your project is created. This process may take a few minutes.
+                    </p>
+                    <span className="loading loading-spinner"></span>
+                </>
+                :
+                <>
+                    <h3 className="font-bold text-lg">Project Created!</h3>
+                    <p className="pt-4 text-sm text-secondary-content">
+                    Your project, {props.project.name}, is ready!
+                    </p>
+                    <div className="modal-action justify-end">
+                        <button
+                            type="button"
+                            className="btn btn-primary"
+                            onClick={() => {
+                                if (projectId !== null) {
+                                    router.push(`/project?pid=${projectId}`);
+                                }
+                            }}
+                        >
+                            Open Project
+                        </button>
+                    </div>
+                </>
+                }
+        </div>
+    </dialog>
+
     <div className="h-[calc(100vh-5rem)] flex flex-col">
         <div className="flex flex-row ml-30 mt-8">
           <p className="text-sm text-secondary-content">Step 5 of 5</p>
@@ -80,6 +136,7 @@ export default function StepFivePage(props: StepPageProps) {
             />
         </div>
 
-        <BottomBar ready={true} next="Create Project" back="Back" formID="project-form" backEvent={props.backEvent} nextEvent={props.submitEvent}/>
-    </div>);
+        <BottomBar ready={true} next="Create Project" back="Back" formID="project-form" backEvent={props.backEvent} nextEvent={submitEvent}/>
+    </div>
+    </>);
 }

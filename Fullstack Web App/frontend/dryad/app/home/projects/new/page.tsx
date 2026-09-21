@@ -11,7 +11,6 @@ import StepFourPage from "@/components/StepPages/StepFourPage";
 import StepFivePage from "@/components/StepPages/StepFivePage";
 import { LatLng } from "leaflet";
 import { apiFetch } from "@/lib/api";
-import { useRouter } from "next/navigation";
 
 export type Member = {
   id : number;
@@ -20,6 +19,12 @@ export type Member = {
   email : string;
   role : string;
   joinDate : string;
+  user?: {
+    id: number;
+    first_name: string;
+    last_name: string;
+    email: string;
+  };
 }
 
 export type ThreatClass = {
@@ -93,31 +98,42 @@ export default function New() {
     })
   }
 
-  const router = useRouter();
-  const createProject = async () => {
+  const createProject = async (): Promise<number | null> => {
     console.log(project)
 
-    apiFetch(`http://127.0.0.1:8000/api/projects/`, {
-      method : "POST",
-      headers : {
-        "Content-Type" : "application/json",
-      },
-      body : JSON.stringify({
-        ...project,
-        coordinates : `${project.center!.lat},${project.center!.lng}`,
-        surface_area : project.area,
-        confidence_threshold : project.confidenceThreshold,
-        alert_recipients : project.alertPreference,
-        threat_classes : project.threatClasses.filter((threatClass)=>threatClass.active),
-        monitoring_area : project.geoJSON
-      })
-    })
-    .then(async (res) => {
-      if (!res.ok) throw new Error(await res.text());
-      return res.json();
-    })
-    .then(()=>router.push("/home/projects"))
-    .catch((err) => console.error("Fetch failed:", err));
+    const monitoringArea =
+      project.geoJSON && "geometry" in project.geoJSON
+        ? project.geoJSON.geometry
+        : project.geoJSON;
+
+    try {
+      const res = await apiFetch(`http://127.0.0.1:8000/api/projects/`, {
+        method : "POST",
+        headers : {
+          "Content-Type" : "application/json",
+        },
+        body : JSON.stringify({
+          ...project,
+          coordinates : `${project.center!.lat},${project.center!.lng}`,
+          surface_area : project.area,
+          confidence_threshold : project.confidenceThreshold,
+          alert_recipients : project.alertPreference,
+          threat_classes : project.threatClasses.filter((threatClass)=>threatClass.active),
+          monitoring_area : monitoringArea
+        })
+      });
+
+      if (!res.ok) {
+        const errorText = await res.text();
+        throw new Error(errorText);
+      }
+
+      const data = await res.json();
+      return Number(data.id);
+    } catch (err) {
+      console.error("Fetch failed:", err);
+      return null;
+    }
   }
 
   const setThreatClasses = (index : number) => {
@@ -127,7 +143,8 @@ export default function New() {
   }
 
   const pages = [
-    <StepOnePage 
+    <StepOnePage
+      key="step-one"
       nameValue={project.name}
       nameFunction={(e)=>setProject({...project, name: e.target.value})}
       descriptionValue={project.description}
@@ -136,7 +153,8 @@ export default function New() {
       colorFunction={(e)=>setProject({...project, color: e.target.value})}
       submitEvent={nextPage}/>,
 
-    <StepTwoPage 
+    <StepTwoPage
+      key="step-two"
       backEvent={()=>setStep(step-1)}
       submitEvent={nextPage}
       handleArea={handleArea}
@@ -144,7 +162,8 @@ export default function New() {
       geoJSON={project.geoJSON}
       />,
 
-    <StepThreePage 
+    <StepThreePage
+      key="step-three"
       submitEvent={nextPage}
       backEvent={()=>setStep(step-1)}
       confidenceThreshold={project.confidenceThreshold}
@@ -155,14 +174,16 @@ export default function New() {
       setThreatClasses={setThreatClasses}
       />,
 
-    <StepFourPage 
+    <StepFourPage
+      key="step-four"
       membersArray={project.members}
       membersFunction={(newMemberArray : Member[])=>setProject({...project, members: newMemberArray})}
       roleFunction={changeRole}
       submitEvent={nextPage}
       backEvent={()=>setStep(step-1)}/>,
 
-    <StepFivePage 
+    <StepFivePage
+      key="step-five"
       project={project}
       submitEvent={createProject}
       backEvent={()=>setStep(step-1)}/>,
@@ -178,7 +199,7 @@ export default function New() {
       data = data.map((threatClass : ThreatClass)=>{
         return {...threatClass, active : true}
       })
-      setProject({...project, threatClasses : data})
+      setProject((currentProject) => ({ ...currentProject, threatClasses : data }))
     })
     .catch((err) => console.error("Fetch failed:", err));
   }, [])

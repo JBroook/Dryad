@@ -5,7 +5,7 @@ import { FaTruck } from "react-icons/fa";
 import type { IncidentType } from "@/app/home/project/page";
 import { useEffect, useRef, useState } from "react";
 import { apiFetch } from "@/lib/api";
-import { FaPersonCircleCheck } from "react-icons/fa6";
+import { FaPersonCircleCheck, FaPlus } from "react-icons/fa6";
 import { IoSearch } from "react-icons/io5";
 import { Member, ThreatClass } from "@/app/home/projects/new/page";
 import MemberOption from "../MemberOption";
@@ -110,24 +110,32 @@ export default function IncidentsView(props: IncidentsViewProps) {
     const assignPatrol = async (e : React.SubmitEvent<HTMLFormElement>) => {
         e.preventDefault();
 
-        await apiFetch(`http://127.0.0.1:8000/api/patrols/`, {
-            method : "POST",
-            headers : {
-                "Content-Type" : "application/json"
-            },
-            body : JSON.stringify(selectedMembers.map((member)=>{
-                return {
-                    member : member.id,
-                    project : props.projectID,
-                    target : props.incidents[incidentIndex].coordinates
+        const currentUserId = Number(localStorage.getItem("userID"));
+        const currentUserMembershipId = members.find((member) => member.user?.id === currentUserId)?.id;
+
+        if (!currentUserMembershipId) {
+            console.error("Current user membership ID could not be found for this project.");
+            return;
+        }
+
+        try {
+            for (const member of selectedMembers) {
+                const res = await apiFetch(`http://127.0.0.1:8000/api/incidents/${props.incidents[incidentIndex].id}/assign_patrol`, {
+                    method : "POST",
+                    body : JSON.stringify({
+                        assignee_id : member.id,
+                        assigner_id : currentUserMembershipId
+                    })
+                });
+
+                if (!res.ok) {
+                    throw new Error(await res.text());
                 }
-            }))
-        })
-        .then(async (res) => {
-            if (!res.ok) throw new Error(await res.text());
-            return res.json();
-        })
-        .catch((err) => console.error("Fetch failed:", err));
+            }
+        } catch (err) {
+            console.error("Fetch failed:", err);
+            return;
+        }
 
         const modal = document.getElementById('assignPatrolModal') as HTMLDialogElement;
         modal.close();
@@ -461,6 +469,10 @@ export default function IncidentsView(props: IncidentsViewProps) {
         ascending={sortToggle["confidence"]}>
             Confidence
         </SortButton>
+
+        <button className="btn btn-primary ml-2">
+            <FaPlus/> New Incident
+        </button>
     </div>
     
 
@@ -572,7 +584,7 @@ export default function IncidentsView(props: IncidentsViewProps) {
                     name={incident.threatClass.name}
                     coordinates={incident.coordinates}
                     timestamp={incident.timestamp}
-                    device={incident.device.name}
+                    device={incident.device?.name ?? "Non-device"}
                     confidence={incident.confidence}
                     confirmIncident={()=>confirmModal(index)}
                     dismissIncident={()=>dismissModal(index)}

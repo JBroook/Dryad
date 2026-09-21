@@ -5,7 +5,7 @@ import ToggleGlowButton from "@/components/ToggleGlowButton";
 import { apiFetch } from "@/lib/api";
 import { useEffect, useState } from "react";
 import { IncidentType } from "../project/page";
-import { Member, Project } from "../projects/new/page";
+import { Project } from "../projects/new/page";
 
 export type Patrol = {
   id : number;
@@ -28,10 +28,10 @@ export default function Patrols() {
   const [patrolIndex, setPatrolIndex] = useState<number>(-1);
 
   const filterOptions = [
-    {title : "All", key : "all"},
-    {title : "Pending", key : "pending"},
-    {title : "Completed", key : "completed"},
-    {title : "Cancelled", key : "cancelled"},
+    {title : "All", key : "all", count : patrols.length},
+    {title : "Pending", key : "pending", count : patrols.reduce((count, patrol)=> {return patrol.status === "pending" ? (count + 1) : count}, 0)},
+    {title : "Completed", key : "completed", count : patrols.reduce((count, patrol)=> {return patrol.status === "completed" ? (count + 1) : count}, 0)},
+    {title : "Cancelled", key : "cancelled", count : patrols.reduce((count, patrol)=> {return patrol.status === "cancelled" ? (count + 1) : count}, 0)},
   ]
   
   const extractPatrols = (data : any)=>{
@@ -236,7 +236,7 @@ export default function Patrols() {
         active={filterIndex===index}
         onClick={()=>setFilterIndex(index)}
         >
-          {option.title}
+          {option.title} ({option.count})
         </ToggleGlowButton>
       })}
 

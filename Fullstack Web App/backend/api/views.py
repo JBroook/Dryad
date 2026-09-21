@@ -1,6 +1,7 @@
 from django.utils import timezone
 import secrets
 import string
+from projects.BNN import calculate_project_risk
 from rest_framework import status
 from rest_framework.views import APIView
 from users.serializers import LoginSerializer
@@ -17,6 +18,7 @@ from django.db.models import Q
 from django_filters.rest_framework import DjangoFilterBackend
 import django_filters
 from rest_framework.filters import OrderingFilter
+from django.shortcuts import get_object_or_404
 
 class LoginView(APIView):
     def post(self, request):
@@ -353,3 +355,52 @@ class PatrolCompletionView(APIView):
                 {"details" : "Patrol status not provided"}, 
                 status=status.HTTP_400_BAD_REQUEST
                 )
+
+class PatrolAssignView(APIView):
+    def post(self, request, incident_id):
+        try:
+            incident = Incident.objects.get(pk=incident_id)
+        except Incident.DoesNotExist:
+            return Response({"details" : "Incident does not exist"}, status=status.HTTP_404_NOT_FOUND)
+
+        assigner_id = request.data.get("assigner_id")
+        assignee_id = request.data.get("assignee_id")
+
+        if assigner_id and assignee_id:
+            try:
+                assignee = Membership.objects.get(pk=assignee_id)
+                assigner = Membership.objects.get(pk=assigner_id)
+            except Membership.DoesNotExist:
+                return Response({"details" : "Members do not exist"}, status=status.HTTP_404_NOT_FOUND)
+
+            patrol = Patrol.objects.create(
+                project=incident.project,
+                incident=incident,
+                member=assignee,
+                target=incident.coordinates,
+                assigned_by=assigner
+            )
+
+            return Response(
+                PatrolSerializer(patrol).data,
+                status=status.HTTP_200_OK
+            )
+        else:
+            return Response(
+                {"details" : "Members not provided"}, 
+                status=status.HTTP_400_BAD_REQUEST
+                )
+
+class CalculateProjectRiskView(APIView):
+    def post(self, request, project_id):
+        project = get_object_or_404(
+            Project,
+            id=project_id
+        )
+
+        calculate_project_risk(project)
+
+        return Response({
+            "message": "Risk calculation completed.",
+            "project": project.id,
+        }, status=status.HTTP_200_OK)

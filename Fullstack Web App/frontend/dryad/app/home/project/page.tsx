@@ -108,6 +108,7 @@ export default function Project() {
       projectID={projectID}
       geoJSON={project?.geoJSON}
       gridCells={gridCells}
+      setGridCells={setGridCells}
       incidents={incidents}
       devices={devices}
     />,
@@ -179,6 +180,7 @@ export default function Project() {
       if (!res.ok) throw new Error(await res.text());
       return res.json();
     })
+    .then((data)=>{console.log(data); return data})
     .then((data)=>setGridCells(data))
     .catch((err) => console.error("Fetch failed:", err));
 

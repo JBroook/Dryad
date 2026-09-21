@@ -11,6 +11,11 @@ django-cors-headers = "*"
 python-dotenv = "*"
 djangorestframework-gis = "*"
 django-filter = "*"
+requests = "*"
+rasterio = "*"
+torch = "*"
+scikit-learn = "*"
+pandas = "*"
 
 [dev-packages]
 

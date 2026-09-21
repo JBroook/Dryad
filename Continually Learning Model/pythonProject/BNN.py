@@ -170,7 +170,7 @@ if __name__ == "__main__":
             ax.imshow(
                 predictions,
                 cmap='Reds',
-                alpha=0.45,  # transparency
+                alpha=0.45,
                 origin='lower'
             )
 

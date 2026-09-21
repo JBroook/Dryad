@@ -11,6 +11,7 @@ import type { FeatureGroup as LeafletFeatureGroup } from "leaflet";
 import { IoWarning } from "react-icons/io5";
 import type { GeoJSON } from 'geojson';
 import { Device, IncidentType } from "@/app/home/project/page";
+import { apiFetch } from "@/lib/api";
 const ForestMapFull = dynamic(() => import("../ForestMapFull"), {
     ssr: false,
 });
@@ -19,6 +20,7 @@ interface ForestMapViewProps {
     projectID : string | null;
     geoJSON : GeoJSON | null | undefined;
     gridCells : any;
+    setGridCells : (gridCells : any) => void;
     incidents : IncidentType[];
     devices : Device[];
 }
@@ -29,7 +31,7 @@ export default function ForestMapView(props: ForestMapViewProps) {
         riskHeatmap : {title : "Risk Heatmap", color : "#F97316", active : true, key : "riskHeatmap"},
         devices : {title : "Devices", color : "#4ADE80", active : true, key : "devices"},
     });
-    const [heatmapOpacity, setHeatmapOpacity] = useState<number>(15);
+    const [heatmapOpacity, setHeatmapOpacity] = useState<number>(50);
     const [latitude, setLatitude] = useState<number>(52.51);
     const [longitude, setLongitude] = useState<number>(13.38);
 
@@ -39,6 +41,22 @@ export default function ForestMapView(props: ForestMapViewProps) {
         const newMapTags = {...mapTags};
         newMapTags[index as "incidents"|"riskHeatmap"|"devices"].active = value;
         setMapTags(newMapTags);
+    }
+
+    const calculateRisk = () => {
+        apiFetch(`http://127.0.0.1:8000/api/projects/${props.projectID}/calculate_risk`,
+            {
+                method : "POST"
+            }
+        )
+        .then(async (res) => {
+            if (!res.ok) throw new Error(await res.text());
+            return res.json();
+        })
+        .then((data)=>{
+            props.setGridCells(data)
+        })
+        .catch((err) => console.error("Fetch failed:", err));
     }
 
     return (<>
@@ -132,7 +150,7 @@ export default function ForestMapView(props: ForestMapViewProps) {
             })}
         </div>
 
-        <div className="mx-6 mt-2 mb-20">
+        <div className="mx-6 mt-2">
             <ForestMapFull 
             latitude={latitude}
             longitude={longitude}
@@ -146,6 +164,13 @@ export default function ForestMapView(props: ForestMapViewProps) {
             devices={props.devices}
             enableDevices={mapTags.devices.active}
             />
+        </div>
+
+        <div className="mx-6 mt-4 mb-20">
+            <button className="btn btn-primary"
+            onClick={calculateRisk}>
+                Calculate Risk
+            </button>
         </div>
 </>);
 }

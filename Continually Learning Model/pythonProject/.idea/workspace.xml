@@ -7,9 +7,17 @@
     <list default="true" id="3f32e91f-5408-4877-9ca6-eb5b303e1324" name="Changes" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/BNN.py" beforeDir="false" afterPath="$PROJECT_DIR$/BNN.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../../Fullstack Web App/frontend/dryad/components/StepPages/StepFivePage.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/../../Fullstack Web App/frontend/dryad/components/StepPages/StepFivePage.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../../Fullstack Web App/frontend/dryad/components/StepPages/StepFourPage.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/../../Fullstack Web App/frontend/dryad/components/StepPages/StepFourPage.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../../Fullstack Web App/frontend/dryad/components/StepPages/StepThreePage.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/../../Fullstack Web App/frontend/dryad/components/StepPages/StepThreePage.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../Fullstack Web App/backend/Pipfile" beforeDir="false" afterPath="$PROJECT_DIR$/../../Fullstack Web App/backend/Pipfile" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../Fullstack Web App/backend/Pipfile.lock" beforeDir="false" afterPath="$PROJECT_DIR$/../../Fullstack Web App/backend/Pipfile.lock" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../Fullstack Web App/backend/api/urls.py" beforeDir="false" afterPath="$PROJECT_DIR$/../../Fullstack Web App/backend/api/urls.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../Fullstack Web App/backend/api/views.py" beforeDir="false" afterPath="$PROJECT_DIR$/../../Fullstack Web App/backend/api/views.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../Fullstack Web App/backend/projects/models.py" beforeDir="false" afterPath="$PROJECT_DIR$/../../Fullstack Web App/backend/projects/models.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../Fullstack Web App/backend/projects/serializers.py" beforeDir="false" afterPath="$PROJECT_DIR$/../../Fullstack Web App/backend/projects/serializers.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../Fullstack Web App/frontend/dryad/app/home/patrols/page.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/../../Fullstack Web App/frontend/dryad/app/home/patrols/page.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../Fullstack Web App/frontend/dryad/app/home/projects/new/page.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/../../Fullstack Web App/frontend/dryad/app/home/projects/new/page.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../Fullstack Web App/frontend/dryad/components/ForestMapFull.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/../../Fullstack Web App/frontend/dryad/components/ForestMapFull.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../Fullstack Web App/frontend/dryad/components/ProjectView/ForestMapView.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/../../Fullstack Web App/frontend/dryad/components/ProjectView/ForestMapView.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../Fullstack Web App/frontend/dryad/components/ProjectView/IncidentsView.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/../../Fullstack Web App/frontend/dryad/components/ProjectView/IncidentsView.tsx" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -55,7 +63,7 @@
     &quot;Python.SyntheticData.executor&quot;: &quot;Run&quot;,
     &quot;Python.test.executor&quot;: &quot;Run&quot;,
     &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;Project-Creation&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;Risk-Model-Integration&quot;,
     &quot;last_opened_file_path&quot;: &quot;C:/Users/User/Documents/GitHub/ALLProject2024&quot;
   }
 }</component>
