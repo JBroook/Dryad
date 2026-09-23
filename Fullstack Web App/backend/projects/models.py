@@ -20,7 +20,7 @@ class Project(models.Model):
     monitoring_area = models.PolygonField(
         srid=4326
     )
-    created_at = models.DateTimeField()
+    created_at = models.DateTimeField(default=timezone.now)
 
     class AlertPreference(models.TextChoices):
         ALL = "all", "All"

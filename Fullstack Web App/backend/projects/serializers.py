@@ -150,6 +150,13 @@ class ProjectSerializer(GeoFeatureModelSerializer):
                 role=member['role']
             )
 
+        # create membership for owner
+        Membership.objects.create(
+            project=project,
+            user=project.owner,
+            role=Membership.Role.OWNER
+        )
+
         # record threat classes to detect
         for threat_class in threat_classes:
             ProjectThreatClass.objects.create(

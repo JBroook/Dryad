@@ -21,6 +21,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 ALLOWED_HOSTS = [
     "192.168.100.7",
+    "10.111.194.78",
     "localhost",
     "127.0.0.1",
 ]
