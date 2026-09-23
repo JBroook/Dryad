@@ -35,6 +35,7 @@ urlpatterns = [
     path('', include(router.urls)),
     path('projects/<int:project_id>/connection_code', views.ProjectGetCodeView.as_view(), name="project_code"),
     path('devices/connect', views.DeviceConnectionView.as_view(), name="connect_device"),
+    path('devices/<int:device_id>/report', views.DeviceReportView.as_view(), name="report_incident"),
     path('projects/<int:project_id>/invite', views.InviteMemberView.as_view(), name="invite"),
     path('patrols/<int:patrol_id>/complete_patrol', views.PatrolCompletionView.as_view(), name="complete_patrol"),
     path('incidents/<int:incident_id>/assign_patrol', views.PatrolAssignView.as_view(), name="assign_patrol"),

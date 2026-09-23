@@ -68,25 +68,6 @@ class Membership(models.Model):
     def __str__(self):
         return self.project.name + ": " + self.user.email
 
-class Device(models.Model):
-    name = models.CharField(max_length=50)
-    location = models.PointField()
-    project = models.ForeignKey(to=Project, on_delete=models.CASCADE)
-    battery = models.IntegerField()
-
-    class Status(models.TextChoices):
-        ONLINE = "online", "Online"
-        OFFLINE = "offline", "Offline"
-
-    status = models.CharField(
-        choices=Status.choices
-    )
-
-    last_seen = models.DateTimeField(auto_now_add=True)
-
-    def __str__(self):
-        return self.name
-
 class GridCell(models.Model):
     project = models.ForeignKey(
         to=Project,
@@ -106,6 +87,40 @@ class GridCell(models.Model):
     slope = models.FloatField(null=True, blank=True)
 
     distance_to_road = models.FloatField(null=True, blank=True)
+
+class Device(models.Model):
+    name = models.CharField(max_length=50)
+    location = models.PointField()
+    project = models.ForeignKey(to=Project, on_delete=models.CASCADE)
+    battery = models.IntegerField()
+    grid_cell = models.ForeignKey(to=GridCell, on_delete=models.CASCADE)
+
+    class Status(models.TextChoices):
+        ONLINE = "online", "Online"
+        OFFLINE = "offline", "Offline"
+
+    status = models.CharField(
+        choices=Status.choices
+    )
+
+    last_seen = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return self.name
+
+    def report_incident(self, threat_class, timestamp, confidence):
+        Incident.objects.create(
+            threat_class=threat_class,
+            timestamp=timestamp,
+            confidence=confidence,
+            project=self.project,
+            coordinates=self.location,
+            device=self,
+            grid_cell=self.grid_cell,
+            status="unconfirmed"
+        ).save()
+
+        # need to add alert generation function here
 
 class Incident(models.Model):
     project = models.ForeignKey(to=Project, on_delete=models.CASCADE, related_name="incidents")
