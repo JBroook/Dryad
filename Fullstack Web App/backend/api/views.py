@@ -57,7 +57,9 @@ class ProjectViewSet(ModelViewSet):
     serializer_class = ProjectSerializer
 
     def get_queryset(self):
-        return Project.objects.filter(owner=self.request.user)
+        return Project.objects.filter(
+            members__user=self.request.user
+        )
 
     def perform_create(self, serializer):
         serializer.save(owner=self.request.user)

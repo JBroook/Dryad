@@ -12,6 +12,7 @@ from django.contrib.gis.geos import GEOSGeometry
 from django.db import connection, transaction
 from rest_framework_gis.fields import GeometryField
 from django.conf import settings
+from django.utils import timezone
 
 class MembershipSerializer(serializers.ModelSerializer):
     user = UserSerializer()
@@ -154,7 +155,9 @@ class ProjectSerializer(GeoFeatureModelSerializer):
         Membership.objects.create(
             project=project,
             user=project.owner,
-            role=Membership.Role.OWNER
+            role=Membership.Role.OWNER,
+            accepted=True,
+            join_date=timezone.now()
         )
 
         # record threat classes to detect

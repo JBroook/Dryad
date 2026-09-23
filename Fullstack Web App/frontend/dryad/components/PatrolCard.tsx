@@ -159,7 +159,7 @@ export default function PatrolCard(props : PatrolCardProps) {
                     </GlowButton>
 
                     <GlowButton className="btn btn-secondary" color="#60A5FA"
-                    onClick={()=>openGoogleMaps(incident.coordinates.lat, incident.coordinates.lng)}>
+                    onClick={()=>openGoogleMaps(incident.coordinates.lng, incident.coordinates.lat)}>
                         <FaLocationArrow />
                         Navigate
                         <FiExternalLink />

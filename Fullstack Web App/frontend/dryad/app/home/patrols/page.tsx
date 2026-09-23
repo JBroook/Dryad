@@ -143,7 +143,8 @@ export default function Patrols() {
 
   useEffect(()=>{
     // fetch project incidents
-    apiFetch(`http://127.0.0.1:8000/api/users/${1}/patrols/`)
+    const userID = localStorage.getItem("userID")
+    apiFetch(`http://127.0.0.1:8000/api/users/${userID}/patrols/`)
       .then(async (res) => {
         if (!res.ok) throw new Error(await res.text());
         return res.json();

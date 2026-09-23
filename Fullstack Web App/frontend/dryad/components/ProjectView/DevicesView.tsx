@@ -83,6 +83,7 @@ export default function DevicesView(props: DevicesViewProps) {
         if (!res.ok) throw new Error(await res.text());
         return res.json();
         })
+        .then(()=>setNewDeviceName(""))
         .catch((err) => console.error("Fetch failed:", err));
     }
 
@@ -120,12 +121,13 @@ export default function DevicesView(props: DevicesViewProps) {
         .catch((err) => console.error("Fetch failed:", err));
     }
 
-    const changeNewDeviceName = async (e : React.SubmitEvent<HTMLFormElement>) => {
+    const changeNewDeviceName = (e : React.SubmitEvent<HTMLFormElement>) => {
         e.preventDefault();
 
         closeModal("deviceModal")
-        await renameDevice(newDeviceID, newDeviceName);
-        setNewDeviceName("");
+        if(newDeviceName!==""){
+            renameDevice(newDeviceID, newDeviceName);
+        }
         setConnectionState("available");
     }
 
