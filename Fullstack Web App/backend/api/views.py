@@ -19,6 +19,7 @@ from django_filters.rest_framework import DjangoFilterBackend
 import django_filters
 from rest_framework.filters import OrderingFilter
 from django.shortcuts import get_object_or_404
+from django.utils.dateparse import parse_datetime
 
 class LoginView(APIView):
     def post(self, request):
@@ -268,11 +269,22 @@ class DeviceConnectionView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        grid_cell = connection_code.project.grid_cells.filter(
+            geometry__covers=coordinate
+        ).first()
+
+        if grid_cell is None:
+            return Response(
+                {"detail": "No grid cell matches this device location."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         device = Device.objects.create(
             name=f"Device-{code}",
-            location = coordinate,
-            project = connection_code.project,
+            location=coordinate,
+            project=connection_code.project,
             battery=battery,
+            grid_cell=grid_cell,
             status="online"
         )
 
@@ -280,10 +292,18 @@ class DeviceConnectionView(APIView):
         connection_code.device = device
         connection_code.save(update_fields=["used_at","device"])
 
+        project_threat_classes = list(
+            connection_code.project.threat_classes.values_list(
+                "threat_class_id",
+                flat=True,
+            )
+        )
+
         return Response(
             {
                 "message": "Device connected successfully.",
                 "device_id": device.id,
+                "threat_classes": project_threat_classes,
             },
             status=status.HTTP_201_CREATED,
         )
@@ -317,6 +337,26 @@ class DeviceConnectionView(APIView):
         return Response(
             {"status": "available"},
             status=status.HTTP_200_OK,
+        )
+
+class DeviceReportView(APIView):
+    def post(self, request, device_id):
+        device = get_object_or_404(Device, id=device_id)
+        threat_class_id = request.data.get("threat_class")
+        threat_class = get_object_or_404(ThreatClass, id=threat_class_id)
+        timestamp = parse_datetime(request.data.get("timestamp"))
+        confidence = request.data.get("confidence")
+        device.report_incident(
+            threat_class=threat_class,
+            timestamp=timestamp,
+            confidence=confidence
+        )
+
+        return Response(
+            {
+                "details": "Report received successfully."
+            },
+            status=status.HTTP_201_CREATED,
         )
 
 class PatrolCompletionView(APIView):
