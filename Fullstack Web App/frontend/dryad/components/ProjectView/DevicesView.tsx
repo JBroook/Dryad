@@ -5,7 +5,7 @@ import DeviceCard from "../DeviceCard";
 import { Device } from "@/app/home/project/page";
 import { FaPlus } from "react-icons/fa";
 import { ReactEventHandler, SubmitEventHandler, useEffect, useState } from "react";
-import { IoMdWifi } from "react-icons/io";
+import { IoIosWarning, IoMdWifi } from "react-icons/io";
 import { RxCross2 } from "react-icons/rx";
 import { IoCopy } from "react-icons/io5";
 import { apiFetch } from "@/lib/api";
@@ -336,6 +336,7 @@ export default function DevicesView(props: DevicesViewProps) {
             </div>
         </div>
 
+        {props.devices.length>0 ? 
         <div className="grid grid-cols-3 mx-6 mt-4 gap-4">
             {props.devices.map((device, index)=>{
                 return <DeviceCard 
@@ -348,5 +349,13 @@ export default function DevicesView(props: DevicesViewProps) {
             })
             }
         </div>
+        :
+        <div className="w-full flex flex-col justify-center items-center text-secondary-content pt-20">
+            <IoMdWifi className="text-4xl"/>
+            
+            <h1>No devices found</h1>
+            <p className="text-sm">Add a device to start recording incidents</p>
+        </div>
+        }
     </>);
 }

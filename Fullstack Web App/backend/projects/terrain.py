@@ -5,6 +5,7 @@ import rasterio
 from django.contrib.gis.geos import LineString
 from .models import OSMRoad
 from django.contrib.gis.db.models.functions import Distance, Transform
+import time
 
 def get_project_bbox(project):
     bbox = project.monitoring_area.extent

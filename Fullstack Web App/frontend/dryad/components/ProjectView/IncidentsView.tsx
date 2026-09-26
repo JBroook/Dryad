@@ -10,11 +10,12 @@ import { IoSearch } from "react-icons/io5";
 import { Member, ThreatClass } from "@/app/home/projects/new/page";
 import MemberOption from "../MemberOption";
 import GlowButton from "../GlowButton";
-import { IoIosOptions, IoMdCheckmark } from "react-icons/io";
+import { IoIosOptions, IoIosWarning, IoMdCheckmark } from "react-icons/io";
 import SortButton from "../SortButton";
 import ToggleGlowButton from "../ToggleGlowButton";
 import getThreatIcon from "@/lib/threatIcons";
 import { RxCross2 } from "react-icons/rx";
+import { useRouter } from "next/navigation";
 
 interface IncidentsViewProps {
     projectID : string | null;
@@ -313,8 +314,12 @@ export default function IncidentsView(props: IncidentsViewProps) {
         return () => clearTimeout(timeout);
     }, [searchMember]);
 
+    const router = useRouter();
+
     const isFirstRender = useRef(true);
     useEffect(() => {
+        if(searchIncident==="") return;
+
         if (isFirstRender.current) {
             isFirstRender.current = false;
             return;
@@ -576,7 +581,7 @@ export default function IncidentsView(props: IncidentsViewProps) {
     </div>}
 
     <div className="mx-6 mt-5">
-        {
+        {props.incidents.length>0 ?
             props.incidents.map((incident, index)=>{
                 return <Incident
                     key={index}
@@ -592,6 +597,21 @@ export default function IncidentsView(props: IncidentsViewProps) {
                     status={incident.status}
                 />
             })
+            :
+            <div className="w-full flex flex-col justify-center items-center text-secondary-content pt-20">
+                <IoIosWarning className="text-4xl"/>
+                {searchIncident==="" ?
+                <>
+                    <h1>No incidents found</h1>
+                    <p className="text-sm">Add a device to start recording incidents</p>
+                    <button className="btn btn-primary mt-4" onClick={()=>router.push(`/home/project?pid=${props.projectID}&tab=devices`)}>
+                        <FaPlus />
+                        Add Device
+                    </button>
+                </> :
+                    <h1>"{searchIncident}" couldn't be found</h1>
+                }
+            </div>
         }
     </div>
     </>);

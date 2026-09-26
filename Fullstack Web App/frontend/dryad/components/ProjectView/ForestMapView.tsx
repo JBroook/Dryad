@@ -150,7 +150,7 @@ export default function ForestMapView(props: ForestMapViewProps) {
             })}
         </div>
 
-        <div className="mx-6 mt-2">
+        <div className="mx-6 mt-2 min-h-120">
             <ForestMapFull 
             latitude={latitude}
             longitude={longitude}

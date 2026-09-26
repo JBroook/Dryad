@@ -6,6 +6,7 @@ import { apiFetch } from "@/lib/api";
 import { useEffect, useState } from "react";
 import { IncidentType } from "../project/page";
 import { Project } from "../projects/new/page";
+import { TbMapRoute } from "react-icons/tb";
 
 export type Patrol = {
   id : number;
@@ -247,7 +248,7 @@ export default function Patrols() {
     </div>
 
     <div className="mx-6 mt-5">
-      {
+      {matchingPatrols.length>0 ?
         matchingPatrols.map((patrol, index)=>{
           return <PatrolCard
             key={index}
@@ -258,6 +259,17 @@ export default function Patrols() {
             dismissPatrol={()=>openModal("dismissModal", index)}
           />
       })
+      :
+      <div className="w-full flex flex-col justify-center items-center text-secondary-content pt-30">
+        <TbMapRoute className="text-4xl"/>
+        
+        {filterOptions[filterIndex].key!=="all" ? 
+          <h1>You have no {filterOptions[filterIndex].key} patrols</h1>
+          :
+          <h1>You have no patrols</h1>
+        }
+        <p className="text-sm">Assign a patrol to yourself in a project to start</p>
+      </div>
       }
   </div>
   </>
