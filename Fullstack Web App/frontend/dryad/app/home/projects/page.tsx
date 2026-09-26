@@ -19,15 +19,14 @@ export default function Home() {
   const [authenticated, setAuthenticated] = useState<boolean>(false)
   const [projectsLoaded, setProjectsLoaded] = useState<boolean>(false)
   const router = useRouter();
-  const overviewCards = [
-    {title : "Active Projects", number : 2, icon : BsTree, iconColor : "#4ADE80"},
-    {title : "New Incidents", number : 2, icon : IoWarning, iconColor : "#F87171"},
-    {title : "Online Devices", number : 5, icon : IoMdWifi, iconColor : "#60A5FA"},
-    {title : "Total Incidents", number : 8, icon : GoPulse, iconColor : "#A78BFA"},
-  ]
-
   const [firstName, setFirstName] = useState<string>("")
   const [allProjects, setAllProjects] = useState<Project[]>([])
+  const [overviewCards, setOverviewCards] = useState([
+    {title : "Active Projects", number : null, icon : BsTree, iconColor : "#4ADE80"},
+    {title : "New Incidents", number : null, icon : IoWarning, iconColor : "#F87171"},
+    {title : "Online Devices", number : null, icon : IoMdWifi, iconColor : "#60A5FA"},
+    {title : "Total Incidents", number : null, icon : GoPulse, iconColor : "#A78BFA"},
+  ])
 
   useEffect(()=>{
     const token = localStorage.getItem("access");
@@ -52,11 +51,13 @@ export default function Home() {
       .catch((err) => console.error("Fetch failed:", err));
 
     const extractProjectFeatures = (data : any) => {
-      const extractedProjects = data.features.map((feature : any)=>{
+      const extractedProjects = data.map((project : any)=>{
         return {
-          ...feature.properties, 
-          area : feature.properties.surface_area,
-          id : feature.id
+          ...project, 
+          area : project.surface_area,
+          memberCount : project.member_count,
+          deviceCount : project.device_count,
+          newAlerts : project.new_alerts
         }
       })
       setAllProjects(extractedProjects)
@@ -64,13 +65,29 @@ export default function Home() {
     }
 
     // fetch all projects
-    apiFetch(`http://127.0.0.1:8000/api/projects/`)
+    apiFetch(`http://127.0.0.1:8000/api/projects/overview`)
       .then(async (res) => {
         if (!res.ok) throw new Error(await res.text());
         return res.json();
       })
       .then((data)=>{console.log(data); return data})
       .then(extractProjectFeatures)
+      .catch((err) => console.error("Fetch failed:", err));
+
+    // fetch overview info
+    apiFetch(`http://127.0.0.1:8000/api/users/${userID}/overview`)
+      .then(async (res) => {
+        if (!res.ok) throw new Error(await res.text());
+        return res.json();
+      })
+      .then((data)=>{
+        const newOverviewCards = [...overviewCards]
+        newOverviewCards[0].number = data.active_projects
+        newOverviewCards[1].number = data.new_incidents
+        newOverviewCards[2].number = data.online_devices
+        newOverviewCards[3].number = data.total_incidents
+        setOverviewCards(newOverviewCards)
+      })
       .catch((err) => console.error("Fetch failed:", err));
   }, [])
 
@@ -101,13 +118,18 @@ export default function Home() {
             {overviewCards.map((card, index)=>{
               const Icon = card.icon;
               return (<HollowCard key={index}>
-                  <div className="stat">
-                    <div className="stat-figure text-primary">
-                      <Icon className="text-2xl" style={{color : card.iconColor}}/>
-                    </div>
-                    <div className="stat-title">{card.title}</div>
-                    <div className="stat-value mt-2">{card.number}</div>
-                  </div>
+                <div className="stat">
+                <div className="stat-figure text-primary">
+                  <Icon className="text-2xl" style={{color : card.iconColor}}/>
+                </div>
+                <div className="stat-title">{card.title}</div>
+                {card.number!==null ?
+                  <div className="stat-value mt-2">{card.number}</div>
+                  :
+                  <span className="loading loading-spinner"></span>
+                }
+                </div>
+                
                 </HollowCard>);
             })}
         </div>
@@ -130,9 +152,8 @@ export default function Home() {
                 region ={project.region!}
                 area ={project.area!}
                 alerts ={1}
-                activeDevices ={3}
-                totalDevices ={5}
-                members ={20}
+                totalDevices ={project.deviceCount!}
+                members ={project.memberCount!}
                 accentColor={project.color}
                 tagColor="#4ADE80"
                 openProject={()=>{router.push(`/home/project?pid=${project.id}&tab=overview`)}}

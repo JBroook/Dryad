@@ -75,12 +75,12 @@ export default function Project() {
   }
 
   const tabOptions = [
-    {title : "Overview", href : "overview", icon : IoIosStats},
+    // {title : "Overview", href : "overview", icon : IoIosStats},
     {title : "Incidents", href : "incidents", icon : IoIosWarning },
     {title : "Forest Map", href : "forest_map", icon : FaMap },
     {title : "Devices", href : "devices", icon : IoMdWifi},
     {title : "Team", href : "team", icon : AiOutlineTeam},
-    {title : "Settings", href : "settings", icon : FaGear},
+    // {title : "Settings", href : "settings", icon : FaGear},
   ]
 
   const filterOptions = [

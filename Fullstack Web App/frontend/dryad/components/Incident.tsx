@@ -1,10 +1,10 @@
 import getThreatIcon from "@/lib/threatIcons";
 import { useState } from "react";
-import { IconType } from "react-icons";
 import { FaPersonRunning, FaRegClock } from "react-icons/fa6";
 import { IoIosArrowDown, IoIosArrowUp } from "react-icons/io";
 import { MdOutlineLocationOn } from "react-icons/md";
 import GlowButton from "./GlowButton";
+import { useRouter } from "next/navigation";
 
 interface IncidentProps {
     color : string;
@@ -17,6 +17,7 @@ interface IncidentProps {
     dismissIncident : ()=>void;
     assignPatrol : ()=>void;
     status : string;
+    projectID : string | null;
 }
 
 export type Coordinate = {
@@ -35,6 +36,8 @@ export default function Incident(props : IncidentProps) {
     });
 
     const formalDateTime = date.toLocaleString("en-US");
+
+    const router = useRouter();
 
     return (
     <div className="collapse rounded-2xl w-full border border-2 border-white/5 px-2 bg-base-200 mb-4">
@@ -130,7 +133,13 @@ export default function Incident(props : IncidentProps) {
                     </>
                 }
 
-                <button className="btn btn-secondary">
+                <button 
+                className="btn btn-secondary"
+                onClick={()=>router.push(`/home/project?pid=${props.projectID}&tab=forest_map&lat=${
+                    props.coordinates.lng
+                }&lng=${
+                    props.coordinates.lat
+                }`)}>
                     View on Map
                 </button>
             </div>

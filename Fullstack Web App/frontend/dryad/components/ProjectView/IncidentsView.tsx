@@ -15,7 +15,7 @@ import SortButton from "../SortButton";
 import ToggleGlowButton from "../ToggleGlowButton";
 import getThreatIcon from "@/lib/threatIcons";
 import { RxCross2 } from "react-icons/rx";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
 interface IncidentsViewProps {
     projectID : string | null;
@@ -45,6 +45,9 @@ export default function IncidentsView(props: IncidentsViewProps) {
         confirmed : false,
         dismissed : false
     });
+
+    const searchParams = useSearchParams();
+    const projectID = searchParams.get("pid");
 
     const confirmModal = (index : number)=>{
         const modal = document.getElementById('confirmModal') as HTMLDialogElement;
@@ -595,6 +598,7 @@ export default function IncidentsView(props: IncidentsViewProps) {
                     dismissIncident={()=>dismissModal(index)}
                     assignPatrol={()=>assignPatrolModal(index)}
                     status={incident.status}
+                    projectID={props.projectID}
                 />
             })
             :

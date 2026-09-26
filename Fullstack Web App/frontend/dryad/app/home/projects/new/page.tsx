@@ -11,6 +11,7 @@ import StepFourPage from "@/components/StepPages/StepFourPage";
 import StepFivePage from "@/components/StepPages/StepFivePage";
 import { LatLng } from "leaflet";
 import { apiFetch } from "@/lib/api";
+import { Device } from "../../project/page";
 
 export type Member = {
   id : number;
@@ -48,6 +49,9 @@ export type Project = {
   threatClasses : ThreatClass[];
   alertPreference : string;
   status : boolean;
+  memberCount? : number;
+  deviceCount? : number;
+  newAlerts? : number;
 }
 
 export default function New() {
@@ -65,7 +69,7 @@ export default function New() {
     center : null,
     confidenceThreshold : 75,
     threatClasses : [],
-    alertPreference : "all"
+    alertPreference : "all",
   });
 
   const nextPage = () => {

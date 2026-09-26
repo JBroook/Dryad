@@ -153,10 +153,15 @@ export default function PatrolCard(props : PatrolCardProps) {
             <div className="flex mt-2 justify-between">
                 <div className="flex gap-2">
                     <GlowButton className="btn btn-secondary" color="#4ADE80"
-                    onClick={()=>router.push(`/home/project?pid=${props.patrol.project.id}&tab=forest_map`)}>
+                    onClick={()=>router.push(`/home/project?pid=${props.patrol.project.id}&tab=forest_map&lat=${
+                        incident.coordinates.lng
+                    }&lng=${
+                        incident.coordinates.lat
+                    }`)}>
                         <TbMapRoute/>
                         View on Map
                     </GlowButton>
+                    
 
                     <GlowButton className="btn btn-secondary" color="#60A5FA"
                     onClick={()=>openGoogleMaps(incident.coordinates.lng, incident.coordinates.lat)}>

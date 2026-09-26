@@ -123,6 +123,11 @@ class GridCellSerializer(GeoFeatureModelSerializer):
             "slope"
         ]
 
+class DeviceSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Device
+        fields = '__all__'
+
 class ProjectSerializer(GeoFeatureModelSerializer):
     members = ProjectMemberSerializer(many=True, required=False)
     threat_classes = ProjectThreatClassSerializer(many=True, required=False)
@@ -169,15 +174,30 @@ class ProjectSerializer(GeoFeatureModelSerializer):
 
         return project
 
+class ProjectOverviewSerializer(serializers.ModelSerializer):
+    member_count = serializers.IntegerField(read_only=True)
+    device_count = serializers.IntegerField(read_only=True)
+    new_alerts = serializers.IntegerField(read_only=True)
+
+    class Meta:
+        model = Project
+        fields = [
+            'id',
+            'color',
+            'name',
+            'status',
+            'surface_area',
+            'region',
+            'member_count',
+            'device_count',
+            'new_alerts',
+        ]
+        read_only_fields = ['owner']
+
 
 class ThreatClassSerializer(serializers.ModelSerializer):
     class Meta:
         model = ThreatClass
-        fields = '__all__'
-
-class DeviceSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Device
         fields = '__all__'
 
 class IncidentSerializer(serializers.ModelSerializer):

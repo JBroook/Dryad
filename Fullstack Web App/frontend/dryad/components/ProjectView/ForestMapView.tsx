@@ -12,6 +12,7 @@ import { IoWarning } from "react-icons/io5";
 import type { GeoJSON } from 'geojson';
 import { Device, IncidentType } from "@/app/home/project/page";
 import { apiFetch } from "@/lib/api";
+import { useSearchParams } from "next/navigation";
 const ForestMapFull = dynamic(() => import("../ForestMapFull"), {
     ssr: false,
 });
@@ -32,8 +33,13 @@ export default function ForestMapView(props: ForestMapViewProps) {
         devices : {title : "Devices", color : "#4ADE80", active : false, key : "devices"},
     });
     const [heatmapOpacity, setHeatmapOpacity] = useState<number>(50);
-    const [latitude, setLatitude] = useState<number>(52.51);
-    const [longitude, setLongitude] = useState<number>(13.38);
+
+    const searchParams = useSearchParams();
+    const lat = searchParams.get('lat');
+    const lng = searchParams.get('lng');
+
+    const [latitude, setLatitude] = useState<number | null>(lat!=null ? parseFloat(lat) : lat);
+    const [longitude, setLongitude] = useState<number | null>(lng!=null ? parseFloat(lng) : lng);
 
     const drawnItemsReference = useRef<LeafletFeatureGroup | null>(null);
 

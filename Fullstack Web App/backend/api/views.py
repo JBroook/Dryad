@@ -11,7 +11,7 @@ from rest_framework.viewsets import ModelViewSet
 from users.serializers import UserSerializer
 from users.models import User
 from projects.models import ConnectionCode, Project, Incident, ThreatClass, Membership, Patrol, GridCell, Device
-from projects.serializers import (DeviceConnectSerializer, ProjectSerializer, IncidentSerializer, 
+from projects.serializers import (DeviceConnectSerializer, ProjectOverviewSerializer, ProjectSerializer, IncidentSerializer, 
 ThreatClassSerializer, MembershipSerializer, PatrolSerializer,
 GridCellSerializer, DeviceSerializer)
 from django.db.models import Q
@@ -20,6 +20,7 @@ import django_filters
 from rest_framework.filters import OrderingFilter
 from django.shortcuts import get_object_or_404
 from django.utils.dateparse import parse_datetime
+from django.db.models import Count
 
 class LoginView(APIView):
     def post(self, request):
@@ -63,6 +64,25 @@ class ProjectViewSet(ModelViewSet):
 
     def perform_create(self, serializer):
         serializer.save(owner=self.request.user)
+
+class ProjectOverviewView(APIView):
+    def get(self, request):
+        projects = Project.objects.filter(
+            members__user=self.request.user
+        )
+
+        projects = projects.annotate(
+            member_count=Count('members'),
+            device_count=Count('devices'),
+            new_alerts=Count(
+                'incidents',
+                filter=Q(incidents__status=Incident.Status.UNCONFIRMED)
+            ),
+        )
+        return Response(
+            ProjectOverviewSerializer(projects, many=True).data,
+            status=status.HTTP_200_OK
+        )
 
 class ThreatClassViewSet(ModelViewSet):
     queryset = ThreatClass.objects.all()
@@ -445,4 +465,29 @@ class CalculateProjectRiskView(APIView):
         return Response({
             "message": "Risk calculation completed.",
             "project": project.id,
+        }, status=status.HTTP_200_OK)
+
+class UserOverviewView(APIView):
+    def get(self, request, user_id):
+        user = get_object_or_404(
+            User,
+            id=user_id
+        )
+
+        user_projects = Project.objects.filter(members__user=user)
+        active_projects = user_projects.filter(status=True).count()
+
+        new_incidents = 0
+        online_devices = 0
+        total_incidents = 0
+        for project in user_projects:
+            new_incidents += project.incidents.filter(status=Incident.Status.UNCONFIRMED).count()
+            online_devices += project.devices.filter(status=Device.Status.ONLINE).count()
+            total_incidents += project.incidents.count()
+
+        return Response({
+            "active_projects" : active_projects,
+            "new_incidents" : new_incidents,
+            "online_devices" : online_devices,
+            "total_incidents" : total_incidents
         }, status=status.HTTP_200_OK)

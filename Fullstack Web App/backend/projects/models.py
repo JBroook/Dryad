@@ -91,7 +91,7 @@ class GridCell(models.Model):
 class Device(models.Model):
     name = models.CharField(max_length=50)
     location = models.PointField()
-    project = models.ForeignKey(to=Project, on_delete=models.CASCADE)
+    project = models.ForeignKey(to=Project, on_delete=models.CASCADE, related_name="devices")
     battery = models.IntegerField()
     grid_cell = models.ForeignKey(to=GridCell, on_delete=models.CASCADE)
 

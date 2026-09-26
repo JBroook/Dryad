@@ -11,6 +11,7 @@ import { IoCopy } from "react-icons/io5";
 import { apiFetch } from "@/lib/api";
 import { copyTextToClipboard } from "@/lib/general";
 import { FaCheck } from "react-icons/fa6";
+import { useRouter } from "next/navigation";
 
 interface DevicesViewProps {
     projectID : string | null;
@@ -135,6 +136,8 @@ export default function DevicesView(props: DevicesViewProps) {
         setConnectionState("available");
         openDeviceModal();
     }
+
+    const router = useRouter();
 
     useEffect(() => {
         if (!polling || !deviceCode) return;
@@ -345,6 +348,11 @@ export default function DevicesView(props: DevicesViewProps) {
                 deleteEvent={openRemoveModal}
                 renameDevice={renameDevice}
                 toggleDevice={toggleDevice}
+                showOnMap={()=>router.push(`/home/project?pid=${props.projectID}&tab=forest_map&lat=${
+                    device.location.coordinates[1]
+                }&lng=${
+                    device.location.coordinates[0]
+                }`)}
                 />
             })
             }
