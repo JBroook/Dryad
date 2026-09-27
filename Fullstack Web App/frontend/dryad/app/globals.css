@@ -23,33 +23,110 @@
 
   --font-sans: var(--font-inter);
 
-  /* Primary: Deep forest green for clear button visibility */
-  --color-primary: #15803D;
-  --color-primary-content: #ffffff;
+  /* Rich green palette for strong contrast and readability */
+  --color-primary: #1F7A4C;
+  --color-primary-content: #F4FFF8;
 
-  /* Secondary: Soft sage for badge backgrounds */
-  --color-secondary: #DCFCE7;
-  --color-secondary-content: #14532D;
+  /* Gentle green backgrounds for pills, badges, and secondary actions */
+  --color-secondary: #EAF7EE;
+  --color-secondary-content: #173F2F;
 
-  /* Accent: Mint tone for subtle highlights */
-  --color-accent: #10B981;
-  --color-accent-content: #ffffff;
+  /* Fresh accent for highlights without overpowering the page */
+  --color-accent: #2FB56B;
+  --color-accent-content: #F4FFF8;
 
-  --color-neutral: #1E293B;
-  --color-neutral-content: #F8FAFC;
+  --color-neutral: #214E40;
+  --color-neutral-content: #F8FBF9;
 
-  /* Base Surfaces: Creates real visual boundaries for cards & sidebar */
-  --color-base-100: #FFFFFF; /* Card surface */
-  --color-base-200: #F1F5F9; /* Page background & sidebar (cool gray/slate tint) */
-  --color-base-300: #E2E8F0; /* Visible borders & outlines */
+  /* Clean, low-glare surfaces with a visible hierarchy */
+  --color-base-100: #F7FAF8; /* App background */
+  --color-base-200: #EAF4EE; /* Panels and cards */
+  --color-base-300: #D3E6D8; /* Elevated surfaces and borders */
 
-  /* Text: High contrast charcoal */
-  --color-base-content: #0F172A;
+  /* Dark green text for stronger legibility than charcoal gray */
+  --color-base-content: #122B1F;
 
-  --color-info: #0284C7;
-  --color-success: #16A34A;
-  --color-warning: #D97706;
-  --color-error: #DC2626;
+  --color-info: #0F766E;
+  --color-success: #15803D;
+  --color-warning: #B45309;
+  --color-error: #B91C1C;
+  --color-error-content: #FDF2F2;
+
+  --color-subtle: #000;
+}
+
+html[data-theme="mytheme-light"] {
+  background-color: #eef7f0;
+}
+
+html[data-theme="mytheme-light"] body {
+  background: linear-gradient(180deg, #f6fbf7 0%, #eef7f0 100%);
+  color: #122b1f;
+}
+
+html[data-theme="mytheme-light"] .bg-base-100 {
+  background-color: #f7faf8 !important;
+}
+
+html[data-theme="mytheme-light"] .bg-base-200 {
+  background-color: #eaf4ee !important;
+}
+
+html[data-theme="mytheme-light"] .bg-base-300 {
+  background-color: #d3e6d8 !important;
+}
+
+html[data-theme="mytheme-light"] .bg-base-300:hover,
+html[data-theme="mytheme-light"] .hover\:bg-base-300:hover {
+  background-color: #c9dfce !important;
+}
+
+html[data-theme="mytheme-light"] .border-base-300 {
+  border-color: rgba(21, 67, 52, 0.28) !important;
+}
+
+html[data-theme="mytheme-light"] .bg-secondary {
+  background-color: #e8f6eb !important;
+  color: #173f2f !important;
+}
+
+html[data-theme="mytheme-light"] .btn,
+html[data-theme="mytheme-light"] .input,
+html[data-theme="mytheme-light"] .textarea,
+html[data-theme="mytheme-light"] .select,
+html[data-theme="mytheme-light"] .modal-box,
+html[data-theme="mytheme-light"] .dropdown-content,
+html[data-theme="mytheme-light"] .collapse,
+html[data-theme="mytheme-light"] .card {
+  border-color: rgba(18, 43, 31, 0.2) !important;
+  box-shadow: 0 1px 0 rgba(18, 43, 31, 0.04), 0 12px 24px rgba(18, 43, 31, 0.04);
+}
+
+html[data-theme="mytheme-light"] .btn-secondary {
+  background-color: #eaf7ee !important;
+  border-color: rgba(18, 43, 31, 0.18) !important;
+  color: #173f2f !important;
+}
+
+html[data-theme="mytheme-light"] .btn-secondary:hover {
+  background-color: #e0f2e7 !important;
+}
+
+html[data-theme="mytheme-light"] .bg-white\/5,
+html[data-theme="mytheme-light"] .bg-white\/8,
+html[data-theme="mytheme-light"] .bg-white\/10,
+html[data-theme="mytheme-light"] .bg-white\/15,
+html[data-theme="mytheme-light"] .border-white\/5,
+html[data-theme="mytheme-light"] .border-white\/8,
+html[data-theme="mytheme-light"] .border-white\/10,
+html[data-theme="mytheme-light"] .border-white\/15 {
+  background-color: rgba(31, 122, 76, 0.04);
+  border-color: rgba(18, 43, 31, 0.18);
+}
+
+::selection {
+  background: rgba(31, 122, 76, 0.18);
+  color: #122b1f;
 }
 
 /* Dark */
