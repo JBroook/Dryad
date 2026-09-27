@@ -32,13 +32,15 @@ export default function MemberCard(props : MemberCardProps) {
     }
 
     return (
-    <div className="bg-base-200 rounded-xl border border-white/8 flex flex-row p-4 mt-5 items-center">
-        <div className="avatar">
+    <div className={`${props.member.accepted ? "bg-base-200" : "bg-base-100"} rounded-xl border border-white/8 flex flex-row p-4 mt-5 items-center`}>
+        <div className="avatar"
+        style={{opacity : props.member.accepted ? 1 : 0.5}}>
             <div className="w-8 rounded-full">
                 <img src="https://img.daisyui.com/images/profile/demo/yellingcat@192.webp" />
             </div>
         </div>
-        <div className="ml-4">
+        <div className="ml-4"
+        style={{opacity : props.member.accepted ? 1 : 0.5}}>
             <div className="flex items-center">
                 <h1 className="font-semibold text-md">{props.member.firstName} {props.member.lastName}</h1>
                 {!isEditing ?
@@ -70,10 +72,15 @@ export default function MemberCard(props : MemberCardProps) {
             <p className="text-secondary-content text-sm">{props.member.email}</p>
         </div>
         <div className="ml-auto flex flex-row items-center">
-            <p className="text-secondary-content text-sm">
-                Joined {props.member.joinDate}
-            </p>
-
+            {props.member.accepted ?
+                <p className="text-secondary-content text-sm">
+                    Joined {props.member.joinDate}
+                </p>
+                :
+                <p className="text-secondary-content text-sm">
+                    Invite pending...
+                </p>
+            }
             <details className="dropdown dropdown-left">
                 <summary className="btn mx-2">
                     <BsThreeDots />

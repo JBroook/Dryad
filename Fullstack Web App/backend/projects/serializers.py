@@ -14,8 +14,31 @@ from rest_framework_gis.fields import GeometryField
 from django.conf import settings
 from django.utils import timezone
 
+class ProjectOverviewSerializer(serializers.ModelSerializer):
+    member_count = serializers.IntegerField(read_only=True)
+    device_count = serializers.IntegerField(read_only=True)
+    new_alerts = serializers.IntegerField(read_only=True)
+
+    class Meta:
+        model = Project
+        fields = [
+            'id',
+            'color',
+            'name',
+            'status',
+            'surface_area',
+            'region',
+            'member_count',
+            'device_count',
+            'new_alerts',
+        ]
+        read_only_fields = ['owner']
+
 class MembershipSerializer(serializers.ModelSerializer):
     user = UserSerializer()
+    invited_by = UserSerializer()
+    project = ProjectOverviewSerializer()
+
     class Meta:
         model = Membership
         fields = '__all__'
@@ -153,7 +176,8 @@ class ProjectSerializer(GeoFeatureModelSerializer):
             Membership.objects.create(
                 project=project,
                 user=User.objects.get(pk=member["id"]),
-                role=member['role']
+                role=member['role'],
+                invited_by=project.owner
             )
 
         # create membership for owner
@@ -162,7 +186,8 @@ class ProjectSerializer(GeoFeatureModelSerializer):
             user=project.owner,
             role=Membership.Role.OWNER,
             accepted=True,
-            join_date=timezone.now()
+            join_date=timezone.now(),
+            invited_by=project.owner
         )
 
         # record threat classes to detect
@@ -173,26 +198,6 @@ class ProjectSerializer(GeoFeatureModelSerializer):
             )
 
         return project
-
-class ProjectOverviewSerializer(serializers.ModelSerializer):
-    member_count = serializers.IntegerField(read_only=True)
-    device_count = serializers.IntegerField(read_only=True)
-    new_alerts = serializers.IntegerField(read_only=True)
-
-    class Meta:
-        model = Project
-        fields = [
-            'id',
-            'color',
-            'name',
-            'status',
-            'surface_area',
-            'region',
-            'member_count',
-            'device_count',
-            'new_alerts',
-        ]
-        read_only_fields = ['owner']
 
 
 class ThreatClassSerializer(serializers.ModelSerializer):

@@ -21,6 +21,7 @@ from rest_framework.filters import OrderingFilter
 from django.shortcuts import get_object_or_404
 from django.utils.dateparse import parse_datetime
 from django.db.models import Count
+from django.db import IntegrityError
 
 class LoginView(APIView):
     def post(self, request):
@@ -67,17 +68,16 @@ class ProjectViewSet(ModelViewSet):
 
 class ProjectOverviewView(APIView):
     def get(self, request):
-        projects = Project.objects.filter(
-            members__user=self.request.user
-        )
-
-        projects = projects.annotate(
-            member_count=Count('members'),
-            device_count=Count('devices'),
+        projects = Project.objects.annotate(
+            member_count=Count('members', distinct=True),
+            device_count=Count('devices', distinct=True),
             new_alerts=Count(
                 'incidents',
-                filter=Q(incidents__status=Incident.Status.UNCONFIRMED)
-            ),
+                filter=Q(incidents__status=Incident.Status.UNCONFIRMED),
+                distinct=True,
+            )
+        ).filter(
+            members__user=request.user,
         )
         return Response(
             ProjectOverviewSerializer(projects, many=True).data,
@@ -165,6 +165,30 @@ class MembershipViewSet(ModelViewSet):
             
         return queryset
 
+class UserMembershipsView(APIView):
+    def get(self, request, user_id):
+        user = get_object_or_404(User, pk=user_id)
+        return Response(
+            MembershipSerializer(user.memberships, many=True).data,
+            status=status.HTTP_200_OK
+        )
+
+class AcceptInviteView(APIView):
+    def post(self, request, membership_id):
+        membership = get_object_or_404(Membership, pk=membership_id)
+        accepted_invite = request.data.get("accepted")
+        if accepted_invite:
+            membership.accepted = True
+            membership.join_date = timezone.now()
+            membership.save()
+        else:
+            membership.delete()
+
+        return Response(
+            {"details" : "Successful"},
+            status=status.HTTP_200_OK
+        )
+
 class InviteMemberView(APIView):
     def post(self, request, project_id):
         email = request.query_params.get("email")
@@ -175,27 +199,21 @@ class InviteMemberView(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        try:
-            user = User.objects.get(email=email)
-        except User.DoesNotExist:
-            return Response(
-                {"details" : "User with this email does not exists"},
-                status=status.HTTP_404_NOT_FOUND
-            )
+        user = get_object_or_404(User, email=email)
+        project = get_object_or_404(Project, pk=project_id)
 
         try:
-            project = Project.objects.get(pk=project_id)
-        except Project.DoesNotExist:
-            return Response(
-                {"details" : "This project doesn't exist"},
-                status=status.HTTP_404_NOT_FOUND
+            membership = Membership.objects.create(
+                project=project,
+                user=user,
+                role="viewer",
+                invited_by=request.user,
             )
-
-        membership = Membership.objects.create(
-            project=project,
-            user=user,
-            role="viewer"
-        )
+        except IntegrityError:
+            return Response(
+                {"details": "This user is already a member of this project"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         
         return Response(
             MembershipSerializer(membership).data,

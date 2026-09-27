@@ -53,9 +53,11 @@ class ProjectThreatClass(models.Model):
 
 class Membership(models.Model):
     project = models.ForeignKey(to=Project, on_delete=models.CASCADE, related_name="members")
-    user = models.ForeignKey(to=User, on_delete=models.CASCADE)
+    user = models.ForeignKey(to=User, on_delete=models.CASCADE, related_name="memberships")
+    invited_on = models.DateTimeField(auto_now_add=True)
     join_date = models.DateField(null=True, blank=True)
     accepted = models.BooleanField(default=False)
+    invited_by = models.ForeignKey(to=User, on_delete=models.PROTECT)
 
     class Role(models.TextChoices):
         VIEWER = "viewer", "Viewer"
@@ -67,6 +69,14 @@ class Membership(models.Model):
 
     def __str__(self):
         return self.project.name + ": " + self.user.email
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["project", "user"],
+                name="unique_project_user_membership",
+            ),
+        ]
 
 class GridCell(models.Model):
     project = models.ForeignKey(

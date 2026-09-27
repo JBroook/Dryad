@@ -83,6 +83,11 @@ export default function IncidentsView(props: IncidentsViewProps) {
             if (!res.ok) throw new Error(await res.text());
             return res.json();
         })
+        .then(()=>{
+            const newIncidents = [...props.incidents]
+            newIncidents[incidentIndex].status = "confirmed"
+            props.setIncidents(newIncidents)
+        })
         .catch((err) => console.error("Fetch failed:", err));
 
         const modal = document.getElementById('confirmModal') as HTMLDialogElement;
@@ -104,6 +109,11 @@ export default function IncidentsView(props: IncidentsViewProps) {
         .then(async (res) => {
             if (!res.ok) throw new Error(await res.text());
             return res.json();
+        })
+        .then(()=>{
+            const newIncidents = [...props.incidents]
+            newIncidents[incidentIndex].status = "dismissed"
+            props.setIncidents(newIncidents)
         })
         .catch((err) => console.error("Fetch failed:", err));
 

@@ -94,6 +94,7 @@
   --color-success: #10B981;
   --color-warning: #F59E0B;
   --color-error: #EF4444;
+  --color-error-content: #121A15;
 }
 
 .incident-popup .leaflet-popup-content-wrapper,

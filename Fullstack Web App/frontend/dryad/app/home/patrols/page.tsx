@@ -203,7 +203,7 @@ export default function Patrols() {
       <div className="modal-box bg-base-200 border border-white/8">
         <h3 className="font-bold text-lg">Dismiss Incident?</h3>
         <p className="py-4 text-sm text-secondary-content">
-          By pressing "Dimiss", you agree that you have personally witnessed that this report is inaccurate.
+          By pressing "Dismiss", you agree that you have personally witnessed that this report is inaccurate.
         </p>
         <p className="text-warning text-sm"><i>
           False dismissals may reduce Dryad's predictive capabilities.
