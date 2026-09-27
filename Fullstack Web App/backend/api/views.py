@@ -78,6 +78,7 @@ class ProjectOverviewView(APIView):
             )
         ).filter(
             members__user=request.user,
+            members__accepted=True
         )
         return Response(
             ProjectOverviewSerializer(projects, many=True).data,
@@ -492,7 +493,7 @@ class UserOverviewView(APIView):
             id=user_id
         )
 
-        user_projects = Project.objects.filter(members__user=user)
+        user_projects = Project.objects.filter(members__user=user, members__accepted=True)
         active_projects = user_projects.filter(status=True).count()
 
         new_incidents = 0

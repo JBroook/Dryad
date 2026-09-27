@@ -17,6 +17,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import IncidentPopup from './IncidentPopup';
 import { FaMicrophone } from 'react-icons/fa6';
 import DevicePopup from './DevicePopup';
+import MapLegend from './MapLegend';
 
 interface ForestMapFullProps {
     latitude : number | null;
@@ -231,6 +232,12 @@ export default function ForestMapFull({
                     }}
                 />
             </FeatureGroup>
+
+            <MapLegend
+                showRiskHeatmap={!!props.gridCells && gridOpacity > 0}
+                showIncidents={props.enableIncidents}
+                showDevices={props.enableDevices}
+            />
         </MapContainer>
     </div>);
 }
