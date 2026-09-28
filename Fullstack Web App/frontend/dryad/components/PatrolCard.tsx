@@ -35,6 +35,17 @@ export default function PatrolCard(props : PatrolCardProps) {
     //     manager : <RoleBadge role="Manager" color="#4ADE80" icon={GoPulse}/>,
     //     viewer : <RoleBadge role="Viewer" color="#94A3B8" icon={MdRemoveRedEye}/>
     // }
+
+    const getSeverityColor = (confidence: number) => {
+        if (confidence >= 80) return "#d73027"; // very high
+        if (confidence >= 60) return "#fc8d59"; // high
+        if (confidence >= 40) return "#fee08b"; // medium
+        if (confidence >= 20) return "#d9ef8b"; // low
+        return "#91cf60";                  // very low
+    };
+
+    const color = getSeverityColor(incident.confidence);
+
     const router = useRouter();
 
     const openGoogleMaps = (lat : number, lng : number) => {
@@ -53,11 +64,11 @@ export default function PatrolCard(props : PatrolCardProps) {
         onChange={(e) => setIsOpen(e.target.checked)}/>
 
         <div className="collapse-title flex flex-row items-center pr-4">
-            <div className="h-full min-h-12 w-1 rounded-xs ml-2 my-1" style={{backgroundColor : props.color}} />
+            <div className="h-full min-h-12 w-1 rounded-xs ml-2 my-1" style={{backgroundColor : color}} />
 
-            <div className="p-3 rounded-xl border ml-4" style={{backgroundColor : `${props.color}1A`, borderColor : `${props.color}1A`}}> 
+            <div className="p-3 rounded-xl border ml-4" style={{backgroundColor : `${color}1A`, borderColor : `${color}1A`}}> 
                 {/* 1A appended to give 10% opacity */}
-                <Icon className="text-xl" style={{color : props.color}}/>
+                <Icon className="text-xl" style={{color : color}}/>
             </div>
 
             <div className="ml-4">

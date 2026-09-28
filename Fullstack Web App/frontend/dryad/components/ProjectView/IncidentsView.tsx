@@ -39,9 +39,10 @@ export default function IncidentsView(props: IncidentsViewProps) {
     const [sortToggle, setSortToggle] = useState<{date : boolean, confidence : boolean}>({date : true, confidence : true});
     const [showFilters, setShowFilters] = useState<boolean>(false);
     const [minimumConfidence, setMinimumConfidence] = useState<number>(0);
-    type StatusKey = "unconfirmed" | "confirmed" | "dismissed";
+    type StatusKey = "new" | "reviewing" | "confirmed" | "dismissed";
     const [statusFilter, setStatusFilter] = useState<Record<StatusKey, boolean>>({
-        unconfirmed : false,
+        new : false,
+        reviewing : false,
         confirmed : false,
         dismissed : false
     });
@@ -249,7 +250,8 @@ export default function IncidentsView(props: IncidentsViewProps) {
     ]
 
     const statusOptions = [
-        {name : "Reviewing", color : "#F59E0B", value : "unconfirmed" as StatusKey},
+        {name : "New", color : "#F59E0B", value : "new" as StatusKey},
+        {name : "Reviewing", color : "#F59E0B", value : "reviewing" as StatusKey},
         {name : "Confirmed", color : "#4ADE80", value : "confirmed" as StatusKey},
         {name : "Dismissed", color : "#94A3B8", value : "dismissed" as StatusKey},
     ]
@@ -263,7 +265,8 @@ export default function IncidentsView(props: IncidentsViewProps) {
         );
 
         const newStatusFilter: Record<StatusKey, boolean> = {
-            unconfirmed: false,
+            new : false,
+            reviewing: false,
             confirmed: false,
             dismissed: false
         };

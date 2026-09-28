@@ -490,6 +490,10 @@ class CalculateProjectRiskView(APIView):
 
         calculate_project_risk(project)
 
+        project.train_count += 1
+        project.last_trained = timezone.now()
+        project.save()
+
         return Response({
             "message": "Risk calculation completed.",
             "project": project.id,

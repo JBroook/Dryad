@@ -28,6 +28,8 @@ class Project(models.Model):
         srid=4326
     )
     created_at = models.DateTimeField(default=timezone.now)
+    last_trained = models.DateTimeField(null=True, blank=True)
+    train_count = models.IntegerField(default=0)
 
     class AlertPreference(models.TextChoices):
         ALL = "all", "All"
@@ -134,7 +136,7 @@ class Device(models.Model):
             coordinates=self.location,
             device=self,
             grid_cell=self.grid_cell,
-            status="unconfirmed"
+            status="new"
         ).save()
 
         resend.api_key = os.getenv("RESEND_API_KEY")

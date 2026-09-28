@@ -58,7 +58,9 @@ export default function Project() {
       ...data.properties,
       area : data.properties.surface_area,
       id : data.id,
-      geoJSON : data.geometry
+      geoJSON : data.geometry,
+      trainCount : data.properties.train_count,
+      lastTrained : data.properties.last_trained
     })
   }
 
@@ -111,6 +113,7 @@ export default function Project() {
       setGridCells={setGridCells}
       incidents={incidents}
       devices={devices}
+      project={project!}
     />,
     devices : <DevicesView 
       projectID={projectID}
