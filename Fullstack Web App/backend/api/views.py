@@ -22,6 +22,7 @@ from django.shortcuts import get_object_or_404
 from django.utils.dateparse import parse_datetime
 from django.db.models import Count
 from django.db import IntegrityError
+from django.contrib.gis.geos import Point
 
 class LoginView(APIView):
     def post(self, request):
@@ -73,7 +74,7 @@ class ProjectOverviewView(APIView):
             device_count=Count('devices', distinct=True),
             new_alerts=Count(
                 'incidents',
-                filter=Q(incidents__status=Incident.Status.UNCONFIRMED),
+                filter=Q(incidents__status=Incident.Status.NEW),
                 distinct=True,
             )
         ).filter(
@@ -409,6 +410,8 @@ class PatrolCompletionView(APIView):
 
         patrol_status = request.data.get("patrol_status")
         incident_status = request.data.get("incident_status")
+        longitude = request.data.get("longitude")
+        latitude = request.data.get("latitude")
 
         if patrol_status:
             patrol.status = patrol_status
@@ -422,12 +425,15 @@ class PatrolCompletionView(APIView):
                         ) 
                 
                 patrol.incident.status = incident_status
+                patrol.incident.coordinates = Point(longitude, latitude, srid=4326)
                 patrol.incident.save()
 
                 return Response({
                     "details" : "Success!"
                 }, status=status.HTTP_200_OK)
             else:
+                patrol.delete()
+                
                 return Response({
                     "details" : "Success!"
                 }, status=status.HTTP_200_OK)
@@ -453,6 +459,9 @@ class PatrolAssignView(APIView):
                 assigner = Membership.objects.get(pk=assigner_id)
             except Membership.DoesNotExist:
                 return Response({"details" : "Members do not exist"}, status=status.HTTP_404_NOT_FOUND)
+
+            incident.status = Incident.Status.REVIEWING
+            incident.save()
 
             patrol = Patrol.objects.create(
                 project=incident.project,
@@ -500,7 +509,7 @@ class UserOverviewView(APIView):
         online_devices = 0
         total_incidents = 0
         for project in user_projects:
-            new_incidents += project.incidents.filter(status=Incident.Status.UNCONFIRMED).count()
+            new_incidents += project.incidents.filter(status=Incident.Status.NEW).count()
             online_devices += project.devices.filter(status=Device.Status.ONLINE).count()
             total_incidents += project.incidents.count()
 

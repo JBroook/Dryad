@@ -12,7 +12,8 @@ export default function Login() {
   const [email, setEmail] = useState<string>("");
   const [password, setPassword] = useState<string>("");
 
-  const APIBase = "http://192.168.100.7:8000/api";
+  const APIBase = "http://127.0.0.1:8000/api";
+  // const APIBase = "http://192.168.100.7:8000/api";
 
   const router = useRouter();
 

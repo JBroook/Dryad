@@ -145,11 +145,12 @@ class Incident(models.Model):
     grid_cell = models.ForeignKey(to=GridCell, on_delete=models.CASCADE)
 
     class Status(models.TextChoices):
-        UNCONFIRMED = "unconfirmed", "Unconfirmed"
+        NEW = "new", "New"
+        REVIEWING = "reviewing", "Reviewing"
         CONFIRMED = "confirmed", "Confirmed"
         DISMISSED = "dismissed", "Dismissed"
 
-    status = models.CharField(choices=Status.choices, default=Status.UNCONFIRMED)
+    status = models.CharField(choices=Status.choices, default=Status.NEW)
 
     def __str__(self):
         return f"{self.project.name}: {self.threat_class.name}"

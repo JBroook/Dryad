@@ -14,9 +14,9 @@ import { apiFetch } from "@/lib/api";
 export default function Sidebar() {
     const sidebarOptions = [
         {href : "/home/projects", name : "Projects", icon: BsTree},
-        {href : "/home/incidents", name : "Incidents", icon: IoWarningOutline},
+        // {href : "/home/incidents", name : "Incidents", icon: IoWarningOutline},
         {href : "/home/patrols", name : "Patrols", icon: TbMapRoute},
-        {href : "/home/settings", name : "Settings", icon: IoSettingsOutline},
+        // {href : "/home/settings", name : "Settings", icon: IoSettingsOutline},
     ]
     const [mode, setMode] = useState<boolean>(true);
     const pathname = usePathname();

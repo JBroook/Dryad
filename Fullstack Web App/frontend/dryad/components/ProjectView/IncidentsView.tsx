@@ -331,7 +331,6 @@ export default function IncidentsView(props: IncidentsViewProps) {
 
     const isFirstRender = useRef(true);
     useEffect(() => {
-        if(searchIncident==="") return;
 
         if (isFirstRender.current) {
             isFirstRender.current = false;
@@ -597,8 +596,7 @@ export default function IncidentsView(props: IncidentsViewProps) {
         {props.incidents.length>0 ?
             props.incidents.map((incident, index)=>{
                 return <Incident
-                    key={index}
-                    color="#F97316"
+                    key={incident.id}
                     name={incident.threatClass.name}
                     coordinates={incident.coordinates}
                     timestamp={incident.timestamp}

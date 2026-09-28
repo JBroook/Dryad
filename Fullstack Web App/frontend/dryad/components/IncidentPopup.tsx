@@ -42,6 +42,6 @@ export default function IncidentPopup(props : IncidentPopupProps) {
                 </span>
                 </div>
             </div>
-            </div>
+        </div>
     </>);
 }

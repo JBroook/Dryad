@@ -1,5 +1,5 @@
 import { Device } from "@/app/home/project/page";
-import { capitalizeFirstLetter } from "@/lib/general";
+import { capitalizeFirstLetter, timeAgo } from "@/lib/general";
 import getThreatIcon from "@/lib/threatIcons";
 import { FaMicrophone } from "react-icons/fa6";
 
@@ -8,6 +8,7 @@ interface DevicePopupProps {
 }
 
 export default function DevicePopup(props : DevicePopupProps) {
+    const lastPing = timeAgo(props.device.lastSeen);
 
     return (
     <>
@@ -17,6 +18,27 @@ export default function DevicePopup(props : DevicePopupProps) {
                 <div className="flex items-center gap-2 text-base-content">
                     <FaMicrophone className="text-base"/>
                     <span className="font-semibold text-sm">{props.device.name}</span>
+                </div>
+            </div>
+
+            <div className="mb-3">
+                <div className="flex justify-between text-[11px] mb-1">
+                    <span>Battery</span>
+                    <span className="font-mono font-bold">{props.device.battery}%</span>
+                </div>
+                <progress className="progress progress-primary w-full mt-2" value={props.device.battery} max="100"></progress>
+            </div>
+
+            <div className="space-y-1.5">
+                <div className="flex justify-between">
+                <span>Last ping:</span>
+                <span>{lastPing}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                <span>Status:</span>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-medium">
+                    {capitalizeFirstLetter(props.device.status)}
+                </span>
                 </div>
             </div>
         </div>
