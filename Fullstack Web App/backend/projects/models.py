@@ -5,6 +5,13 @@ from users.models import User
 from django.contrib.gis.db import models
 from django.core.validators import MaxValueValidator, MinValueValidator
 
+import os
+import resend
+from dotenv import load_dotenv
+from django.template.loader import render_to_string
+
+load_dotenv()
+
 # Create your models here.
 
 class Project(models.Model):
@@ -130,7 +137,37 @@ class Device(models.Model):
             status="unconfirmed"
         ).save()
 
-        # need to add alert generation function here
+        resend.api_key = os.getenv("RESEND_API_KEY")
+
+        members = self.project.members.all()
+        params = []
+        real_email = os.getenv("REAL_EMAIL")
+        html = render_to_string(
+            "emails/threat_detection.html",
+            {
+                "threat_name": threat_class.name,
+                "device_name": self.name,
+                "detected_time": timestamp,
+                "latitude": self.location.x,
+                "longitude": self.location.y,
+                "website_url": f"http://localhost:3000/home/project?pid={self.project.id}&tab=incidents",
+                "project_name": self.project.name
+            }
+        )
+
+        for member in members:
+            if member.user.email!=real_email:
+                continue
+
+            params.append(
+            {
+                "from": "Dryad <onboarding@resend.dev>",
+                "to": [member.user.email],
+                "subject": f"{self.project.name}: Incident Detected",
+                "html": html,
+            })
+
+        resend.Batch.send(params)
 
 class Incident(models.Model):
     project = models.ForeignKey(to=Project, on_delete=models.CASCADE, related_name="incidents")
