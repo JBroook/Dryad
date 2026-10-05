@@ -221,7 +221,7 @@ export default function IncidentsView(props: IncidentsViewProps) {
         params.set("ordering", `${sortToggles[sortKey as "date" | "confidence"] ? "-" : ""}${sortKeyMapping[sortKey as "date" | "confidence"]}`)
 
         await apiFetch(
-            `http://127.0.0.1:8000/api/incidents/?project=${props.projectID}&${params}`)
+            `http://127.0.0.1:8000/api/incidents?project=${props.projectID}&${params}`)
         .then(async (res) => {
         if (!res.ok) throw new Error(await res.text());
         return res.json();
@@ -313,7 +313,7 @@ export default function IncidentsView(props: IncidentsViewProps) {
     }
 
     const apiSearchIncident = async (incidentName : string) => {
-        await apiFetch(`http://127.0.0.1:8000/api/incidents/?project=${props.projectID}&search=${incidentName}`)
+        await apiFetch(`http://127.0.0.1:8000/api/incidents?project=${props.projectID}&search=${incidentName}`)
         .then(async (res) => {
         if (!res.ok) throw new Error(await res.text());
         return res.json();
@@ -609,7 +609,7 @@ export default function IncidentsView(props: IncidentsViewProps) {
                     dismissIncident={()=>dismissModal(index)}
                     assignPatrol={()=>assignPatrolModal(index)}
                     status={incident.status}
-                    projectID={props.projectID}
+                    projectID={parseInt(props.projectID!)}
                 />
             })
             :

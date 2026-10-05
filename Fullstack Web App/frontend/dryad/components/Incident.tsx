@@ -6,6 +6,7 @@ import { MdOutlineLocationOn } from "react-icons/md";
 import GlowButton from "./GlowButton";
 import { useRouter } from "next/navigation";
 import { capitalizeFirstLetter } from "@/lib/general";
+import { ProjectOverview } from "@/app/home/project/page";
 
 interface IncidentProps {
     name : string;
@@ -17,7 +18,7 @@ interface IncidentProps {
     dismissIncident : ()=>void;
     assignPatrol : ()=>void;
     status : string;
-    projectID : string | null;
+    projectID : number;
 }
 
 export type Coordinate = {

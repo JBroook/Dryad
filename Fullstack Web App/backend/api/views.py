@@ -140,9 +140,16 @@ class IncidentViewSet(ModelViewSet):
             if search_param:
                 queryset = queryset.filter(threat_class__name__icontains=search_param)
 
-            return queryset
-        else:
-            return self.queryset
+
+        user_id = self.request.query_params.get("user_id")
+        if user_id:
+            queryset = super().get_queryset().filter(project__members__user_id=user_id)
+            
+            search_param = self.request.query_params.get("search")
+            if search_param:
+                queryset = queryset.filter(threat_class__name__icontains=search_param)
+            
+        return self.queryset
 
 class MembershipViewSet(ModelViewSet):
     queryset = Membership.objects.all()

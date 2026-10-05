@@ -200,6 +200,7 @@ class ThreatClassSerializer(serializers.ModelSerializer):
 class IncidentSerializer(serializers.ModelSerializer):
     threat_class = ThreatClassSerializer()
     device = DeviceSerializer()
+    project = ProjectOverviewSerializer()
 
     class Meta:
         model = Incident
