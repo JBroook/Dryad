@@ -17,6 +17,8 @@ interface StepPageProps {
 export default function StepFivePage(props: StepPageProps) {
     const router = useRouter();
     const [creationComplete, setCreationComplete] = useState<boolean>(false);
+    const [creationFailed, setCreationFailed] = useState<boolean>(false);
+    const [isCreating, setIsCreating] = useState<boolean>(false);
     const [projectId, setProjectId] = useState<number | null>(null);
 
     const basics = [
@@ -52,27 +54,32 @@ export default function StepFivePage(props: StepPageProps) {
     }
 
     const submitEvent = async ()=>{
-        openModal();
-        const createdProjectId = await props.submitEvent();
+        if (isCreating) return;
 
-        if (createdProjectId) {
-            setProjectId(createdProjectId);
-            setCreationComplete(true);
+        openModal();
+        setIsCreating(true);
+        setCreationFailed(false);
+
+        try {
+            const createdProjectId = await props.submitEvent();
+
+            if (createdProjectId !== null) {
+                setProjectId(createdProjectId);
+                setCreationComplete(true);
+            } else {
+                setCreationFailed(true);
+            }
+        } catch {
+            setCreationFailed(true);
+        } finally {
+            setIsCreating(false);
         }
     }
 
     return (<>
     <dialog id="submitModal" className="modal">
         <div className="modal-box bg-base-200 border border-white/8 flex flex-col items-center">
-                {!creationComplete ?
-                <>
-                    <h3 className="font-bold text-lg">Project Creation in Progress...</h3>
-                    <p className="py-4 text-sm text-secondary-content">
-                    Please wait while your project is created. This process may take a few minutes.
-                    </p>
-                    <span className="loading loading-spinner"></span>
-                </>
-                :
+                {creationComplete ?
                 <>
                     <h3 className="font-bold text-lg">Project Created!</h3>
                     <p className="pt-4 text-sm text-secondary-content">
@@ -91,6 +98,30 @@ export default function StepFivePage(props: StepPageProps) {
                             Open Project
                         </button>
                     </div>
+                </>
+                : creationFailed ?
+                <>
+                    <h3 className="font-bold text-lg">Project Creation Failed</h3>
+                    <p className="py-4 text-sm text-secondary-content">
+                    The server couldn&apos;t create your project. Please try again.
+                    </p>
+                    <div className="modal-action justify-end">
+                        <button
+                            type="button"
+                            className="btn btn-primary"
+                            onClick={submitEvent}
+                        >
+                            Retry
+                        </button>
+                    </div>
+                </>
+                :
+                <>
+                    <h3 className="font-bold text-lg">Project Creation in Progress...</h3>
+                    <p className="py-4 text-sm text-secondary-content">
+                    Please wait while your project is created. This process may take a few minutes.
+                    </p>
+                    <span className="loading loading-spinner"></span>
                 </>
                 }
         </div>

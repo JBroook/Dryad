@@ -165,7 +165,7 @@ export default function ForestMapFull({
                 const incidentIcon = L.divIcon({
                     className: "",
                     html: renderToStaticMarkup(
-                        <div className='p-2 bg-warning rounded-full'>
+                        <div className='p-2 bg-[#F59E0B] rounded-full'>
                             <Icon className="text-base-content text-base"/>
                         </div>
                     ),

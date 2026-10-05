@@ -61,13 +61,7 @@ def generate_grid(project, cell_size=100):
             SELECT
                 ST_AsEWKT(
                     ST_Transform(
-                        ST_Intersection(
-                            grid.geom,
-                            ST_Transform(
-                                p.monitoring_area,
-                                32647
-                            )
-                        ),
+                        dumped.geom,
                         4326
                     )
                 )
@@ -76,21 +70,19 @@ def generate_grid(project, cell_size=100):
             CROSS JOIN LATERAL
                 ST_SquareGrid(
                     %s,
-                    ST_Transform(
-                        p.monitoring_area,
-                        32647
-                    )
+                    ST_Transform(p.monitoring_area, 32647)
                 ) AS grid(geom)
 
-            WHERE p.id = %s
+            CROSS JOIN LATERAL
+                ST_Dump(
+                    ST_Intersection(
+                        grid.geom,
+                        ST_Transform(p.monitoring_area, 32647)
+                    )
+                ) AS dumped
 
-            AND ST_Intersects(
-                grid.geom,
-                ST_Transform(
-                    p.monitoring_area,
-                    32647
-                )
-            )
+            WHERE p.id = %s
+            AND NOT ST_IsEmpty(dumped.geom)
         """, [cell_size, project.id])
 
         rows = cursor.fetchall()
