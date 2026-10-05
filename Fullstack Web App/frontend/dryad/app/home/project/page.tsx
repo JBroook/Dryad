@@ -16,6 +16,7 @@ import ForestMapView from "@/components/ProjectView/ForestMapView";
 import { Coordinate } from "@/components/Incident";
 import DevicesView from "@/components/ProjectView/DevicesView";
 import TeamView from "@/components/ProjectView/TeamView";
+import OverviewView from "@/components/ProjectView/OverviewView";
 
 type Tab = "overview" | "incidents" | "forest_map" | "devices" | "team";
 
@@ -104,7 +105,12 @@ export default function Project() {
   ]
 
   const tabComponentMapping = {
-    overview : <></>,
+    overview : <OverviewView 
+      project={project!}
+      incidents={incidents}
+      members={members}
+      devices={devices}
+    />,
     incidents : <IncidentsView 
       projectID={projectID}
       filterIndex={filterIndex}
