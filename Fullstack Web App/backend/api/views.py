@@ -432,7 +432,8 @@ class PatrolCompletionView(APIView):
                         ) 
                 
                 patrol.incident.status = incident_status
-                patrol.incident.coordinates = Point(longitude, latitude, srid=4326)
+                if incident_status=="complete":
+                    patrol.incident.coordinates = Point(longitude, latitude, srid=4326)
                 patrol.incident.save()
 
                 return Response({
