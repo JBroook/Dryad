@@ -29,13 +29,22 @@ export type Device = {
   battery : number;
 }
 
+export type ProjectOverview = {
+  id : number;
+  color : string;
+  name : string;
+  status : boolean;
+  surfaceArea : number;
+  region : string;
+}
+
 export type IncidentType = {
   id : number;
   coordinates : Coordinate;
   timestamp : string;
   confidence : number;
   status : string;
-  project : number;
+  project : ProjectOverview;
   threatClass : ThreatClass;
   device : Device;
 }
