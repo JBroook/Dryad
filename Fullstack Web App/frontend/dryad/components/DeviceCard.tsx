@@ -11,6 +11,7 @@ interface DeviceCardProps {
     deleteEvent : (index : number)=> void;
     renameDevice : (id : number, newName : string) => void;
     toggleDevice : (id : number) => void;
+    showOnMap : () => void;
 }
 
 export default function DeviceCard(props : DeviceCardProps) {
@@ -99,7 +100,7 @@ export default function DeviceCard(props : DeviceCardProps) {
                         <li><a onClick={handleRename}>
                             <MdOutlineEdit className="text-[#60A5FA] text-xl"/> Rename
                         </a></li>
-                        <li><a>
+                        <li><a onClick={props.showOnMap}>
                             <IoLocationOutline className="text-[#A78BFA] text-lg"/> Show on Map
                         </a></li>
                         <li><a onClick={()=>props.deleteEvent(props.device.id)}>

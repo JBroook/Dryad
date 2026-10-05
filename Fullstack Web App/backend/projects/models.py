@@ -5,6 +5,13 @@ from users.models import User
 from django.contrib.gis.db import models
 from django.core.validators import MaxValueValidator, MinValueValidator
 
+import os
+import resend
+from dotenv import load_dotenv
+from django.template.loader import render_to_string
+
+load_dotenv()
+
 # Create your models here.
 
 class Project(models.Model):
@@ -20,7 +27,9 @@ class Project(models.Model):
     monitoring_area = models.PolygonField(
         srid=4326
     )
-    created_at = models.DateTimeField()
+    created_at = models.DateTimeField(default=timezone.now)
+    last_trained = models.DateTimeField(null=True, blank=True)
+    train_count = models.IntegerField(default=0)
 
     class AlertPreference(models.TextChoices):
         ALL = "all", "All"
@@ -53,9 +62,11 @@ class ProjectThreatClass(models.Model):
 
 class Membership(models.Model):
     project = models.ForeignKey(to=Project, on_delete=models.CASCADE, related_name="members")
-    user = models.ForeignKey(to=User, on_delete=models.CASCADE)
+    user = models.ForeignKey(to=User, on_delete=models.CASCADE, related_name="memberships")
+    invited_on = models.DateTimeField(auto_now_add=True)
     join_date = models.DateField(null=True, blank=True)
     accepted = models.BooleanField(default=False)
+    invited_by = models.ForeignKey(to=User, on_delete=models.PROTECT)
 
     class Role(models.TextChoices):
         VIEWER = "viewer", "Viewer"
@@ -67,6 +78,14 @@ class Membership(models.Model):
 
     def __str__(self):
         return self.project.name + ": " + self.user.email
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["project", "user"],
+                name="unique_project_user_membership",
+            ),
+        ]
 
 class GridCell(models.Model):
     project = models.ForeignKey(
@@ -91,7 +110,7 @@ class GridCell(models.Model):
 class Device(models.Model):
     name = models.CharField(max_length=50)
     location = models.PointField()
-    project = models.ForeignKey(to=Project, on_delete=models.CASCADE)
+    project = models.ForeignKey(to=Project, on_delete=models.CASCADE, related_name="devices")
     battery = models.IntegerField()
     grid_cell = models.ForeignKey(to=GridCell, on_delete=models.CASCADE)
 
@@ -117,10 +136,40 @@ class Device(models.Model):
             coordinates=self.location,
             device=self,
             grid_cell=self.grid_cell,
-            status="unconfirmed"
+            status="new"
         ).save()
 
-        # need to add alert generation function here
+        resend.api_key = os.getenv("RESEND_API_KEY")
+
+        members = self.project.members.all()
+        params = []
+        real_email = os.getenv("REAL_EMAIL")
+        html = render_to_string(
+            "emails/threat_detection.html",
+            {
+                "threat_name": threat_class.name,
+                "device_name": self.name,
+                "detected_time": timestamp,
+                "latitude": self.location.x,
+                "longitude": self.location.y,
+                "website_url": f"http://localhost:3000/home/project?pid={self.project.id}&tab=incidents",
+                "project_name": self.project.name
+            }
+        )
+
+        for member in members:
+            if member.user.email!=real_email:
+                continue
+
+            params.append(
+            {
+                "from": "Dryad <onboarding@resend.dev>",
+                "to": [member.user.email],
+                "subject": f"{self.project.name}: Incident Detected",
+                "html": html,
+            })
+
+        resend.Batch.send(params)
 
 class Incident(models.Model):
     project = models.ForeignKey(to=Project, on_delete=models.CASCADE, related_name="incidents")
@@ -135,11 +184,12 @@ class Incident(models.Model):
     grid_cell = models.ForeignKey(to=GridCell, on_delete=models.CASCADE)
 
     class Status(models.TextChoices):
-        UNCONFIRMED = "unconfirmed", "Unconfirmed"
+        NEW = "new", "New"
+        REVIEWING = "reviewing", "Reviewing"
         CONFIRMED = "confirmed", "Confirmed"
         DISMISSED = "dismissed", "Dismissed"
 
-    status = models.CharField(choices=Status.choices, default=Status.UNCONFIRMED)
+    status = models.CharField(choices=Status.choices, default=Status.NEW)
 
     def __str__(self):
         return f"{self.project.name}: {self.threat_class.name}"

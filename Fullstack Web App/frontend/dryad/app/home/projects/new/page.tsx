@@ -19,6 +19,7 @@ export type Member = {
   email : string;
   role : string;
   joinDate : string;
+  accepted? : boolean;
   user?: {
     id: number;
     first_name: string;
@@ -48,6 +49,11 @@ export type Project = {
   threatClasses : ThreatClass[];
   alertPreference : string;
   status : boolean;
+  memberCount? : number;
+  deviceCount? : number;
+  newAlerts? : number;
+  trainCount : number;
+  lastTrained : string | null;
 }
 
 export default function New() {
@@ -65,7 +71,9 @@ export default function New() {
     center : null,
     confidenceThreshold : 75,
     threatClasses : [],
-    alertPreference : "all"
+    alertPreference : "all",
+    trainCount : 0,
+    lastTrained : null
   });
 
   const nextPage = () => {

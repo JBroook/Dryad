@@ -9,7 +9,6 @@ interface ProjectCardProps {
   region : string;
   area : number;
   alerts : number;
-  activeDevices : number;
   totalDevices : number;
   members : number;
   accentColor : string;
@@ -29,10 +28,11 @@ export default function ProjectCard(props : ProjectCardProps) {
       before:top-0
       before:h-2
       before:bg-[var(--accent-color)]
-      border border-white/8 border-width-[2px]
+      border border-base-300 border-[2px]
       cursor-pointer
       hover:bg-base-300
       bg-base-200
+      shadow-[0_10px_24px_rgba(18,43,31,0.05)]
       flex flex-col
     `}
     style={{
@@ -58,7 +58,7 @@ export default function ProjectCard(props : ProjectCardProps) {
       </div>
 
       <div className="grid grid-cols-3 gap-3 mt-3">
-        <HollowCard className="flex flex-col justify-center items-center py-2 border-none">
+        <HollowCard className="flex flex-col justify-center items-center py-2 border-none bg-secondary">
           <h2 className="font-semibold text-warning text-lg">
             {props.alerts}
           </h2>
@@ -67,16 +67,16 @@ export default function ProjectCard(props : ProjectCardProps) {
           </p>
         </HollowCard>
 
-        <HollowCard className="flex flex-col justify-center items-center py-2 border-none">
+        <HollowCard className="flex flex-col justify-center items-center py-2 border-none bg-secondary">
           <h2 className="font-semibold text-lg">
-            {props.activeDevices}/{props.totalDevices}
+            {props.totalDevices}
           </h2>
           <p className="text-secondary-content text-xs">
             Devices
           </p>
         </HollowCard>
 
-        <HollowCard className="flex flex-col justify-center items-center py-2 border-none">
+        <HollowCard className="flex flex-col justify-center items-center py-2 border-none bg-secondary">
           <h2 className="font-semibold text-lg">
             {props.members}
           </h2>

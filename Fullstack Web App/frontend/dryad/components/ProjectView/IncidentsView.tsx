@@ -10,11 +10,12 @@ import { IoSearch } from "react-icons/io5";
 import { Member, ThreatClass } from "@/app/home/projects/new/page";
 import MemberOption from "../MemberOption";
 import GlowButton from "../GlowButton";
-import { IoIosOptions, IoMdCheckmark } from "react-icons/io";
+import { IoIosOptions, IoIosWarning, IoMdCheckmark } from "react-icons/io";
 import SortButton from "../SortButton";
 import ToggleGlowButton from "../ToggleGlowButton";
 import getThreatIcon from "@/lib/threatIcons";
 import { RxCross2 } from "react-icons/rx";
+import { useRouter, useSearchParams } from "next/navigation";
 
 interface IncidentsViewProps {
     projectID : string | null;
@@ -38,12 +39,16 @@ export default function IncidentsView(props: IncidentsViewProps) {
     const [sortToggle, setSortToggle] = useState<{date : boolean, confidence : boolean}>({date : true, confidence : true});
     const [showFilters, setShowFilters] = useState<boolean>(false);
     const [minimumConfidence, setMinimumConfidence] = useState<number>(0);
-    type StatusKey = "unconfirmed" | "confirmed" | "dismissed";
+    type StatusKey = "new" | "reviewing" | "confirmed" | "dismissed";
     const [statusFilter, setStatusFilter] = useState<Record<StatusKey, boolean>>({
-        unconfirmed : false,
+        new : false,
+        reviewing : false,
         confirmed : false,
         dismissed : false
     });
+
+    const searchParams = useSearchParams();
+    const projectID = searchParams.get("pid");
 
     const confirmModal = (index : number)=>{
         const modal = document.getElementById('confirmModal') as HTMLDialogElement;
@@ -79,6 +84,11 @@ export default function IncidentsView(props: IncidentsViewProps) {
             if (!res.ok) throw new Error(await res.text());
             return res.json();
         })
+        .then(()=>{
+            const newIncidents = [...props.incidents]
+            newIncidents[incidentIndex].status = "confirmed"
+            props.setIncidents(newIncidents)
+        })
         .catch((err) => console.error("Fetch failed:", err));
 
         const modal = document.getElementById('confirmModal') as HTMLDialogElement;
@@ -100,6 +110,11 @@ export default function IncidentsView(props: IncidentsViewProps) {
         .then(async (res) => {
             if (!res.ok) throw new Error(await res.text());
             return res.json();
+        })
+        .then(()=>{
+            const newIncidents = [...props.incidents]
+            newIncidents[incidentIndex].status = "dismissed"
+            props.setIncidents(newIncidents)
         })
         .catch((err) => console.error("Fetch failed:", err));
 
@@ -235,7 +250,8 @@ export default function IncidentsView(props: IncidentsViewProps) {
     ]
 
     const statusOptions = [
-        {name : "Reviewing", color : "#F59E0B", value : "unconfirmed" as StatusKey},
+        {name : "New", color : "#F59E0B", value : "new" as StatusKey},
+        {name : "Reviewing", color : "#F59E0B", value : "reviewing" as StatusKey},
         {name : "Confirmed", color : "#4ADE80", value : "confirmed" as StatusKey},
         {name : "Dismissed", color : "#94A3B8", value : "dismissed" as StatusKey},
     ]
@@ -249,7 +265,8 @@ export default function IncidentsView(props: IncidentsViewProps) {
         );
 
         const newStatusFilter: Record<StatusKey, boolean> = {
-            unconfirmed: false,
+            new : false,
+            reviewing: false,
             confirmed: false,
             dismissed: false
         };
@@ -313,8 +330,11 @@ export default function IncidentsView(props: IncidentsViewProps) {
         return () => clearTimeout(timeout);
     }, [searchMember]);
 
+    const router = useRouter();
+
     const isFirstRender = useRef(true);
     useEffect(() => {
+
         if (isFirstRender.current) {
             isFirstRender.current = false;
             return;
@@ -576,11 +596,10 @@ export default function IncidentsView(props: IncidentsViewProps) {
     </div>}
 
     <div className="mx-6 mt-5">
-        {
+        {props.incidents.length>0 ?
             props.incidents.map((incident, index)=>{
                 return <Incident
-                    key={index}
-                    color="#F97316"
+                    key={incident.id}
                     name={incident.threatClass.name}
                     coordinates={incident.coordinates}
                     timestamp={incident.timestamp}
@@ -590,8 +609,24 @@ export default function IncidentsView(props: IncidentsViewProps) {
                     dismissIncident={()=>dismissModal(index)}
                     assignPatrol={()=>assignPatrolModal(index)}
                     status={incident.status}
+                    projectID={props.projectID}
                 />
             })
+            :
+            <div className="w-full flex flex-col justify-center items-center text-secondary-content pt-20">
+                <IoIosWarning className="text-4xl"/>
+                {searchIncident==="" ?
+                <>
+                    <h1>No incidents found</h1>
+                    <p className="text-sm">Add a device to start recording incidents</p>
+                    <button className="btn btn-primary mt-4" onClick={()=>router.push(`/home/project?pid=${props.projectID}&tab=devices`)}>
+                        <FaPlus />
+                        Add Device
+                    </button>
+                </> :
+                    <h1>"{searchIncident}" couldn't be found</h1>
+                }
+            </div>
         }
     </div>
     </>);

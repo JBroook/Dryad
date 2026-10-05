@@ -1,7 +1,7 @@
 "use client"
 
 import { useRef, useState } from "react";
-import { FaArrowUp, FaThermometer, FaThermometerEmpty } from "react-icons/fa";
+import { FaArrowUp, FaBrain, FaThermometer, FaThermometerEmpty } from "react-icons/fa";
 import { FiLayers } from "react-icons/fi";
 import { IoIosArrowUp, IoMdWifi } from "react-icons/io";
 import GlowButton from "../GlowButton";
@@ -12,6 +12,10 @@ import { IoWarning } from "react-icons/io5";
 import type { GeoJSON } from 'geojson';
 import { Device, IncidentType } from "@/app/home/project/page";
 import { apiFetch } from "@/lib/api";
+import { useSearchParams } from "next/navigation";
+import { PiLightning } from "react-icons/pi";
+import { MdLoop } from "react-icons/md";
+import { Project } from "@/app/home/projects/new/page";
 const ForestMapFull = dynamic(() => import("../ForestMapFull"), {
     ssr: false,
 });
@@ -23,17 +27,23 @@ interface ForestMapViewProps {
     setGridCells : (gridCells : any) => void;
     incidents : IncidentType[];
     devices : Device[];
+    project : Project;
 }
 
 export default function ForestMapView(props: ForestMapViewProps) {
     const [mapTags , setMapTags] = useState({
         incidents : {title : "Incidents", color : "#F87171", active : true, key : "incidents"},
         riskHeatmap : {title : "Risk Heatmap", color : "#F97316", active : true, key : "riskHeatmap"},
-        devices : {title : "Devices", color : "#4ADE80", active : true, key : "devices"},
+        devices : {title : "Devices", color : "#4ADE80", active : false, key : "devices"},
     });
     const [heatmapOpacity, setHeatmapOpacity] = useState<number>(50);
-    const [latitude, setLatitude] = useState<number>(52.51);
-    const [longitude, setLongitude] = useState<number>(13.38);
+
+    const searchParams = useSearchParams();
+    const lat = searchParams.get('lat');
+    const lng = searchParams.get('lng');
+
+    const [latitude, setLatitude] = useState<number | null>(lat!=null ? parseFloat(lat) : lat);
+    const [longitude, setLongitude] = useState<number | null>(lng!=null ? parseFloat(lng) : lng);
 
     const drawnItemsReference = useRef<LeafletFeatureGroup | null>(null);
 
@@ -58,6 +68,13 @@ export default function ForestMapView(props: ForestMapViewProps) {
         })
         .catch((err) => console.error("Fetch failed:", err));
     }
+
+    let formalDateTime;
+    if(props.project.lastTrained){
+        const date = new Date(props.project.lastTrained!);
+        formalDateTime = date.toLocaleString("en-US");
+    }else formalDateTime = "Never"
+    
 
     return (<>
         <div className="flex mx-6 mt-4 items-center">
@@ -150,7 +167,7 @@ export default function ForestMapView(props: ForestMapViewProps) {
             })}
         </div>
 
-        <div className="mx-6 mt-2">
+        <div className="mx-6 mt-2 min-h-120">
             <ForestMapFull 
             latitude={latitude}
             longitude={longitude}
@@ -166,11 +183,56 @@ export default function ForestMapView(props: ForestMapViewProps) {
             />
         </div>
 
-        <div className="mx-6 mt-4 mb-20">
+        <div className="mx-6 mt-4 border border-white/8 flex justify-between bg-base-200 py-4 px-6 rounded-xl">
+            <div>
+                <h1 className="font-semibold">
+                    Risk Prediction
+                </h1>
+                <p className="text-secondary-content text-sm">
+                    Run the AI model across all monitored sectors to generate a live threat assessment
+                </p>
+            </div>
+
             <button className="btn btn-primary"
             onClick={calculateRisk}>
+                <PiLightning />
                 Calculate Risk
             </button>
+        </div>
+
+        <div className="flex  gap-4 mx-6 mt-4 mb-30">
+            <div className="border border-white/8 bg-base-200 py-4 px-6 rounded-xl flex-3">
+                <div className="p-2 border border-[#60A5FA]/70 w-10 h-10 rounded-full flex items-center justify-center bg-[#60A5FA]/25">
+                    <FaBrain className="my-2 text-xl text-[#60A5FA]"/>
+                </div>
+                <h1 className="font-semibold my-2 text-xl">
+                    How It Works
+                </h1>
+                <p className="text-secondary-content text-sm">
+                    Data obtained from the detection devices is used to train the Risk Prediction Model. The model learns from terrain features (e.g. elevation, slope, proximity to landmarks, etc) and historical attack data.
+                    This helps it determine a risk score for each cell of the forest.
+                </p>
+            </div>
+            <div className="border border-white/8 bg-base-200 py-4 px-6 rounded-xl flex-1">
+                <div className="p-2 border border-[#F59E0B]/70 w-10 h-10 rounded-full flex items-center justify-center bg-[#F59E0B]/25">
+                    <MdLoop className="my-2 text-xl text-[#F59E0B]"/>
+                </div>
+                <h1 className="font-semibold my-2 text-xl">
+                    Training History
+                </h1>
+                <div className="flex items-end">
+                    <h1 className="text-4xl font-bold text-[#F59E0B]">
+                        {props.project.trainCount}
+                    </h1>
+                    <p className="text-secondary-content text-sm ml-2">
+                        retraining cycles
+                    </p>
+                </div>
+
+                <p className="text-secondary-content text-sm mt-2">
+                    Last retrained: {formalDateTime}
+                </p>
+            </div>
         </div>
 </>);
 }

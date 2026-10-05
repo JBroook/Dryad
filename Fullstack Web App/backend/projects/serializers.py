@@ -12,9 +12,33 @@ from django.contrib.gis.geos import GEOSGeometry
 from django.db import connection, transaction
 from rest_framework_gis.fields import GeometryField
 from django.conf import settings
+from django.utils import timezone
+
+class ProjectOverviewSerializer(serializers.ModelSerializer):
+    member_count = serializers.IntegerField(read_only=True)
+    device_count = serializers.IntegerField(read_only=True)
+    new_alerts = serializers.IntegerField(read_only=True)
+
+    class Meta:
+        model = Project
+        fields = [
+            'id',
+            'color',
+            'name',
+            'status',
+            'surface_area',
+            'region',
+            'member_count',
+            'device_count',
+            'new_alerts',
+        ]
+        read_only_fields = ['owner']
 
 class MembershipSerializer(serializers.ModelSerializer):
     user = UserSerializer()
+    invited_by = UserSerializer()
+    project = ProjectOverviewSerializer()
+
     class Meta:
         model = Membership
         fields = '__all__'
@@ -37,13 +61,7 @@ def generate_grid(project, cell_size=100):
             SELECT
                 ST_AsEWKT(
                     ST_Transform(
-                        ST_Intersection(
-                            grid.geom,
-                            ST_Transform(
-                                p.monitoring_area,
-                                32647
-                            )
-                        ),
+                        dumped.geom,
                         4326
                     )
                 )
@@ -52,21 +70,19 @@ def generate_grid(project, cell_size=100):
             CROSS JOIN LATERAL
                 ST_SquareGrid(
                     %s,
-                    ST_Transform(
-                        p.monitoring_area,
-                        32647
-                    )
+                    ST_Transform(p.monitoring_area, 32647)
                 ) AS grid(geom)
 
-            WHERE p.id = %s
+            CROSS JOIN LATERAL
+                ST_Dump(
+                    ST_Intersection(
+                        grid.geom,
+                        ST_Transform(p.monitoring_area, 32647)
+                    )
+                ) AS dumped
 
-            AND ST_Intersects(
-                grid.geom,
-                ST_Transform(
-                    p.monitoring_area,
-                    32647
-                )
-            )
+            WHERE p.id = %s
+            AND NOT ST_IsEmpty(dumped.geom)
         """, [cell_size, project.id])
 
         rows = cursor.fetchall()
@@ -122,6 +138,11 @@ class GridCellSerializer(GeoFeatureModelSerializer):
             "slope"
         ]
 
+class DeviceSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Device
+        fields = '__all__'
+
 class ProjectSerializer(GeoFeatureModelSerializer):
     members = ProjectMemberSerializer(many=True, required=False)
     threat_classes = ProjectThreatClassSerializer(many=True, required=False)
@@ -147,8 +168,19 @@ class ProjectSerializer(GeoFeatureModelSerializer):
             Membership.objects.create(
                 project=project,
                 user=User.objects.get(pk=member["id"]),
-                role=member['role']
+                role=member['role'],
+                invited_by=project.owner
             )
+
+        # create membership for owner
+        Membership.objects.create(
+            project=project,
+            user=project.owner,
+            role=Membership.Role.OWNER,
+            accepted=True,
+            join_date=timezone.now(),
+            invited_by=project.owner
+        )
 
         # record threat classes to detect
         for threat_class in threat_classes:
@@ -163,11 +195,6 @@ class ProjectSerializer(GeoFeatureModelSerializer):
 class ThreatClassSerializer(serializers.ModelSerializer):
     class Meta:
         model = ThreatClass
-        fields = '__all__'
-
-class DeviceSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Device
         fields = '__all__'
 
 class IncidentSerializer(serializers.ModelSerializer):

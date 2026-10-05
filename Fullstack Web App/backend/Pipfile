@@ -16,6 +16,7 @@ rasterio = "*"
 torch = "*"
 scikit-learn = "*"
 pandas = "*"
+resend = "*"
 
 [dev-packages]
 

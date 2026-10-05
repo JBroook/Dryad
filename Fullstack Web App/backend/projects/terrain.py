@@ -5,6 +5,7 @@ import rasterio
 from django.contrib.gis.geos import LineString
 from .models import OSMRoad
 from django.contrib.gis.db.models.functions import Distance, Transform
+import time
 
 def get_project_bbox(project):
     bbox = project.monitoring_area.extent
@@ -136,7 +137,7 @@ def download_osm_roads(project):
     bbox = get_project_bbox(project)
 
     query = f"""
-    [out:json];
+    [out:json][timeout:90];
 
     way["highway"](
         {bbox["south"]},
@@ -148,21 +149,74 @@ def download_osm_roads(project):
     out geom;
     """
 
-    response = requests.post(
-        OVERPASS_URL,
-        data={"data": query},
-        headers={
-            "User-Agent": "Dryad/1.0 (forest monitoring FYP)"
-        },
-        timeout=120
-    )
+    headers = {
+        "User-Agent": "Dryad/1.0 (forest monitoring FYP)"
+    }
 
-    print("Overpass status:", response.status_code)
-    print("Overpass response:", response.text[:1000])
+    max_retries = 3
 
-    response.raise_for_status()
+    for attempt in range(1, max_retries + 1):
+        try:
+            print(
+                f"Requesting OSM roads from Overpass "
+                f"(attempt {attempt}/{max_retries})..."
+            )
 
-    return response.json()
+            response = requests.post(
+                OVERPASS_URL,
+                data={"data": query},
+                headers=headers,
+                timeout=120,
+            )
+
+            print("Overpass status:", response.status_code)
+
+            # Retry temporary server errors
+            if response.status_code in (429, 500, 502, 503, 504):
+                if attempt < max_retries:
+                    wait_time = 2 ** (attempt - 1)
+
+                    print(
+                        f"Overpass temporarily unavailable. "
+                        f"Retrying in {wait_time} seconds..."
+                    )
+
+                    time.sleep(wait_time)
+                    continue
+
+            response.raise_for_status()
+
+            data = response.json()
+
+            print(
+                f"Successfully downloaded "
+                f"{len(data.get('elements', []))} OSM elements."
+            )
+
+            return data
+
+        except (requests.exceptions.ConnectionError,
+                requests.exceptions.Timeout) as exc:
+
+            print(
+                f"Overpass connection failed "
+                f"(attempt {attempt}/{max_retries}): {exc}"
+            )
+
+            if attempt == max_retries:
+                raise
+
+            wait_time = 2 ** (attempt - 1)
+
+            print(f"Retrying in {wait_time} seconds...")
+            time.sleep(wait_time)
+
+        except requests.exceptions.RequestException as exc:
+            # Other HTTP/request errors aren't necessarily transient.
+            print(f"Overpass request failed: {exc}")
+            raise
+
+    raise RuntimeError("Failed to download OSM roads from Overpass.")
 
 
 def save_osm_roads(data):

@@ -11,7 +11,7 @@ from rest_framework.viewsets import ModelViewSet
 from users.serializers import UserSerializer
 from users.models import User
 from projects.models import ConnectionCode, Project, Incident, ThreatClass, Membership, Patrol, GridCell, Device
-from projects.serializers import (DeviceConnectSerializer, ProjectSerializer, IncidentSerializer, 
+from projects.serializers import (DeviceConnectSerializer, ProjectOverviewSerializer, ProjectSerializer, IncidentSerializer, 
 ThreatClassSerializer, MembershipSerializer, PatrolSerializer,
 GridCellSerializer, DeviceSerializer)
 from django.db.models import Q
@@ -20,6 +20,9 @@ import django_filters
 from rest_framework.filters import OrderingFilter
 from django.shortcuts import get_object_or_404
 from django.utils.dateparse import parse_datetime
+from django.db.models import Count
+from django.db import IntegrityError
+from django.contrib.gis.geos import Point
 
 class LoginView(APIView):
     def post(self, request):
@@ -57,10 +60,31 @@ class ProjectViewSet(ModelViewSet):
     serializer_class = ProjectSerializer
 
     def get_queryset(self):
-        return Project.objects.filter(owner=self.request.user)
+        return Project.objects.filter(
+            members__user=self.request.user
+        )
 
     def perform_create(self, serializer):
         serializer.save(owner=self.request.user)
+
+class ProjectOverviewView(APIView):
+    def get(self, request):
+        projects = Project.objects.annotate(
+            member_count=Count('members', distinct=True),
+            device_count=Count('devices', distinct=True),
+            new_alerts=Count(
+                'incidents',
+                filter=Q(incidents__status=Incident.Status.NEW),
+                distinct=True,
+            )
+        ).filter(
+            members__user=request.user,
+            members__accepted=True
+        )
+        return Response(
+            ProjectOverviewSerializer(projects, many=True).data,
+            status=status.HTTP_200_OK
+        )
 
 class ThreatClassViewSet(ModelViewSet):
     queryset = ThreatClass.objects.all()
@@ -143,6 +167,30 @@ class MembershipViewSet(ModelViewSet):
             
         return queryset
 
+class UserMembershipsView(APIView):
+    def get(self, request, user_id):
+        user = get_object_or_404(User, pk=user_id)
+        return Response(
+            MembershipSerializer(user.memberships, many=True).data,
+            status=status.HTTP_200_OK
+        )
+
+class AcceptInviteView(APIView):
+    def post(self, request, membership_id):
+        membership = get_object_or_404(Membership, pk=membership_id)
+        accepted_invite = request.data.get("accepted")
+        if accepted_invite:
+            membership.accepted = True
+            membership.join_date = timezone.now()
+            membership.save()
+        else:
+            membership.delete()
+
+        return Response(
+            {"details" : "Successful"},
+            status=status.HTTP_200_OK
+        )
+
 class InviteMemberView(APIView):
     def post(self, request, project_id):
         email = request.query_params.get("email")
@@ -153,27 +201,21 @@ class InviteMemberView(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        try:
-            user = User.objects.get(email=email)
-        except User.DoesNotExist:
-            return Response(
-                {"details" : "User with this email does not exists"},
-                status=status.HTTP_404_NOT_FOUND
-            )
+        user = get_object_or_404(User, email=email)
+        project = get_object_or_404(Project, pk=project_id)
 
         try:
-            project = Project.objects.get(pk=project_id)
-        except Project.DoesNotExist:
-            return Response(
-                {"details" : "This project doesn't exist"},
-                status=status.HTTP_404_NOT_FOUND
+            membership = Membership.objects.create(
+                project=project,
+                user=user,
+                role="viewer",
+                invited_by=request.user,
             )
-
-        membership = Membership.objects.create(
-            project=project,
-            user=user,
-            role="viewer"
-        )
+        except IntegrityError:
+            return Response(
+                {"details": "This user is already a member of this project"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         
         return Response(
             MembershipSerializer(membership).data,
@@ -368,6 +410,8 @@ class PatrolCompletionView(APIView):
 
         patrol_status = request.data.get("patrol_status")
         incident_status = request.data.get("incident_status")
+        longitude = request.data.get("longitude")
+        latitude = request.data.get("latitude")
 
         if patrol_status:
             patrol.status = patrol_status
@@ -381,12 +425,15 @@ class PatrolCompletionView(APIView):
                         ) 
                 
                 patrol.incident.status = incident_status
+                patrol.incident.coordinates = Point(longitude, latitude, srid=4326)
                 patrol.incident.save()
 
                 return Response({
                     "details" : "Success!"
                 }, status=status.HTTP_200_OK)
             else:
+                patrol.delete()
+                
                 return Response({
                     "details" : "Success!"
                 }, status=status.HTTP_200_OK)
@@ -412,6 +459,9 @@ class PatrolAssignView(APIView):
                 assigner = Membership.objects.get(pk=assigner_id)
             except Membership.DoesNotExist:
                 return Response({"details" : "Members do not exist"}, status=status.HTTP_404_NOT_FOUND)
+
+            incident.status = Incident.Status.REVIEWING
+            incident.save()
 
             patrol = Patrol.objects.create(
                 project=incident.project,
@@ -440,7 +490,36 @@ class CalculateProjectRiskView(APIView):
 
         calculate_project_risk(project)
 
+        project.train_count += 1
+        project.last_trained = timezone.now()
+        project.save()
+
         return Response({
             "message": "Risk calculation completed.",
             "project": project.id,
+        }, status=status.HTTP_200_OK)
+
+class UserOverviewView(APIView):
+    def get(self, request, user_id):
+        user = get_object_or_404(
+            User,
+            id=user_id
+        )
+
+        user_projects = Project.objects.filter(members__user=user, members__accepted=True)
+        active_projects = user_projects.filter(status=True).count()
+
+        new_incidents = 0
+        online_devices = 0
+        total_incidents = 0
+        for project in user_projects:
+            new_incidents += project.incidents.filter(status=Incident.Status.NEW).count()
+            online_devices += project.devices.filter(status=Device.Status.ONLINE).count()
+            total_incidents += project.incidents.count()
+
+        return Response({
+            "active_projects" : active_projects,
+            "new_incidents" : new_incidents,
+            "online_devices" : online_devices,
+            "total_incidents" : total_incidents
         }, status=status.HTTP_200_OK)

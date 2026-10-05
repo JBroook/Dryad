@@ -493,7 +493,6 @@ SCALER_PATH = settings.BASE_DIR / "data" / "models" / "risk_scaler.pkl"
 
 
 def calculate_project_risk(project):
-
     scaler = joblib.load(SCALER_PATH)
 
     model = RiskMLP(
@@ -524,24 +523,14 @@ def calculate_project_risk(project):
 
     scaled_values = scaler.transform(values)
 
-    x = torch.tensor(
-        scaled_values,
-        dtype=torch.float32
-    )
+    x = torch.tensor(scaled_values,dtype=torch.float32)
 
     with torch.no_grad():
-
         logits = model(x)
 
-        probabilities = torch.sigmoid(
-            logits
-        ).squeeze()
+        probabilities = torch.sigmoid(logits).squeeze()
 
-    for cell, probability in zip(
-        cells,
-        probabilities
-    ):
-
+    for cell, probability in zip(cells, probabilities):
         cell.risk_score = float(
             probability.item()
         )

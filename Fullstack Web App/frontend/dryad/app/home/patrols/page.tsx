@@ -6,6 +6,7 @@ import { apiFetch } from "@/lib/api";
 import { useEffect, useState } from "react";
 import { IncidentType } from "../project/page";
 import { Project } from "../projects/new/page";
+import { TbMapRoute } from "react-icons/tb";
 
 export type Patrol = {
   id : number;
@@ -26,6 +27,11 @@ export default function Patrols() {
   const [patrols, setPatrols] = useState<Patrol[]>([]);
   const [filterIndex, setFilterIndex] = useState<number>(1);
   const [patrolIndex, setPatrolIndex] = useState<number>(-1);
+  const [confirmationCoordinates, setConfirmationCoordinates] = useState({
+    latitude: "",
+    longitude: ""
+  });
+  const [locationError, setLocationError] = useState("");
 
   const filterOptions = [
     {title : "All", key : "all", count : patrols.length},
@@ -56,14 +62,76 @@ export default function Patrols() {
     }))
   }
 
+  const resetConfirmationFields = () => {
+    setConfirmationCoordinates({ latitude: "", longitude: "" });
+    setLocationError("");
+  }
+
+  const validateConfirmationCoordinates = () => {
+    const latitude = Number(confirmationCoordinates.latitude);
+    const longitude = Number(confirmationCoordinates.longitude);
+
+    return (
+      confirmationCoordinates.latitude !== "" &&
+      confirmationCoordinates.longitude !== "" &&
+      !Number.isNaN(latitude) &&
+      !Number.isNaN(longitude) &&
+      latitude >= -90 &&
+      latitude <= 90 &&
+      longitude >= -180 &&
+      longitude <= 180
+    );
+  }
+
+  const fillWithCurrentLocation = () => {
+    if (!navigator.geolocation) {
+      setLocationError("Geolocation is not supported by this browser.");
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setConfirmationCoordinates({
+          latitude: position.coords.latitude.toString(),
+          longitude: position.coords.longitude.toString(),
+        });
+        setLocationError("");
+      },
+      () => {
+        setLocationError("Unable to access your location. Please enter the coordinates manually.");
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 0,
+      }
+    );
+  }
+
   const confirmPatrol = async (e : React.SubmitEvent<HTMLFormElement>) => {
       e.preventDefault();
 
-      await apiFetch(`http://127.0.0.1:8000/api/patrols/${patrols[patrolIndex].id}/complete_patrol`, {
+      if (!validateConfirmationCoordinates()) {
+        setLocationError("Please enter a valid latitude and longitude before confirming.");
+        return;
+      }
+
+      const selectedPatrol = matchingPatrols[patrolIndex];
+      if (!selectedPatrol) {
+        return;
+      }
+
+      const latitude = Number(confirmationCoordinates.latitude);
+      const longitude = Number(confirmationCoordinates.longitude);
+      const patrolIndexInFullList = patrols.findIndex((patrol) => patrol.id === selectedPatrol.id);
+
+      await apiFetch(`http://127.0.0.1:8000/api/patrols/${selectedPatrol.id}/complete_patrol`, {
           method : "POST",
           body : JSON.stringify({
             patrol_status : "completed",
-            incident_status : "confirmed"
+            incident_status : "confirmed",
+            latitude,
+            longitude
           })
       })
       .then(async (res) => {
@@ -71,20 +139,32 @@ export default function Patrols() {
           return res.json();
       })
       .then(()=>{
+        if (patrolIndexInFullList === -1) {
+          return;
+        }
+
         const newPatrols = [...patrols]
-        newPatrols[patrolIndex].status = "completed"
+        newPatrols[patrolIndexInFullList].status = "completed"
         setPatrols(newPatrols)
       })
       .catch((err) => console.error("Fetch failed:", err));
 
       const modal = document.getElementById('confirmModal') as HTMLDialogElement;
       modal.close();
+      resetConfirmationFields();
   }
 
   const dismissPatrol = async (e : React.SubmitEvent<HTMLFormElement>) => {
     e.preventDefault();
 
-    await apiFetch(`http://127.0.0.1:8000/api/patrols/${patrols[patrolIndex].id}/complete_patrol`, {
+    const selectedPatrol = matchingPatrols[patrolIndex];
+    if (!selectedPatrol) {
+      return;
+    }
+
+    const patrolIndexInFullList = patrols.findIndex((patrol) => patrol.id === selectedPatrol.id);
+
+    await apiFetch(`http://127.0.0.1:8000/api/patrols/${selectedPatrol.id}/complete_patrol`, {
       method : "POST",
       body : JSON.stringify({
         patrol_status : "completed",
@@ -96,8 +176,12 @@ export default function Patrols() {
       return res.json();
     })
     .then(()=>{
+      if (patrolIndexInFullList === -1) {
+        return;
+      }
+
       const newPatrols = [...patrols]
-      newPatrols[patrolIndex].status = "completed"
+      newPatrols[patrolIndexInFullList].status = "completed"
       setPatrols(newPatrols)
     })
     .catch((err) => console.error("Fetch failed:", err));
@@ -109,7 +193,14 @@ export default function Patrols() {
   const cancelPatrol = async (e : React.SubmitEvent<HTMLFormElement>) => {
     e.preventDefault();
 
-    await apiFetch(`http://127.0.0.1:8000/api/patrols/${patrols[patrolIndex].id}/complete_patrol`, {
+    const selectedPatrol = matchingPatrols[patrolIndex];
+    if (!selectedPatrol) {
+      return;
+    }
+
+    const patrolIndexInFullList = patrols.findIndex((patrol) => patrol.id === selectedPatrol.id);
+
+    await apiFetch(`http://127.0.0.1:8000/api/patrols/${selectedPatrol.id}/complete_patrol`, {
       method : "POST",
       body : JSON.stringify({
         patrol_status : "cancelled"
@@ -120,8 +211,12 @@ export default function Patrols() {
       return res.json();
     })
     .then(()=>{
+      if (patrolIndexInFullList === -1) {
+        return;
+      }
+
       const newPatrols = [...patrols]
-      newPatrols[patrolIndex].status = "cancelled"
+      newPatrols[patrolIndexInFullList].status = "cancelled"
       setPatrols(newPatrols)
     })
     .catch((err) => console.error("Fetch failed:", err));
@@ -134,16 +229,23 @@ export default function Patrols() {
     const modal = document.getElementById(id) as HTMLDialogElement;
     modal.showModal();
     setPatrolIndex(index);
+    if (id === "confirmModal") {
+      resetConfirmationFields();
+    }
   }
 
   const closeModal = (id : string) => {
     const modal = document.getElementById(id) as HTMLDialogElement;
     modal.close();
+    if (id === "confirmModal") {
+      resetConfirmationFields();
+    }
   }
 
   useEffect(()=>{
     // fetch project incidents
-    apiFetch(`http://127.0.0.1:8000/api/users/${1}/patrols/`)
+    const userID = localStorage.getItem("userID")
+    apiFetch(`http://127.0.0.1:8000/api/users/${userID}/patrols/`)
       .then(async (res) => {
         if (!res.ok) throw new Error(await res.text());
         return res.json();
@@ -179,16 +281,64 @@ export default function Patrols() {
 
     <dialog id="confirmModal" className="modal">
       <div className="modal-box bg-base-200 border border-white/8">
-        <h3 className="font-bold text-lg">Confirm Incident?</h3>
-        <p className="py-4 text-sm text-secondary-content">
+        <h3 className="font-bold text-lg">Confirm Incident</h3>
+        <p className="pt-4 text-sm text-secondary-content">
           By pressing "Confirm", you agree that you have personally validated this incident.
         </p>
-        <p className="text-warning text-sm"><i>
-          False confirmations may affect Dryad's predictions    
-        </i></p>
+
         <div className="modal-action">
-        <form onSubmit={confirmPatrol}>
-          <button type="submit" className="btn btn-primary mr-2">Confirm</button>
+        <form onSubmit={confirmPatrol} className="w-full">
+          <div className="pb-4">
+            <label className="form-control w-full">
+              <span className="label-text text-sm">Longitude</span>
+              <input
+                type="number"
+                step="any"
+                min={-180}
+                max={180}
+                value={confirmationCoordinates.longitude}
+                onChange={(e) => {
+                  setConfirmationCoordinates((prev) => ({ ...prev, longitude: e.target.value }));
+                  setLocationError("");
+                }}
+                placeholder="-79.3832"
+                className="input input-bordered w-full my-2"
+                required
+              />
+            </label>
+
+            <label className="form-control w-full">
+              <span className="label-text text-sm mb-2">Latitude</span>
+              <input
+                type="number"
+                step="any"
+                min={-90}
+                max={90}
+                value={confirmationCoordinates.latitude}
+                onChange={(e) => {
+                  setConfirmationCoordinates((prev) => ({ ...prev, latitude: e.target.value }));
+                  setLocationError("");
+                }}
+                placeholder="43.6532"
+                className="input input-bordered w-full my-2"
+                required
+              />
+            </label>
+
+            <button
+              type="button"
+              className="btn btn-primary mt-2 btn-sm"
+              onClick={fillWithCurrentLocation}
+            >
+              Fill with my location
+            </button>
+
+            {locationError && (
+              <p className="text-error text-xs">{locationError}</p>
+            )}
+          </div>
+
+          <button type="submit" className="btn btn-primary mr-2" disabled={!validateConfirmationCoordinates()}>Confirm</button>
           <button 
           type="button"
           onClick={() => closeModal("confirmModal")} className="btn btn-secondary">Cancel</button>
@@ -201,7 +351,7 @@ export default function Patrols() {
       <div className="modal-box bg-base-200 border border-white/8">
         <h3 className="font-bold text-lg">Dismiss Incident?</h3>
         <p className="py-4 text-sm text-secondary-content">
-          By pressing "Dimiss", you agree that you have personally witnessed that this report is inaccurate.
+          By pressing "Dismiss", you agree that you have personally witnessed that this report is inaccurate.
         </p>
         <p className="text-warning text-sm"><i>
           False dismissals may reduce Dryad's predictive capabilities.
@@ -246,7 +396,7 @@ export default function Patrols() {
     </div>
 
     <div className="mx-6 mt-5">
-      {
+      {matchingPatrols.length>0 ?
         matchingPatrols.map((patrol, index)=>{
           return <PatrolCard
             key={index}
@@ -257,6 +407,17 @@ export default function Patrols() {
             dismissPatrol={()=>openModal("dismissModal", index)}
           />
       })
+      :
+      <div className="w-full flex flex-col justify-center items-center text-secondary-content pt-30">
+        <TbMapRoute className="text-4xl"/>
+        
+        {filterOptions[filterIndex].key!=="all" ? 
+          <h1>You have no {filterOptions[filterIndex].key} patrols</h1>
+          :
+          <h1>You have no patrols</h1>
+        }
+        <p className="text-sm">Assign a patrol to yourself in a project to start</p>
+      </div>
       }
   </div>
   </>

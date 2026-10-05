@@ -1,4 +1,4 @@
 #!/bin/bash
 
 cd backend || exit
-pipenv run python manage.py runserver
+pipenv run python manage.py runserver 0.0.0.0:8000

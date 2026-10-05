@@ -14,7 +14,7 @@ export default function ProjectAliasPage() {
       return;
     }
 
-    router.replace(`/home/project?pid=${projectId}&tab=overview`);
+    router.replace(`/home/project?pid=${projectId}&tab=forest_map`);
   }, [projectId, router]);
 
   return null;

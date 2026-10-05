@@ -14,9 +14,9 @@ import { apiFetch } from "@/lib/api";
 export default function Sidebar() {
     const sidebarOptions = [
         {href : "/home/projects", name : "Projects", icon: BsTree},
-        {href : "/home/incidents", name : "Incidents", icon: IoWarningOutline},
+        // {href : "/home/incidents", name : "Incidents", icon: IoWarningOutline},
         {href : "/home/patrols", name : "Patrols", icon: TbMapRoute},
-        {href : "/home/settings", name : "Settings", icon: IoSettingsOutline},
+        // {href : "/home/settings", name : "Settings", icon: IoSettingsOutline},
     ]
     const [mode, setMode] = useState<boolean>(true);
     const pathname = usePathname();
@@ -65,8 +65,8 @@ export default function Sidebar() {
 
     return (
         <aside className="w-64 h-screen fixed left-0 top-0">
-            <div className="flex flex-col w-full h-full bg-base-200 border-r border-r-white/5 border-r-[2px]">
-                <div className="py-5 pl-5 border-b border-b-white/5 border-b-[2px]">
+            <div className="flex flex-col w-full h-full bg-base-200 border-r border-r-base-300 border-r-[2px]">
+                <div className="py-5 pl-5 border-b border-b-base-300 border-b-[2px]">
                     <h1 className="text-3xl font-semibold">Dryad</h1>
                 </div>
 
@@ -86,8 +86,8 @@ export default function Sidebar() {
                     })}
                 </ul>
                 
-                <div className="flex flex-col items-center mt-auto border-t border-t-[2px] border-t-white/5">
-                    <button className="bg-white/8 rounded-xl font-medium mt-3 p-3 w-[90%] flex flex-row justify-start items-center hover:cursor-pointer" 
+                <div className="flex flex-col items-center mt-auto border-t border-t-[2px] border-t-base-300">
+                    <button className="bg-base-100 rounded-xl font-medium mt-3 p-3 w-[90%] flex flex-row justify-start items-center hover:cursor-pointer border border-base-300" 
                     onClick={changeTheme}>
                          {mode ? 
                             <MdOutlineLightMode className="text-secondary-content text-xl mr-3"/>

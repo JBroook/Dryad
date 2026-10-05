@@ -12,7 +12,10 @@ export default function HollowCard({
   onClick=()=>{}
 }: HollowCardProps) {
     return (
-    <div className={`rounded-xl border border-white/8 bg-white/5 ${className}`} onClick={onClick}>
+    <div
+      className={`rounded-xl border border-base-300 bg-base-100 shadow-[0_1px_0_rgba(18,43,31,0.04),0_10px_24px_rgba(18,43,31,0.04)] ${className}`}
+      onClick={onClick}
+    >
         {children}
     </div>);
 }

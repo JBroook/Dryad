@@ -58,7 +58,9 @@ export default function Project() {
       ...data.properties,
       area : data.properties.surface_area,
       id : data.id,
-      geoJSON : data.geometry
+      geoJSON : data.geometry,
+      trainCount : data.properties.train_count,
+      lastTrained : data.properties.last_trained
     })
   }
 
@@ -75,12 +77,12 @@ export default function Project() {
   }
 
   const tabOptions = [
-    {title : "Overview", href : "overview", icon : IoIosStats},
+    // {title : "Overview", href : "overview", icon : IoIosStats},
     {title : "Incidents", href : "incidents", icon : IoIosWarning },
     {title : "Forest Map", href : "forest_map", icon : FaMap },
     {title : "Devices", href : "devices", icon : IoMdWifi},
     {title : "Team", href : "team", icon : AiOutlineTeam},
-    {title : "Settings", href : "settings", icon : FaGear},
+    // {title : "Settings", href : "settings", icon : FaGear},
   ]
 
   const filterOptions = [
@@ -111,6 +113,7 @@ export default function Project() {
       setGridCells={setGridCells}
       incidents={incidents}
       devices={devices}
+      project={project!}
     />,
     devices : <DevicesView 
       projectID={projectID}

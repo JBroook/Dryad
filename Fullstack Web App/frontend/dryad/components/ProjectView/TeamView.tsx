@@ -74,34 +74,45 @@ export default function TeamView(props: TeamViewProps) {
         e.preventDefault();
 
         const formData = new FormData(e.currentTarget);
-        const email = formData.get("email")
+        const email = formData.get("email");
 
-        if(email && email.toString().length>0){
-            apiFetch(`http://127.0.0.1:8000/api/projects/${props.projectID}/invite?email=${email}`,
+        if (email && email.toString().length > 0) {
+            apiFetch(
+                `http://127.0.0.1:8000/api/projects/${props.projectID}/invite?email=${email}`,
                 {
-                    method : "POST"
+                    method: "POST"
                 }
             )
-            .then(async (res) => {
-                if (!res.ok) throw new Error(await res.text());
-                return res.json();
-            })
-            .then((data)=>{
-                const newMember : Member = {
-                    id : data.id,
-                    firstName : data.user.first_name,
-                    lastName : data.user.last_name,
-                    email : data.user.email,
-                    joinDate : data.join_date,
-                    role : data.role
-                }
-                props.setMembers([...props.members, newMember])
-            })
-            .catch((err) => console.error("Fetch failed:", err));
-        }else{
+                .then(async (res) => {
+                    const data = await res.json();
+
+                    if (!res.ok) {
+                        throw new Error(data.details || "Something went wrong");
+                    }
+
+                    return data;
+                })
+                .then((data) => {
+                    const newMember: Member = {
+                        id: data.id,
+                        firstName: data.user.first_name,
+                        lastName: data.user.last_name,
+                        email: data.user.email,
+                        joinDate: data.join_date,
+                        role: data.role
+                    };
+
+                    props.setMembers([...props.members, newMember]);
+                })
+                .catch((err) => {
+                    console.error("Fetch failed:", err);
+                    alert(err.message);
+                });
+        } else {
             alert("Please enter a valid email address");
         }
-    }
+    };
+
     
     const removeMember = (e : React.SubmitEvent<HTMLFormElement>) => {
         e.preventDefault();

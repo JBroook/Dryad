@@ -5,12 +5,13 @@ import DeviceCard from "../DeviceCard";
 import { Device } from "@/app/home/project/page";
 import { FaPlus } from "react-icons/fa";
 import { ReactEventHandler, SubmitEventHandler, useEffect, useState } from "react";
-import { IoMdWifi } from "react-icons/io";
+import { IoIosWarning, IoMdWifi } from "react-icons/io";
 import { RxCross2 } from "react-icons/rx";
 import { IoCopy } from "react-icons/io5";
 import { apiFetch } from "@/lib/api";
 import { copyTextToClipboard } from "@/lib/general";
 import { FaCheck } from "react-icons/fa6";
+import { useRouter } from "next/navigation";
 
 interface DevicesViewProps {
     projectID : string | null;
@@ -83,6 +84,7 @@ export default function DevicesView(props: DevicesViewProps) {
         if (!res.ok) throw new Error(await res.text());
         return res.json();
         })
+        .then(()=>setNewDeviceName(""))
         .catch((err) => console.error("Fetch failed:", err));
     }
 
@@ -120,12 +122,13 @@ export default function DevicesView(props: DevicesViewProps) {
         .catch((err) => console.error("Fetch failed:", err));
     }
 
-    const changeNewDeviceName = async (e : React.SubmitEvent<HTMLFormElement>) => {
+    const changeNewDeviceName = (e : React.SubmitEvent<HTMLFormElement>) => {
         e.preventDefault();
 
         closeModal("deviceModal")
-        await renameDevice(newDeviceID, newDeviceName);
-        setNewDeviceName("");
+        if(newDeviceName!==""){
+            renameDevice(newDeviceID, newDeviceName);
+        }
         setConnectionState("available");
     }
 
@@ -133,6 +136,8 @@ export default function DevicesView(props: DevicesViewProps) {
         setConnectionState("available");
         openDeviceModal();
     }
+
+    const router = useRouter();
 
     useEffect(() => {
         if (!polling || !deviceCode) return;
@@ -334,6 +339,7 @@ export default function DevicesView(props: DevicesViewProps) {
             </div>
         </div>
 
+        {props.devices.length>0 ? 
         <div className="grid grid-cols-3 mx-6 mt-4 gap-4">
             {props.devices.map((device, index)=>{
                 return <DeviceCard 
@@ -342,9 +348,22 @@ export default function DevicesView(props: DevicesViewProps) {
                 deleteEvent={openRemoveModal}
                 renameDevice={renameDevice}
                 toggleDevice={toggleDevice}
+                showOnMap={()=>router.push(`/home/project?pid=${props.projectID}&tab=forest_map&lat=${
+                    device.location.coordinates[1]
+                }&lng=${
+                    device.location.coordinates[0]
+                }`)}
                 />
             })
             }
         </div>
+        :
+        <div className="w-full flex flex-col justify-center items-center text-secondary-content pt-20">
+            <IoMdWifi className="text-4xl"/>
+            
+            <h1>No devices found</h1>
+            <p className="text-sm">Add a device to start recording incidents</p>
+        </div>
+        }
     </>);
 }

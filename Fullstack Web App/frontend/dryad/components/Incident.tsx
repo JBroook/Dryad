@@ -1,13 +1,13 @@
 import getThreatIcon from "@/lib/threatIcons";
 import { useState } from "react";
-import { IconType } from "react-icons";
 import { FaPersonRunning, FaRegClock } from "react-icons/fa6";
 import { IoIosArrowDown, IoIosArrowUp } from "react-icons/io";
 import { MdOutlineLocationOn } from "react-icons/md";
 import GlowButton from "./GlowButton";
+import { useRouter } from "next/navigation";
+import { capitalizeFirstLetter } from "@/lib/general";
 
 interface IncidentProps {
-    color : string;
     name : string;
     coordinates : Coordinate;
     timestamp : string;
@@ -17,6 +17,7 @@ interface IncidentProps {
     dismissIncident : ()=>void;
     assignPatrol : ()=>void;
     status : string;
+    projectID : string | null;
 }
 
 export type Coordinate = {
@@ -36,6 +37,27 @@ export default function Incident(props : IncidentProps) {
 
     const formalDateTime = date.toLocaleString("en-US");
 
+    const router = useRouter();
+
+    const getSeverityColor = (confidence: number) => {
+        if (confidence >= 80) return "#d73027"; // very high
+        if (confidence >= 60) return "#fc8d59"; // high
+        if (confidence >= 40) return "#fee08b"; // medium
+        if (confidence >= 20) return "#d9ef8b"; // low
+        return "#91cf60";                  // very low
+    };
+
+    const color = getSeverityColor(props.confidence);
+
+    const getStatusBadege = (status : string) => {
+        if (status==="new") return <div className="badge badge-soft badge-warning font-semibold">{capitalizeFirstLetter (props.status)}</div>;
+        if (status==="reviewing") return <div className="badge badge-soft badge-warning font-semibold">{capitalizeFirstLetter (props.status)}</div>;
+        if (status==="confirmed") return <div className="badge badge-soft badge-accent font-semibold">{capitalizeFirstLetter (props.status)}</div>;
+        if (status==="dismissed") return <div className="badge badge-soft badge-error font-semibold">{capitalizeFirstLetter (props.status)}</div>;
+    }
+
+    const statusBadge = getStatusBadege(props.status);
+
     return (
     <div className="collapse rounded-2xl w-full border border-2 border-white/5 px-2 bg-base-200 mb-4">
         <input 
@@ -45,16 +67,17 @@ export default function Incident(props : IncidentProps) {
         onChange={(e) => setIsOpen(e.target.checked)}/>
 
         <div className="collapse-title flex flex-row items-center pr-4">
-            <div className="h-full min-h-12 w-1 rounded-xs ml-2 my-1" style={{backgroundColor : props.color}} />
+            <div className="h-full min-h-12 w-1 rounded-xs ml-2 my-1" style={{backgroundColor : color}} />
 
-            <div className="p-3 rounded-xl border ml-4" style={{backgroundColor : `${props.color}1A`, borderColor : `${props.color}1A`}}> 
-                {/* 1A appended to give 10% opacity */}
-                <Icon className="text-xl" style={{color : props.color}}/>
+            {/* 1A appended to give 10% opacity */}
+            <div className="p-3 rounded-xl border ml-4" style={{backgroundColor : `${color}1A`, borderColor : `${color}1A`}}> 
+                <Icon className="text-xl" style={{color : color}}/>
             </div>
 
             <div className="ml-4">
                 <div className="flex flex-row mb-1">
                     <h1 className="font-semibold">{props.name}</h1>
+                    {statusBadge}
                 </div>
 
                 <div className="flex flex-row items-center text-secondary-content text-sm">
@@ -113,7 +136,7 @@ export default function Incident(props : IncidentProps) {
             <progress className="progress progress-primary w-full mt-2" value={props.confidence} max="100"></progress>
 
             <div className="flex mt-2 gap-2">
-                {props.status=="unconfirmed" &&
+                {props.status=="new" &&
                     <>
                     <GlowButton color="#4ADE80" className="btn btn-primary" onClick={props.confirmIncident}>
                         Confirm
@@ -130,7 +153,13 @@ export default function Incident(props : IncidentProps) {
                     </>
                 }
 
-                <button className="btn btn-secondary">
+                <button 
+                className="btn btn-secondary"
+                onClick={()=>router.push(`/home/project?pid=${props.projectID}&tab=forest_map&lat=${
+                    props.coordinates.lng
+                }&lng=${
+                    props.coordinates.lat
+                }`)}>
                     View on Map
                 </button>
             </div>

@@ -29,7 +29,6 @@ router.register(
     basename='project_devices'
 )
 
-
 urlpatterns = [
     path('login/', views.LoginView.as_view(), name="login"),
     path('', include(router.urls)),
@@ -40,4 +39,8 @@ urlpatterns = [
     path('patrols/<int:patrol_id>/complete_patrol', views.PatrolCompletionView.as_view(), name="complete_patrol"),
     path('incidents/<int:incident_id>/assign_patrol', views.PatrolAssignView.as_view(), name="assign_patrol"),
     path('projects/<int:project_id>/calculate_risk', views.CalculateProjectRiskView.as_view(), name="calculate_risk"),
+    path('users/<int:user_id>/overview', views.UserOverviewView.as_view(), name="user_overview"),
+    path('users/<int:user_id>/memberships', views.UserMembershipsView.as_view(), name="user_memberships"),
+    path('projects/overview', views.ProjectOverviewView.as_view(), name="project_overview"),
+    path('memberships/<int:membership_id>/accept_invite', views.AcceptInviteView.as_view(), name="accept_invite"),
 ]
