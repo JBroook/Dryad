@@ -45,36 +45,36 @@ export default function Home() {
   }
 
   const extractProjectFeatures = (data : any) => {
-      const extractedProjects = data.map((project : any)=>{
-        return {
-          ...project, 
-          area : project.surface_area,
-          memberCount : project.member_count,
-          deviceCount : project.device_count,
-          newAlerts : project.new_alerts
-        }
-      })
-      setAllProjects(extractedProjects)
-      setProjectsLoaded(true);
-    }
+    const extractedProjects = data.map((project : any)=>{
+      return {
+        ...project, 
+        area : project.surface_area,
+        memberCount : project.member_count,
+        deviceCount : project.device_count,
+        newAlerts : project.new_alerts
+      }
+    })
+    setAllProjects(extractedProjects)
+    setProjectsLoaded(true);
+  }
 
-    const acceptInvitation = (notificationIndex : number, accept : boolean) => {
-      apiFetch(`http://127.0.0.1:8000/api/memberships/${notifications[notificationIndex].id}/accept_invite`, {
-        method : "POST",
-        body : JSON.stringify({
-          accepted : accept
-        })
+  const acceptInvitation = (notificationIndex : number, accept : boolean) => {
+    apiFetch(`http://127.0.0.1:8000/api/memberships/${notifications[notificationIndex].id}/accept_invite`, {
+      method : "POST",
+      body : JSON.stringify({
+        accepted : accept
       })
-      .then(async (res) => {
-      if (!res.ok) throw new Error(await res.text());
-      })
-      .then(()=>{
-        const newNotifications = [...notifications]
-        newNotifications.splice(notificationIndex, 1)
-        setNotifications(newNotifications)
-      })
-      .catch((err) => console.error("Fetch failed:", err));
-    }
+    })
+    .then(async (res) => {
+    if (!res.ok) throw new Error(await res.text());
+    })
+    .then(()=>{
+      const newNotifications = [...notifications]
+      newNotifications.splice(notificationIndex, 1)
+      setNotifications(newNotifications)
+    })
+    .catch((err) => console.error("Fetch failed:", err));
+  }
 
   useEffect(()=>{
     const token = localStorage.getItem("access");

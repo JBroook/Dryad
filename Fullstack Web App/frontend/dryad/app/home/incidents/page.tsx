@@ -59,18 +59,16 @@ export default function Incidents() {
       </div>
     </div>
 
-    {userID!=null &&
-      <FullIncidentsView 
-        userID={parseInt(userID)}
-        filterIndex={filterIndex}
-        filterOptions={filterOptions}
-        setFilterIndex={(index)=>setFilterIndex(index)}
-        incidents={incidents}
-        threatClasses={threatClasses}
-        setThreatClasses={setThreatClasses}
-        setIncidents={setIncidents}
-      />
-      }
+    <FullIncidentsView 
+      userID={userID}
+      filterIndex={filterIndex}
+      filterOptions={filterOptions}
+      setFilterIndex={(index)=>setFilterIndex(index)}
+      incidents={incidents}
+      threatClasses={threatClasses}
+      setThreatClasses={setThreatClasses}
+      setIncidents={setIncidents}
+    />
   </>
   );
 }

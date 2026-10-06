@@ -1,3 +1,4 @@
+from datetime import timedelta
 from django.utils import timezone
 import secrets
 import string
@@ -23,6 +24,7 @@ from django.utils.dateparse import parse_datetime
 from django.db.models import Count
 from django.db import IntegrityError
 from django.contrib.gis.geos import Point
+from django.db.models.functions import TruncDate
 
 class LoginView(APIView):
     def post(self, request):
@@ -76,13 +78,27 @@ class ProjectOverviewView(APIView):
                 'incidents',
                 filter=Q(incidents__status=Incident.Status.NEW),
                 distinct=True,
-            )
-        ).filter(
-            members__user=request.user,
-            members__accepted=True
+            ),
+            total_incidents=Count('incidents', distinct=True),
+            online_devices=Count(
+                'devices',
+                filter=Q(devices__status='online'),
+                distinct=True,
+            ),
         )
+
+        project_id = request.query_params.get("project_id")
+
+        if project_id:
+            projects = projects.get(pk=project_id)
+        else:
+            projects = projects.filter(
+                members__user=request.user,
+                members__accepted=True
+            )
+
         return Response(
-            ProjectOverviewSerializer(projects, many=True).data,
+            ProjectOverviewSerializer(projects, many=project_id==None).data,
             status=status.HTTP_200_OK
         )
 
@@ -134,20 +150,20 @@ class IncidentViewSet(ModelViewSet):
         project_id = self.request.query_params.get("project")
 
         if project_id:
-            queryset = super().get_queryset().filter(project_id=project_id)
+            self.queryset = self.queryset.filter(project_id=project_id)
 
             search_param = self.request.query_params.get("search")
             if search_param:
-                queryset = queryset.filter(threat_class__name__icontains=search_param)
+                self.queryset = self.queryset.filter(threat_class__name__icontains=search_param)
 
 
         user_id = self.request.query_params.get("user_id")
         if user_id:
-            queryset = super().get_queryset().filter(project__members__user_id=user_id)
+            self.queryset = self.queryset.filter(project__members__user_id=user_id)
             
             search_param = self.request.query_params.get("search")
             if search_param:
-                queryset = queryset.filter(threat_class__name__icontains=search_param)
+                self.queryset = self.queryset.filter(threat_class__name__icontains=search_param)
             
         return self.queryset
 
@@ -432,7 +448,8 @@ class PatrolCompletionView(APIView):
                         ) 
                 
                 patrol.incident.status = incident_status
-                patrol.incident.coordinates = Point(longitude, latitude, srid=4326)
+                if incident_status=="complete":
+                    patrol.incident.coordinates = Point(longitude, latitude, srid=4326)
                 patrol.incident.save()
 
                 return Response({
@@ -530,3 +547,37 @@ class UserOverviewView(APIView):
             "online_devices" : online_devices,
             "total_incidents" : total_incidents
         }, status=status.HTTP_200_OK)
+
+class IncidentActivityView(APIView):
+    def get(self, request, project_id):
+        project = get_object_or_404(Project, pk=project_id)
+
+        today = timezone.localdate()
+        seven_days_ago = today - timedelta(days=6)
+
+        queryset = (
+            project.incidents
+            .filter(
+                timestamp__date__gte=seven_days_ago,
+                timestamp__date__lte=today,
+            )
+            .annotate(day=TruncDate("timestamp"))
+            .values("day")
+            .annotate(count=Count("id"))
+            .order_by("day")
+        )
+
+        counts = {
+            row["day"]: row["count"]
+            for row in queryset
+        }
+
+        result = [
+            {
+                "day": seven_days_ago + timedelta(days=i),
+                "count": counts.get(seven_days_ago + timedelta(days=i), 0),
+            }
+            for i in range(7)
+        ]
+
+        return Response(result)

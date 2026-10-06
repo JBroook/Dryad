@@ -16,6 +16,7 @@ import ForestMapView from "@/components/ProjectView/ForestMapView";
 import { Coordinate } from "@/components/Incident";
 import DevicesView from "@/components/ProjectView/DevicesView";
 import TeamView from "@/components/ProjectView/TeamView";
+import OverviewView from "@/components/ProjectView/OverviewView";
 
 type Tab = "overview" | "incidents" | "forest_map" | "devices" | "team";
 
@@ -86,12 +87,12 @@ export default function Project() {
   }
 
   const tabOptions = [
-    // {title : "Overview", href : "overview", icon : IoIosStats},
+    {title : "Overview", href : "overview", icon : IoIosStats},
     {title : "Incidents", href : "incidents", icon : IoIosWarning },
     {title : "Forest Map", href : "forest_map", icon : FaMap },
     {title : "Devices", href : "devices", icon : IoMdWifi},
     {title : "Team", href : "team", icon : AiOutlineTeam},
-    // {title : "Settings", href : "settings", icon : FaGear},
+    {title : "Settings", href : "settings", icon : FaGear},
   ]
 
   const filterOptions = [
@@ -104,7 +105,9 @@ export default function Project() {
   ]
 
   const tabComponentMapping = {
-    overview : <></>,
+    overview : <OverviewView 
+      project={project!}
+    />,
     incidents : <IncidentsView 
       projectID={projectID}
       filterIndex={filterIndex}

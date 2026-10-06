@@ -14,11 +14,12 @@ interface IncidentProps {
     timestamp : string;
     device : string;
     confidence : number;
-    confirmIncident : ()=>void;
-    dismissIncident : ()=>void;
-    assignPatrol : ()=>void;
+    confirmIncident? : ()=>void;
+    dismissIncident? : ()=>void;
+    assignPatrol? : ()=>void;
     status : string;
     projectID : number;
+    mini? : boolean;
 }
 
 export type Coordinate = {
@@ -137,7 +138,7 @@ export default function Incident(props : IncidentProps) {
             <progress className="progress progress-primary w-full mt-2" value={props.confidence} max="100"></progress>
 
             <div className="flex mt-2 gap-2">
-                {props.status=="new" &&
+                {(props.status=="new" && !props.mini) &&
                     <>
                     <GlowButton color="#4ADE80" className="btn btn-primary" onClick={props.confirmIncident}>
                         Confirm
@@ -163,6 +164,13 @@ export default function Incident(props : IncidentProps) {
                 }`)}>
                     View on Map
                 </button>
+
+                {props.mini &&
+                    <button 
+                    className="btn btn-secondary"
+                    onClick={()=>router.push(`/home/project?pid=${props.projectID}&tab=incidents`)}>
+                        View Full
+                    </button>}
             </div>
         </div>
     </div>);

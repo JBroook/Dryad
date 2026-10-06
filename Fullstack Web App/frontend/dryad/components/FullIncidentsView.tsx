@@ -24,7 +24,7 @@ interface FullIncidentsViewProps {
     threatClasses : ThreatClass[];
     setThreatClasses : (newThreatClasses : ThreatClass[]) => void;
     setIncidents : (incidents : IncidentType[]) => void;
-    userID : number;
+    userID : string | null;
 }
 
 
@@ -45,9 +45,6 @@ export default function FullIncidentsView(props: FullIncidentsViewProps) {
         confirmed : false,
         dismissed : false
     });
-
-    const searchParams = useSearchParams();
-    const userID = searchParams.get("pid");
 
     const confirmModal = (index : number)=>{
         const modal = document.getElementById('confirmModal') as HTMLDialogElement;
@@ -445,6 +442,8 @@ export default function FullIncidentsView(props: FullIncidentsViewProps) {
         
     </dialog>
 
+    {props.userID &&
+    <>
     <div className="mx-6 flex flex-row items-center mt-5">
         <label className="input bg-secondary w-full border border-white/8 flex-1">
             <IoSearch />
@@ -644,5 +643,6 @@ export default function FullIncidentsView(props: FullIncidentsViewProps) {
             </div>
         }
     </div>
+    </>}
     </>);
 }
