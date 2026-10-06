@@ -31,9 +31,9 @@ export default function SettingsView(props: SettingsViewProps) {
     }
 
     const toggleThreatClass = (index : number) => {
-        const newProject = {...project!};
-        newProject.threatClasses[index].active = !newProject.threatClasses[index].active;
-        setProject(newProject);
+        const newThreatClasses = [...threatClasses]
+        newThreatClasses[index].active = !newThreatClasses[index].active
+        setThreatClasses(newThreatClasses)
     }
 
     useEffect(() => {
@@ -85,7 +85,7 @@ export default function SettingsView(props: SettingsViewProps) {
     }, [props.projectID])
     
     if (project!=null){
-        return (<div className="mt-6 ml-6 w-1/2 max-w-200 min-w-80">
+        return (<div className="mt-6 mx-60">
             <div className="card bg-base-200 rounded-2xl border border-white/8">
                 <div className="card-body">
                     <h2 className="card-title">Project Identity</h2>
