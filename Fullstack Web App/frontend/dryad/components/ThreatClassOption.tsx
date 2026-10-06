@@ -1,3 +1,4 @@
+import getThreatIcon from "@/lib/threatIcons";
 import { IconType } from "react-icons";
 import { IoMdCheckmark } from "react-icons/io";
 
@@ -6,11 +7,11 @@ interface ThreatClassOptionProps {
   description : string;
   active : boolean;
   setActive : ()=>void;
-  icon : IconType;
+  icon? : IconType;
 }
 
 export default function ThreatClassOption(props : ThreatClassOptionProps) {
-  const Icon = props.icon;
+  const Icon = getThreatIcon(props.name)
   return (
   <div className={props.active ? "bg-primary/15 rounded-xl p-4 flex flex-row justify-between items-center border border-width-[2px] border-accent/40 mb-2 cursor-pointer"
     :

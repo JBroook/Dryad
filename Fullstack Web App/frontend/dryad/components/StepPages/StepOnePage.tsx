@@ -1,7 +1,4 @@
-import Link from "next/link";
-import { FaArrowLeft, FaArrowRight } from "react-icons/fa";
 import BottomBar from "./BottomBar";
-import { useState } from "react";
 
 interface StepPageProps {
     submitEvent : () => void;

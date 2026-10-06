@@ -17,6 +17,7 @@ import { Coordinate } from "@/components/Incident";
 import DevicesView from "@/components/ProjectView/DevicesView";
 import TeamView from "@/components/ProjectView/TeamView";
 import OverviewView from "@/components/ProjectView/OverviewView";
+import SettingsView from "@/components/ProjectView/SettingsView";
 
 type Tab = "overview" | "incidents" | "forest_map" | "devices" | "team";
 
@@ -136,7 +137,9 @@ export default function Project() {
       members={members}
       setMembers={setMembers}
     />,
-    settings : <></>,
+    settings : <SettingsView 
+      projectID={projectID}
+    />,
   }
 
   const isValidTab = (tab: string | null): tab is Tab => {

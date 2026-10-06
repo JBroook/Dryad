@@ -170,6 +170,7 @@ html[data-theme="mytheme-light"] .border-white\/15 {
   --color-info: #3B82F6;
   --color-success: #10B981;
   --color-warning: #F59E0B;
+  --color-warning-content: #121A15;
   --color-error: #EF4444;
   --color-error-content: #121A15;
 }
