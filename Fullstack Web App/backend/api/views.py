@@ -85,12 +85,20 @@ class ProjectOverviewView(APIView):
                 filter=Q(devices__status='online'),
                 distinct=True,
             ),
-        ).filter(
-            members__user=request.user,
-            members__accepted=True
         )
+
+        project_id = request.query_params.get("project_id")
+
+        if project_id:
+            projects = projects.get(pk=project_id)
+        else:
+            projects = projects.filter(
+                members__user=request.user,
+                members__accepted=True
+            )
+
         return Response(
-            ProjectOverviewSerializer(projects, many=True).data,
+            ProjectOverviewSerializer(projects, many=project_id==None).data,
             status=status.HTTP_200_OK
         )
 

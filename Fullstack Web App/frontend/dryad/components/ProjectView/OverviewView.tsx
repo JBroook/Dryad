@@ -11,35 +11,40 @@ import { FaArrowRight, FaPlus } from "react-icons/fa6";
 import Incident from "../Incident";
 import { IoIosWarning } from "react-icons/io";
 
-interface ProjectStatCard {
-  title: string;
-  number: number | null;
-  color: string;
-}
-
 interface OverviewViewProps {
     project : Project;
-    incidents : IncidentType[];
-    members : Member[];
-    devices : Device[];
 }
 
 export default function OverviewView(props: OverviewViewProps) {
     const [activityChartData, setActivityChartData] = useState([]);
+    const [incidents, setIncidents] = useState<IncidentType[]>([]);
 
-    const newIncidents = props.incidents?.reduce((count, incident) => {
-        return incident.status==="new" ? count + 1 : count;
-    }, 0)
-    const onlineDevices = props.devices?.reduce((count, device) => {
-        return device.status==="online" ? count + 1 : count;
-    }, 0)
+    // const newIncidents = props.incidents?.reduce((count, incident) => {
+    //     return incident.status==="new" ? count + 1 : count;
+    // }, 0)
+    // const onlineDevices = props.devices?.reduce((count, device) => {
+    //     return device.status==="online" ? count + 1 : count;
+    // }, 0)
 
-    const overviewCards = [
-        {title : "Total Incidents", number : props.incidents?.length, color : "#A78BFA"},
-        {title : "New Incidents", number : newIncidents, color : "#F87171"},        
-        {title : "Online Devices", number : onlineDevices, color : "#60A5FA"},
-        {title : "Team Members", number : props.members?.length, color : "#4ADE80"},        
-    ]
+    const [overviewCards, setOverviewCards] = useState([
+        {title : "Total Incidents", number : 0, color : "#A78BFA"},
+        {title : "New Incidents", number : 0, color : "#F87171"},        
+        {title : "Online Devices", number : 0, color : "#60A5FA"},
+        {title : "Team Members", number : 0, color : "#4ADE80"},        
+    ])
+
+    const extractIncidents = (data : any)=>{
+        setIncidents(data.filter((incident : IncidentType)=>(incident.status==="new" || incident.status==="reviewing"))
+            .map((incident : any)=>{
+            return {...incident, 
+                threatClass : incident.threat_class,
+                coordinates : {
+                lat : parseFloat(incident.coordinates.coordinates[0]),
+                lng : parseFloat(incident.coordinates.coordinates[1])
+                }
+            }
+        }))
+    }
 
     useEffect(()=>{
         // fetch activity chart data
@@ -48,8 +53,33 @@ export default function OverviewView(props: OverviewViewProps) {
             if (!res.ok) throw new Error(await res.text());
             return res.json();
         })
-        .then((data)=>{console.log(data); return data})
         .then((data)=>setActivityChartData(data))
+        .catch((err) => console.error("Fetch failed:", err));
+
+        // fetch project incidents
+        apiFetch(`http://127.0.0.1:8000/api/incidents?project=${props.project.id}`)
+        .then(async (res) => {
+            if (!res.ok) throw new Error(await res.text());
+            return res.json();
+        })
+        .then((data)=>extractIncidents(data))
+        .catch((err) => console.error("Fetch failed:", err));
+
+        // fetch overview info
+        apiFetch(`http://127.0.0.1:8000/api/projects/overview?project_id=${props.project.id}`)
+        .then(async (res) => {
+            if (!res.ok) throw new Error(await res.text());
+            return res.json();
+        })
+        .then((data)=>{console.log(data); return data})
+        .then((data)=>{
+            const newOverviewCards = [...overviewCards]
+            newOverviewCards[0].number = data.total_incidents
+            newOverviewCards[1].number = data.new_alerts
+            newOverviewCards[2].number = data.online_devices
+            newOverviewCards[3].number = data.member_count
+            setOverviewCards(newOverviewCards)
+        })
         .catch((err) => console.error("Fetch failed:", err));
     },[])
     
@@ -81,8 +111,8 @@ export default function OverviewView(props: OverviewViewProps) {
                 </div>
                 
                 <div className="mt-4">
-                    {props.incidents.length>0 ?
-                        props.incidents.map((incident, index)=>{
+                    {incidents.length>0 ?
+                        incidents.map((incident, index)=>{
                             return <Incident
                                 key={incident.id}
                                 name={incident.threatClass.name}

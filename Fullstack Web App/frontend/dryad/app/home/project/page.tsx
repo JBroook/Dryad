@@ -107,9 +107,6 @@ export default function Project() {
   const tabComponentMapping = {
     overview : <OverviewView 
       project={project!}
-      incidents={incidents}
-      members={members}
-      devices={devices}
     />,
     incidents : <IncidentsView 
       projectID={projectID}
