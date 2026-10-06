@@ -6,6 +6,10 @@ import { apiFetch } from "@/lib/api";
 import { Member, Project } from "@/app/home/projects/new/page";
 import { Device, IncidentType } from "@/app/home/project/page";
 import ActivityChart from "../ActivityChart";
+import Link from "next/link";
+import { FaArrowRight, FaPlus } from "react-icons/fa6";
+import Incident from "../Incident";
+import { IoIosWarning } from "react-icons/io";
 
 interface ProjectStatCard {
   title: string;
@@ -58,5 +62,42 @@ export default function OverviewView(props: OverviewViewProps) {
         <main className="p-6">
             <ActivityChart />
         </main>
+
+        <div className="card bg-base-200 rounded-2xl border border-white/8 mx-6 mb-20">
+            <div className="card-body">
+                <div className="flex justify-between">
+                    <h2 className="card-title">Pending Incidents</h2>
+                    <Link className="flex items-center gap-2 text-accent" href={`/home/project?pid=${props.project.id}&tab=incidents`}>View All <FaArrowRight/></Link>
+                </div>
+                
+                <div className="mt-4">
+                    {props.incidents.length>0 ?
+                        props.incidents.map((incident, index)=>{
+                            return <Incident
+                                key={incident.id}
+                                name={incident.threatClass.name}
+                                coordinates={incident.coordinates}
+                                timestamp={incident.timestamp}
+                                device={incident.device?.name ?? "Non-device"}
+                                confidence={incident.confidence}
+                                status={incident.status}
+                                projectID={props.project.id}
+                                mini={true}
+                            />
+                        })
+                        :
+                        <div className="w-full flex flex-col justify-center items-center text-secondary-content pt-20">
+                            <IoIosWarning className="text-4xl"/>
+                            <h1>No incidents found</h1>
+                            <p className="text-sm">Add a device to start recording incidents</p>
+                            <Link className="btn btn-primary mt-4" href={`/home/project?pid=${props.project.id}&tab=devices`}>
+                                <FaPlus />
+                                Add Device
+                            </Link>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
     </>);
 }
