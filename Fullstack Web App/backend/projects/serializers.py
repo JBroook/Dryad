@@ -205,6 +205,30 @@ class ProjectSerializer(GeoFeatureModelSerializer):
 
         return project
 
+    @transaction.atomic
+    def update(self, instance, validated_data):
+        threat_classes = validated_data.pop("threat_classes", None)
+        monitoring_area = validated_data.get("monitoring_area")
+        monitoring_area_changed = (
+            monitoring_area is not None
+            and monitoring_area != instance.monitoring_area
+        )
+
+        project = super().update(instance, validated_data)
+
+        if threat_classes is not None:
+            project.threat_classes.all().delete()
+            for threat_class in threat_classes:
+                ProjectThreatClass.objects.create(
+                    project=project,
+                    threat_class_id=threat_class["id"],
+                )
+
+        if monitoring_area_changed:
+            generate_grid(project=project, cell_size=100)
+
+        return project
+
 
 class IncidentSerializer(serializers.ModelSerializer):
     threat_class = ThreatClassSerializer()
