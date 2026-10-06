@@ -25,6 +25,8 @@ interface OverviewViewProps {
 }
 
 export default function OverviewView(props: OverviewViewProps) {
+    const [activityChartData, setActivityChartData] = useState([]);
+
     const newIncidents = props.incidents?.reduce((count, incident) => {
         return incident.status==="new" ? count + 1 : count;
     }, 0)
@@ -40,7 +42,15 @@ export default function OverviewView(props: OverviewViewProps) {
     ]
 
     useEffect(()=>{
-
+        // fetch activity chart data
+        apiFetch(`http://127.0.0.1:8000/api/projects/${props.project.id}/incident_activity`)
+        .then(async (res) => {
+            if (!res.ok) throw new Error(await res.text());
+            return res.json();
+        })
+        .then((data)=>{console.log(data); return data})
+        .then((data)=>setActivityChartData(data))
+        .catch((err) => console.error("Fetch failed:", err));
     },[])
     
     return (<>
@@ -60,7 +70,7 @@ export default function OverviewView(props: OverviewViewProps) {
         </div>
 
         <main className="p-6">
-            <ActivityChart />
+            <ActivityChart data={activityChartData}/>
         </main>
 
         <div className="card bg-base-200 rounded-2xl border border-white/8 mx-6 mb-20">
@@ -86,14 +96,9 @@ export default function OverviewView(props: OverviewViewProps) {
                             />
                         })
                         :
-                        <div className="w-full flex flex-col justify-center items-center text-secondary-content pt-20">
+                        <div className="w-full flex flex-col justify-center items-center text-secondary-content pt-4">
                             <IoIosWarning className="text-4xl"/>
                             <h1>No incidents found</h1>
-                            <p className="text-sm">Add a device to start recording incidents</p>
-                            <Link className="btn btn-primary mt-4" href={`/home/project?pid=${props.project.id}&tab=devices`}>
-                                <FaPlus />
-                                Add Device
-                            </Link>
                         </div>
                     }
                 </div>

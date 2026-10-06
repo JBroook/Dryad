@@ -1,8 +1,6 @@
 "use client";
 
 import {
-  LineChart,
-  Line,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -12,16 +10,22 @@ import {
   Area,
 } from "recharts";
 
-const data = [
-  { month: "Jan", revenue: 1200 },
-  { month: "Feb", revenue: 1800 },
-  { month: "Mar", revenue: 1500 },
-  { month: "Apr", revenue: 2400 },
-  { month: "May", revenue: 2800 },
-  { month: "Jun", revenue: 3200 },
-];
+type ActivityChartProps = {
+  data : {day : string, count : number}[];
+}
 
-export default function ActivityChart() {
+export default function ActivityChart(props : ActivityChartProps) {
+  const cleanedData = props.data.map((dataPoint)=>{
+    const day = new Date(dataPoint.day).toLocaleDateString("en-GB", {
+      day: "numeric",
+      month: "long",
+    })
+    return {
+      day : day,
+      count : dataPoint.count
+    }
+  })
+
   return (
     <div className="card bg-base-200 rounded-2xl border border-white/8">
       <div className="card-body">
@@ -29,9 +33,9 @@ export default function ActivityChart() {
 
         <div className="h-80 w-full">
           <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={data}>
+            <AreaChart data={cleanedData}>
               <defs>
-                <linearGradient id="revenueGlow" x1="0" y1="0" x2="0" y2="1">
+                <linearGradient id="countGlow" x1="0" y1="0" x2="0" y2="1">
                   <stop
                     offset="0%"
                     stopColor="#4ADE80"
@@ -47,18 +51,18 @@ export default function ActivityChart() {
 
               <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
 
-              <XAxis dataKey="month" />
+              <XAxis dataKey="day" dy={10} />
 
-              <YAxis />
+              <YAxis allowDecimals={false} />
 
               <Tooltip />
 
               <Area
                 type="monotone"
-                dataKey="revenue"
+                dataKey="count"
                 stroke="#4ADE80"
                 strokeWidth={3}
-                fill="url(#revenueGlow)"
+                fill="url(#countGlow)"
                 dot={{ r: 4 }}
                 activeDot={{ r: 6 }}
               />

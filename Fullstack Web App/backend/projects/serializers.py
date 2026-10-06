@@ -18,6 +18,8 @@ class ProjectOverviewSerializer(serializers.ModelSerializer):
     member_count = serializers.IntegerField(read_only=True)
     device_count = serializers.IntegerField(read_only=True)
     new_alerts = serializers.IntegerField(read_only=True)
+    total_incidents = serializers.IntegerField(read_only=True)
+    online_devices = serializers.IntegerField(read_only=True)
 
     class Meta:
         model = Project
@@ -31,6 +33,8 @@ class ProjectOverviewSerializer(serializers.ModelSerializer):
             'member_count',
             'device_count',
             'new_alerts',
+            'total_incidents',
+            'online_devices'
         ]
         read_only_fields = ['owner']
 
