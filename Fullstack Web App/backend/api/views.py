@@ -5,7 +5,7 @@ import string
 from projects.BNN import calculate_project_risk
 from rest_framework import status
 from rest_framework.views import APIView
-from users.serializers import LoginSerializer
+from users.serializers import LoginSerializer, RegisterSerializer, VerifyEmailSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet
@@ -25,6 +25,7 @@ from django.db.models import Count
 from django.db import IntegrityError
 from django.contrib.gis.geos import Point
 from django.db.models.functions import TruncDate
+from django.contrib.auth.hashers import check_password
 
 class LoginView(APIView):
     def post(self, request):
@@ -43,6 +44,70 @@ class LoginView(APIView):
             "user" : user_serializer.data
         })
 
+class RegisterView(APIView):
+    def post(self, request):
+        serializer = RegisterSerializer(data=request.data)
+
+        serializer.is_valid(raise_exception=True)
+
+        user = serializer.save()
+
+        return Response(
+            {
+                "user": UserSerializer(user).data,
+            },
+            status=status.HTTP_201_CREATED,
+        )
+
+class VerifyEmailView(APIView):
+    def post(self, request):
+        serializer = VerifyEmailSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        email = serializer.validated_data["email"]
+        code = serializer.validated_data["code"]
+
+        try:
+            user = User.objects.get(email=email)
+        except User.DoesNotExist:
+            return Response(
+                {"detail": "Invalid email."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if user.verified:
+            return Response(
+                {"detail": "Email is already verified."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if not user.verification_code_hash:
+            return Response(
+                {"detail": "No verification code exists."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if not check_password(code, user.verification_code_hash):
+            return Response(
+                {"detail": "Invalid verification code."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        user.verified = True
+        user.verification_code_hash = None
+
+        user.save(
+            update_fields=[
+                "verified",
+                "verification_code_hash"
+            ]
+        )
+
+        return Response(
+            {"detail": "Email verified successfully."},
+            status=status.HTTP_200_OK,
+        )
+    
 class UserViewSet(ModelViewSet):
     queryset = User.objects.all()
     serializer_class = UserSerializer
