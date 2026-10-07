@@ -43,6 +43,16 @@ class User(AbstractUser):
         null=True,
     )
 
+    password_reset_token_hash = models.CharField(
+        max_length=128,
+        blank=True,
+        null=True,
+    )
+    password_reset_token_expires_at = models.DateTimeField(
+        blank=True,
+        null=True,
+    )
+
     USERNAME_FIELD = "email"
     REQUIRED_FIELDS = ["first_name", "last_name"]
 
@@ -62,6 +72,30 @@ class User(AbstractUser):
             "from": "Dryad <onboarding@resend.dev>",
             "to": [os.getenv("REAL_EMAIL")],# should be self.email, but resend limits to own email only for testing
             "subject": "Dryad: Verification Code",
+            "html": html,
+        }
+
+        resend.Emails.send(params)
+
+    def send_password_reset_email(self, token):
+        resend.api_key = os.getenv("RESEND_API_KEY")
+
+        reset_url = (
+            f"{os.getenv('FRONTEND_URL')}"
+            f"/login/reset-password?token={token}"
+        )
+
+        html = render_to_string(
+            "emails/password_reset.html",
+            {
+                "reset_url": reset_url,
+            }
+        )
+
+        params: resend.Emails.SendParams = {
+            "from": "Dryad <onboarding@resend.dev>",
+            "to": [os.getenv("REAL_EMAIL")],
+            "subject": "Dryad: Password Reset Request",
             "html": html,
         }
 

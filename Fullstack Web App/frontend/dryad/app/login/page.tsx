@@ -42,7 +42,6 @@ export default function Login() {
   const [submitted, setSubmitted] = useState<boolean>(false);
   const [email, setEmail] = useState<string>("");
   const [password, setPassword] = useState<string>("");
-  const [retypePassword, setRetypePassword] = useState<string>("");
   const [isLogin, setIsLogin] = useState<boolean>(true);
 
   const APIBase = "http://127.0.0.1:8000/api";
@@ -222,7 +221,7 @@ export default function Login() {
             </fieldset>
 
             <a
-              href="/forgot-password"
+              href="/login/forgot-password"
               className="link link-hover text-sm self-end text-accent"
             >
               Forgot password?
