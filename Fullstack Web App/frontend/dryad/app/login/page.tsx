@@ -6,6 +6,37 @@ import { FiShield } from "react-icons/fi";
 import { BsTree } from "react-icons/bs";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useForm } from "react-hook-form";
+import { z } from "zod";
+import { zodResolver } from "@hookform/resolvers/zod";
+
+const registerSchema = z
+  .object({
+    firstName: z
+      .string()
+      .min(1, "First name is required"),
+
+    lastName: z
+      .string()
+      .min(1, "Last name is required"),
+
+    email: z
+      .email("Please enter a valid email address"),
+
+    password: z
+      .string()
+      .min(8, "Password must be at least 8 characters"),
+
+    retypePassword: z
+      .string()
+      .min(1, "Please retype your password"),
+  })
+  .refine((data) => data.password === data.retypePassword, {
+    message: "Passwords must match",
+    path: ["retypePassword"],
+  });
+
+type RegisterForm = z.infer<typeof registerSchema>;
 
 export default function Login() {
   const [submitted, setSubmitted] = useState<boolean>(false);
@@ -15,6 +46,16 @@ export default function Login() {
 
   const APIBase = "http://127.0.0.1:8000/api";
   // const APIBase = "http://192.168.100.7:8000/api";
+
+  const {
+    register,
+    handleSubmit,
+    setError,
+    formState: { errors, isSubmitting },
+  } = useForm<RegisterForm>({
+    resolver: zodResolver(registerSchema),
+    mode: "onBlur",
+  });
 
   const router = useRouter();
 
@@ -47,6 +88,41 @@ export default function Login() {
 
     router.push("/home/projects");
   }
+
+  const handleRegister = async (data: RegisterForm) => {
+    setSubmitted(true);
+    const res = await fetch(`${APIBase}/register/`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        first_name : data.firstName,
+        last_name : data.lastName,
+        email : data.email,
+        password : data.password,
+      }),
+    });
+
+    if (!res.ok) {
+      const backendErrors = await res.json();
+
+      for (const [field, messages] of Object.entries(backendErrors)) {
+        if (field in data) {
+          setError(field as keyof RegisterForm, {
+            type: "server",
+            message: Array.isArray(messages)
+              ? messages.join(" ")
+              : String(messages),
+          });
+        }
+      }
+      return;
+    }
+
+    // registration succeeded
+    router.push(`/login/verify?email=${data.email}`)
+  };
 
   return (
   <div className="flex flex-row w-screen h-screen bg-base-100 text-base-content">
@@ -145,7 +221,7 @@ export default function Login() {
             </fieldset>
 
             <a
-              href="/forgot-password"
+              href="/login/forgot-password"
               className="link link-hover text-sm self-end text-accent"
             >
               Forgot password?
@@ -160,68 +236,125 @@ export default function Login() {
             </button>
           </form>
           :
-          <form className="flex flex-col max-w-md mx-auto space-y-4" onSubmit={handleLogin}>
+          <form
+            className="flex flex-col max-w-md mx-auto space-y-4"
+            onSubmit={handleSubmit(handleRegister)}
+          >
             <fieldset className="fieldset">
-              <legend className="fieldset-legend font-medium text-secondary-content">First Name</legend>
+              <legend className="fieldset-legend font-medium text-secondary-content">
+                First Name
+              </legend>
+
               <input
                 type="text"
-                className="input w-full bg-base-200 border border-base-300 text-base-content"
+                className={`input w-full bg-base-200 text-base-content ${
+                  errors.firstName ? "input-error" : "border-base-300"
+                }`}
                 placeholder="Jane"
-                // value={email}
-                // onChange={(e)=>setEmail(e.target.value)}
+                {...register("firstName")}
               />
+
+              {errors.firstName && (
+                <p className="text-error text-sm mt-1">
+                  {errors.firstName.message}
+                </p>
+              )}
             </fieldset>
 
             <fieldset className="fieldset">
-              <legend className="fieldset-legend font-medium text-secondary-content">Last Name</legend>
+              <legend className="fieldset-legend font-medium text-secondary-content">
+                Last Name
+              </legend>
+
               <input
                 type="text"
-                className="input w-full bg-base-200 border border-base-300 text-base-content"
+                className={`input w-full bg-base-200 text-base-content ${
+                  errors.lastName ? "input-error" : "border-base-300"
+                }`}
                 placeholder="Smith"
-                // value={email}
-                // onChange={(e)=>setEmail(e.target.value)}
+                {...register("lastName")}
               />
+
+              {errors.lastName && (
+                <p className="text-error text-sm mt-1">
+                  {errors.lastName.message}
+                </p>
+              )}
             </fieldset>
 
             <fieldset className="fieldset">
-              <legend className="fieldset-legend font-medium text-secondary-content">Email Address</legend>
+              <legend className="fieldset-legend font-medium text-secondary-content">
+                Email Address
+              </legend>
+
               <input
                 type="email"
-                className="input w-full bg-base-200 border border-base-300 text-base-content"
+                className={`input w-full bg-base-200 text-base-content ${
+                  errors.email ? "input-error" : "border-base-300"
+                }`}
                 placeholder="you@organization.org"
-                // value={email}
-                // onChange={(e)=>setEmail(e.target.value)}
+                {...register("email")}
               />
+
+              {errors.email && (
+                <p className="text-error text-sm mt-1">
+                  {errors.email.message}
+                </p>
+              )}
             </fieldset>
 
             <fieldset className="fieldset">
-              <legend className="fieldset-legend font-medium text-secondary-content">Password</legend>
+              <legend className="fieldset-legend font-medium text-secondary-content">
+                Password
+              </legend>
+
               <input
                 type="password"
-                className="input w-full bg-base-200 border border-base-300 text-base-content"
+                className={`input w-full bg-base-200 text-base-content ${
+                  errors.password ? "input-error" : "border-base-300"
+                }`}
                 placeholder="••••••••"
-                value={password}
-                onChange={(e)=>setPassword(e.target.value)}
+                {...register("password")}
               />
+
+              {errors.password && (
+                <p className="text-error text-sm mt-1">
+                  {errors.password.message}
+                </p>
+              )}
             </fieldset>
 
             <fieldset className="fieldset">
-              <legend className="fieldset-legend font-medium text-secondary-content">Password</legend>
+              <legend className="fieldset-legend font-medium text-secondary-content">
+                Retype Password
+              </legend>
+
               <input
                 type="password"
-                className="input w-full bg-base-200 border border-base-300 text-base-content"
+                className={`input w-full bg-base-200 text-base-content ${
+                  errors.retypePassword ? "input-error" : "border-base-300"
+                }`}
                 placeholder="••••••••"
-                value={password}
-                onChange={(e)=>setPassword(e.target.value)}
+                {...register("retypePassword")}
               />
+
+              {errors.retypePassword && (
+                <p className="text-error text-sm mt-1">
+                  {errors.retypePassword.message}
+                </p>
+              )}
             </fieldset>
 
-            <button className="btn btn-primary w-full" disabled={submitted}>
-              {submitted ?
-                <span className="loading loading-spinner"></span>
-                :
+            <button
+              type="submit"
+              className="btn btn-primary w-full"
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? (
+                <span className="loading loading-spinner" />
+              ) : (
                 "Register"
-              }
+              )}
             </button>
           </form>
         }

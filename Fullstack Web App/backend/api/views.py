@@ -1,3 +1,4 @@
+import hashlib
 from datetime import timedelta
 from django.utils import timezone
 import secrets
@@ -5,7 +6,7 @@ import string
 from projects.BNN import calculate_project_risk
 from rest_framework import status
 from rest_framework.views import APIView
-from users.serializers import LoginSerializer
+from users.serializers import ForgotPasswordSerializer, LoginSerializer, RegisterSerializer, ResetPasswordSerializer, VerifyEmailSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet
@@ -25,6 +26,7 @@ from django.db.models import Count
 from django.db import IntegrityError
 from django.contrib.gis.geos import Point
 from django.db.models.functions import TruncDate
+from django.contrib.auth.hashers import check_password
 
 class LoginView(APIView):
     def post(self, request):
@@ -43,6 +45,111 @@ class LoginView(APIView):
             "user" : user_serializer.data
         })
 
+class ForgotPasswordView(APIView):
+    def post(self, request):
+        serializer = ForgotPasswordSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        email = serializer.validated_data["email"]
+
+        try:
+            user = User.objects.get(email=email)
+        except User.DoesNotExist:
+            return Response({
+                "message": (
+                    "If an account with that email exists, "
+                    "a password reset link has been sent."
+                )
+            })
+
+        token = secrets.token_urlsafe(32)
+
+        token_hash = hashlib.sha256(token.encode()).hexdigest()
+
+        user.password_reset_token_hash = token_hash
+        user.password_reset_token_expires_at = (
+            timezone.now() + timedelta(minutes=15)
+        )
+
+        user.save(
+            update_fields=[
+                "password_reset_token_hash",
+                "password_reset_token_expires_at",
+            ]
+        )
+
+        user.send_password_reset_email(token)
+
+        return Response({
+            "message": (
+                "If an account with that email exists, a password reset link has been sent."
+            )
+        })
+
+class RegisterView(APIView):
+    def post(self, request):
+        serializer = RegisterSerializer(data=request.data)
+
+        serializer.is_valid(raise_exception=True)
+
+        user = serializer.save()
+
+        return Response(
+            {
+                "user": UserSerializer(user).data,
+            },
+            status=status.HTTP_201_CREATED,
+        )
+
+class VerifyEmailView(APIView):
+    def post(self, request):
+        serializer = VerifyEmailSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        email = serializer.validated_data["email"]
+        code = serializer.validated_data["code"]
+
+        try:
+            user = User.objects.get(email=email)
+        except User.DoesNotExist:
+            return Response(
+                {"detail": "Invalid email."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if user.verified:
+            return Response(
+                {"detail": "Email is already verified."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if not user.verification_code_hash:
+            return Response(
+                {"detail": "No verification code exists."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if not check_password(code, user.verification_code_hash):
+            return Response(
+                {"detail": "Invalid verification code."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        user.verified = True
+        user.verification_code_hash = None
+
+        user.save(
+            update_fields=[
+                "verified",
+                "verification_code_hash"
+            ]
+        )
+
+        return Response(
+            {"detail": "Email verified successfully."},
+            status=status.HTTP_200_OK,
+        )
+    
 class UserViewSet(ModelViewSet):
     queryset = User.objects.all()
     serializer_class = UserSerializer
@@ -581,3 +688,53 @@ class IncidentActivityView(APIView):
         ]
 
         return Response(result)
+
+class ResetPasswordView(APIView):
+    def post(self, request):
+        serializer = ResetPasswordSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        token = serializer.validated_data["token"]
+        password = serializer.validated_data["password"]
+
+        token_hash = hashlib.sha256(token.encode()).hexdigest()
+
+        try:
+            user = User.objects.get(
+                password_reset_token_hash=token_hash
+            )
+        except User.DoesNotExist:
+            return Response(
+                {
+                    "error": "Invalid or expired reset token."
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if (
+            not user.password_reset_token_expires_at
+            or user.password_reset_token_expires_at < timezone.now()
+        ):
+            return Response(
+                {
+                    "error": "Invalid or expired reset token."
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        user.set_password(password)
+
+        user.password_reset_token_hash = None
+        user.password_reset_token_expires_at = None
+
+        user.save(
+            update_fields=[
+                "password",
+                "password_reset_token_hash",
+                "password_reset_token_expires_at",
+            ]
+        )
+
+        return Response({
+            "message": "Password has been reset successfully."
+        })
