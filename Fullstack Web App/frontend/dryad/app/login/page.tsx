@@ -11,6 +11,7 @@ export default function Login() {
   const [submitted, setSubmitted] = useState<boolean>(false);
   const [email, setEmail] = useState<string>("");
   const [password, setPassword] = useState<string>("");
+  const [isLogin, setIsLogin] = useState<boolean>(true);
 
   const APIBase = "http://127.0.0.1:8000/api";
   // const APIBase = "http://192.168.100.7:8000/api";
@@ -99,58 +100,131 @@ export default function Login() {
       </div>
     </div>
 
-    <div className="flex w-1/2 h-full items-center justify-center">
-      <HollowCard className="p-8 w-[60%] max-w-xl">
-        <h1 className="text-3xl font-bold text-base-content">Welcome back</h1>
-        <p className="text-secondary-content text-md mt-2 mb-4">Sign into your monitoring dashboard</p>
+    <div className="flex w-1/2 h-full items-center justify-center ">
+      <HollowCard className="p-8 w-[60%] max-w-xl h-2/3 overflow-y-auto">
+        <h1 className="text-3xl font-bold text-base-content">
+          {isLogin ? "Welcome back" : "Create an account"}
+        </h1>
+        <p className="text-secondary-content text-md mt-2 mb-4">
+          {isLogin ? "Sign into your monitoring dashboard" : "Start protecting forests today"}
+          </p>
 
         <div role="tablist" className="tabs tabs-box bg-base-200 w-full border border-base-300">
-          <a role="tab" className="tab flex-1 text-accent bg-base-300 tab-active ">
+          <a role="tab" className={`tab flex-1 ${isLogin ? "text-accent bg-base-300 tab-active" : "text-secondary-content"}`}
+          onClick={()=>setIsLogin(true)}>
             Sign in
           </a>
-          <a role="tab" className="tab flex-1 text-secondary-content ">
+          <a role="tab" className={`tab flex-1 ${!isLogin ? "text-accent bg-base-300 tab-active" : "text-secondary-content"}`}
+          onClick={()=>setIsLogin(false)}>
             Register
           </a>
         </div>
 
-        <form className="flex flex-col max-w-md mx-auto space-y-4" onSubmit={handleLogin}>
-          <fieldset className="fieldset">
-            <legend className="fieldset-legend font-medium text-secondary-content">Email Address</legend>
-            <input
-              type="email"
-              className="input w-full bg-base-200 border border-base-300 text-base-content"
-              placeholder="you@example.com"
-              value={email}
-              onChange={(e)=>setEmail(e.target.value)}
-            />
-          </fieldset>
+        {isLogin ?
+          <form className="flex flex-col max-w-md mx-auto space-y-4" onSubmit={handleLogin}>
+            <fieldset className="fieldset">
+              <legend className="fieldset-legend font-medium text-secondary-content">Email Address</legend>
+              <input
+                type="email"
+                className="input w-full bg-base-200 border border-base-300 text-base-content"
+                placeholder="you@example.com"
+                value={email}
+                onChange={(e)=>setEmail(e.target.value)}
+              />
+            </fieldset>
 
-          <fieldset className="fieldset">
-            <legend className="fieldset-legend font-medium text-secondary-content">Password</legend>
-            <input
-              type="password"
-              className="input w-full bg-base-200 border border-base-300 text-base-content"
-              placeholder="••••••••"
-              value={password}
-              onChange={(e)=>setPassword(e.target.value)}
-            />
-          </fieldset>
+            <fieldset className="fieldset">
+              <legend className="fieldset-legend font-medium text-secondary-content">Password</legend>
+              <input
+                type="password"
+                className="input w-full bg-base-200 border border-base-300 text-base-content"
+                placeholder="••••••••"
+                value={password}
+                onChange={(e)=>setPassword(e.target.value)}
+              />
+            </fieldset>
 
-          <a
-            href="/forgot-password"
-            className="link link-hover text-sm self-end text-accent"
-          >
-            Forgot password?
-          </a>
+            <a
+              href="/forgot-password"
+              className="link link-hover text-sm self-end text-accent"
+            >
+              Forgot password?
+            </a>
 
-          <button className="btn btn-primary w-full" disabled={submitted}>
-            {submitted ?
-              <span className="loading loading-spinner"></span>
-              :
-              "Sign In"
-            }
-          </button>
-        </form>
+            <button className="btn btn-primary w-full" disabled={submitted}>
+              {submitted ?
+                <span className="loading loading-spinner"></span>
+                :
+                "Sign In"
+              }
+            </button>
+          </form>
+          :
+          <form className="flex flex-col max-w-md mx-auto space-y-4" onSubmit={handleLogin}>
+            <fieldset className="fieldset">
+              <legend className="fieldset-legend font-medium text-secondary-content">First Name</legend>
+              <input
+                type="text"
+                className="input w-full bg-base-200 border border-base-300 text-base-content"
+                placeholder="Jane"
+                // value={email}
+                // onChange={(e)=>setEmail(e.target.value)}
+              />
+            </fieldset>
+
+            <fieldset className="fieldset">
+              <legend className="fieldset-legend font-medium text-secondary-content">Last Name</legend>
+              <input
+                type="text"
+                className="input w-full bg-base-200 border border-base-300 text-base-content"
+                placeholder="Smith"
+                // value={email}
+                // onChange={(e)=>setEmail(e.target.value)}
+              />
+            </fieldset>
+
+            <fieldset className="fieldset">
+              <legend className="fieldset-legend font-medium text-secondary-content">Email Address</legend>
+              <input
+                type="email"
+                className="input w-full bg-base-200 border border-base-300 text-base-content"
+                placeholder="you@organization.org"
+                // value={email}
+                // onChange={(e)=>setEmail(e.target.value)}
+              />
+            </fieldset>
+
+            <fieldset className="fieldset">
+              <legend className="fieldset-legend font-medium text-secondary-content">Password</legend>
+              <input
+                type="password"
+                className="input w-full bg-base-200 border border-base-300 text-base-content"
+                placeholder="••••••••"
+                value={password}
+                onChange={(e)=>setPassword(e.target.value)}
+              />
+            </fieldset>
+
+            <fieldset className="fieldset">
+              <legend className="fieldset-legend font-medium text-secondary-content">Password</legend>
+              <input
+                type="password"
+                className="input w-full bg-base-200 border border-base-300 text-base-content"
+                placeholder="••••••••"
+                value={password}
+                onChange={(e)=>setPassword(e.target.value)}
+              />
+            </fieldset>
+
+            <button className="btn btn-primary w-full" disabled={submitted}>
+              {submitted ?
+                <span className="loading loading-spinner"></span>
+                :
+                "Register"
+              }
+            </button>
+          </form>
+        }
       </HollowCard>
     </div>
   </div>

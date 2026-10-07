@@ -52,8 +52,19 @@ class ProjectMemberSerializer(serializers.Serializer):
     id = serializers.IntegerField()
     role = serializers.ChoiceField(choices=Membership.Role.choices)
 
+class ThreatClassSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ThreatClass
+        fields = '__all__'
+
 class ProjectThreatClassSerializer(serializers.Serializer):
     id = serializers.IntegerField()
+    threat_class_id = serializers.IntegerField(source="threat_class.id")
+
+    class Meta:
+        model = ProjectThreatClass
+        fields = ["id", "threat_class_id"]
+
 
 @transaction.atomic
 def generate_grid(project, cell_size=100):
@@ -150,7 +161,6 @@ class DeviceSerializer(serializers.ModelSerializer):
 class ProjectSerializer(GeoFeatureModelSerializer):
     members = ProjectMemberSerializer(many=True, required=False)
     threat_classes = ProjectThreatClassSerializer(many=True, required=False)
-    # grid_cells = GridCellSerializer(many=True, required=False)
 
     class Meta:
         model = Project
@@ -195,11 +205,30 @@ class ProjectSerializer(GeoFeatureModelSerializer):
 
         return project
 
+    @transaction.atomic
+    def update(self, instance, validated_data):
+        threat_classes = validated_data.pop("threat_classes", None)
+        monitoring_area = validated_data.get("monitoring_area")
+        monitoring_area_changed = (
+            monitoring_area is not None
+            and monitoring_area != instance.monitoring_area
+        )
 
-class ThreatClassSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = ThreatClass
-        fields = '__all__'
+        project = super().update(instance, validated_data)
+
+        if threat_classes is not None:
+            project.threat_classes.all().delete()
+            for threat_class in threat_classes:
+                ProjectThreatClass.objects.create(
+                    project=project,
+                    threat_class_id=threat_class["id"],
+                )
+
+        if monitoring_area_changed:
+            generate_grid(project=project, cell_size=100)
+
+        return project
+
 
 class IncidentSerializer(serializers.ModelSerializer):
     threat_class = ThreatClassSerializer()
