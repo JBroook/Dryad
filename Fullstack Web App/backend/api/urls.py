@@ -35,6 +35,7 @@ urlpatterns = [
     path("forgot_password/", views.ForgotPasswordView.as_view()),
     path("reset_password/", views.ResetPasswordView.as_view()),
     path('verify_email/', views.VerifyEmailView.as_view(), name="verify_email"),
+    path('delete_account/', views.DeleteAccountView.as_view(), name="delete_account"),
     path('', include(router.urls)),
     path('projects/<int:project_id>/connection_code', views.ProjectGetCodeView.as_view(), name="project_code"),
     path('devices/connect', views.DeviceConnectionView.as_view(), name="connect_device"),
