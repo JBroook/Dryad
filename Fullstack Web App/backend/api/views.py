@@ -45,6 +45,17 @@ class LoginView(APIView):
             "user" : user_serializer.data
         })
 
+class DeleteAccountView(APIView):
+    def post(self, request):
+        user = request.user
+        user.is_active = False
+        user.save()
+
+        return Response(
+            {"details" : "Successfully deleted account"},
+            status=status.HTTP_204_NO_CONTENT
+        )
+
 class ForgotPasswordView(APIView):
     def post(self, request):
         serializer = ForgotPasswordSerializer(data=request.data)

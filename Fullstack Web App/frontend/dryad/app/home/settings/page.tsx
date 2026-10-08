@@ -6,13 +6,14 @@ import { apiFetch } from "@/lib/api";
 import { useTheme } from "next-themes";
 import { useEffect, useState } from "react";
 import { BsFillLightningChargeFill } from "react-icons/bs";
+import { FaPlus } from "react-icons/fa6";
 import { MdEmail, MdOutlineDarkMode, MdOutlineLightMode } from "react-icons/md";
 
 export default function Settings() {
   const {theme, setTheme} = useTheme();
   const [mode, setMode] = useState<boolean>(false);
-  const [emailAlerts, setEmailAlerts] = useState<boolean | null>();
-  const [criticalIncidentsOnly, setCriticalIncidentsOnly] = useState<boolean | null>();
+  const [emailAlerts, setEmailAlerts] = useState<boolean | null>(null);
+  const [criticalIncidentsOnly, setCriticalIncidentsOnly] = useState<boolean | null>(null);
 
   const handleEmailSetting = (e : React.ChangeEvent<HTMLInputElement>) => {
     setEmailAlerts(e.target.checked)
@@ -73,7 +74,7 @@ export default function Settings() {
       </div>
     </div>
 
-    <div className="mx-8 mt-6">
+    <div className="mx-8 mt-6 mb-30">
       <h1 className="font-semibold text-lg">Appearance</h1>
       <p className="text-secondary-content text-sm">Customize how Dryad looks on your device</p>
 
@@ -113,6 +114,15 @@ export default function Settings() {
             title="Email Alerts"
             description="Receive incidents via email"
             icon={MdEmail}
+            state={true}
+            onChange={handleEmailSetting}
+            active={emailAlerts}
+          />
+          <div className="divider"></div>
+          <NotificationOption 
+            title="Invite Emails"
+            description="Receive notifications about invites to new projects"
+            icon={FaPlus}
             state={true}
             onChange={handleEmailSetting}
             active={emailAlerts}

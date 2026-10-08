@@ -98,7 +98,7 @@ export default function Sidebar() {
                             {mode ? "Light Mode" : "Dark Mode"}
                         </h1>
                     </button>
-                    <HollowCard className="mt-3 p-3 w-[90%] flex flex-row">
+                    <Link href="/home/account" className="mt-3 p-3 w-[90%] flex flex-row bg-base-100 rounded-2xl border border-white/8 cursor-pointer">
                         <div className="avatar">
                             <div className="w-8 rounded-full">
                                 <img src="https://img.daisyui.com/images/profile/demo/yellingcat@192.webp" />
@@ -108,7 +108,7 @@ export default function Sidebar() {
                             <h1 className="font-semibold">{firstName} {lastName}</h1>
                             <p className="text-secondary-content text-xs truncate w-40">{email}</p>
                         </div>
-                    </HollowCard>
+                    </Link>
                     <button className="w-full justify-center my-2 btn btn-link no-underline text-secondary-content hover:text-[#EF4444]"
                     onClick={logout}>
                         Sign out
