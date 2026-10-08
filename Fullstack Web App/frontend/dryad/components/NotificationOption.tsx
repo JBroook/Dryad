@@ -5,7 +5,8 @@ interface NotificationOptionProps {
     description : string;
     icon : IconType;
     state : boolean;
-    onChange : ()=>void;
+    onChange : (e : React.ChangeEvent<HTMLInputElement>)=>void;
+    active : boolean | null;
 }
 
 export default function NotificationOption(props : NotificationOptionProps) {
@@ -17,6 +18,10 @@ export default function NotificationOption(props : NotificationOptionProps) {
             <h1 className="font-semibold text-lg">{props.title}</h1>
             <p className="text-secondary-content text-base">{props.description}</p>
         </div>
-        <input type="checkbox" defaultChecked className="toggle toggle-primary" />
+        {props.active!=null ?
+            <input type="checkbox" className="toggle toggle-primary" checked={props.active} onChange={props.onChange} />
+            :
+            <span className="loading loading-spinner"></span>
+        }
     </div>);
 }

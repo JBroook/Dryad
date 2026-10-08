@@ -77,6 +77,11 @@ class UserSerializer(serializers.ModelSerializer):
 
         read_only_fields = ['id', 'email']
 
+class UserSettingsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ['receive_emails', 'critical_incidents_only']
+
 class ForgotPasswordSerializer(serializers.Serializer):
     email = serializers.EmailField()
 
