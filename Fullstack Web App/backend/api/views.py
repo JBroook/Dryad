@@ -6,7 +6,7 @@ import string
 from projects.BNN import calculate_project_risk
 from rest_framework import status
 from rest_framework.views import APIView
-from users.serializers import ForgotPasswordSerializer, LoginSerializer, RegisterSerializer, ResetPasswordSerializer, VerifyEmailSerializer
+from users.serializers import ForgotPasswordSerializer, LoginSerializer, RegisterSerializer, ResetPasswordSerializer, UserSettingsSerializer, VerifyEmailSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet
@@ -654,6 +654,32 @@ class UserOverviewView(APIView):
             "online_devices" : online_devices,
             "total_incidents" : total_incidents
         }, status=status.HTTP_200_OK)
+
+class UserSettingsView(APIView):
+    def get(self, request):
+        user = self.request.user
+
+        settings_serializer = UserSettingsSerializer(user)
+
+        return Response(
+            settings_serializer.data,
+            status=status.HTTP_200_OK
+        )
+
+    def patch(self, request):
+        settings_serializer = UserSettingsSerializer(
+            self.request.user,
+            data=self.request.data,
+            partial=True
+        )
+
+        settings_serializer.is_valid(raise_exception=True)
+        settings_serializer.save()
+
+        return Response(
+            {"details" : "Successfully saved settings"},
+            status=status.HTTP_200_OK
+        )
 
 class IncidentActivityView(APIView):
     def get(self, request, project_id):

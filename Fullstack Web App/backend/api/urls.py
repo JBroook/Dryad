@@ -48,4 +48,5 @@ urlpatterns = [
     path('projects/overview', views.ProjectOverviewView.as_view(), name="project_overview"),
     path('memberships/<int:membership_id>/accept_invite', views.AcceptInviteView.as_view(), name="accept_invite"),
     path('projects/<int:project_id>/incident_activity', views.IncidentActivityView.as_view(), name="incident_activity"),
+    path('users/settings', views.UserSettingsView.as_view(), name="user_settings")
 ]
