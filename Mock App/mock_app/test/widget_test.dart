@@ -12,18 +12,21 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:mock_app/main.dart';
 
 void main() {
-  testWidgets('shows code entry and hides report until device exists',
-      (WidgetTester tester) async {
+  testWidgets('shows code entry and hides report until device exists', (
+    WidgetTester tester,
+  ) async {
     await tester.pumpWidget(const MyApp());
 
     expect(find.text('Code'), findsOneWidget);
     expect(find.byType(TextField), findsOneWidget);
     expect(find.text('Send code'), findsOneWidget);
     expect(find.text('Send report'), findsNothing);
+    expect(find.text('Run ONNX model demo'), findsOneWidget);
   });
 
-  testWidgets('shows stored device id and send report button when available',
-      (WidgetTester tester) async {
+  testWidgets('shows stored device id and send report button when available', (
+    WidgetTester tester,
+  ) async {
     SharedPreferences.setMockInitialValues({
       'device_id': 10,
       'threat_classes': ['1', '3', '9'],

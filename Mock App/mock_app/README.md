@@ -2,6 +2,14 @@
 
 A new Flutter project.
 
+## ONNX audio model demo
+
+Tap **Run ONNX model demo** in the app to run one inference with
+`models/dryad_audio_model.onnx`. The demo passes a zero-valued mono waveform
+of 160,000 samples (5 seconds at 32 kHz) to the model's `waveform` input and
+shows the highest-scoring output class and score. This verifies model loading
+and inference; it does not yet capture microphone audio.
+
 ## Getting Started
 
 This project is a starting point for a Flutter application.

@@ -4,6 +4,7 @@ import GlowButton from "@/components/GlowButton"
 import { apiFetch } from "@/lib/api"
 import { useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
+import { FaRegTrashAlt } from "react-icons/fa"
 
 export default function Account() {
   const [firstName, setFirstName] = useState<string>("")
@@ -201,6 +202,7 @@ export default function Account() {
               <p className="text-secondary-content text-sm">Permanently delete your account and all associated data. This cannot be undone and will remove you from all projects.</p>
 
             <GlowButton className="btn btn-error mt-4" color="#EF4444" onClick={()=>openModal("deleteModal")}>
+              <FaRegTrashAlt />
               Delete Account
             </GlowButton>
           </div>
