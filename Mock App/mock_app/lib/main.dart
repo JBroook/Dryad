@@ -2,9 +2,12 @@ import 'dart:convert';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'package:http/http.dart' as http;
 import 'package:mock_app/audio_model_runner.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+import 'audio_listening_screen.dart';
 
 const String _wifiHost = '192.168.100.7';
 const String _hotspotHost = '10.111.194.78';
@@ -13,6 +16,24 @@ const String _threatClassesStorageKey = 'threat_classes';
 const String _networkModeStorageKey = 'network_mode_hotspot';
 
 void main() {
+  WidgetsFlutterBinding.ensureInitialized();
+  FlutterForegroundTask.initCommunicationPort();
+  FlutterForegroundTask.init(
+    androidNotificationOptions: AndroidNotificationOptions(
+      channelId: 'dryad_audio_listening',
+      channelName: 'Dryad audio listening',
+      channelDescription: 'Shows when Dryad is listening for sounds.',
+      onlyAlertOnce: true,
+    ),
+    iosNotificationOptions: const IOSNotificationOptions(
+      showNotification: false,
+    ),
+    foregroundTaskOptions: ForegroundTaskOptions(
+      eventAction: ForegroundTaskEventAction.nothing(),
+      allowWakeLock: true,
+      stopWithTask: false,
+    ),
+  );
   runApp(const MyApp());
 }
 
@@ -22,12 +43,61 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Dryad Mock Device',
+      title: 'Dryad',
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: const Color(0xFF2E7D32),
+          brightness: Brightness.dark,
+        ),
+        scaffoldBackgroundColor: const Color(0xFF07130D),
+        appBarTheme: const AppBarTheme(
+          backgroundColor: Color(0xFF0B1A12),
+          foregroundColor: Color(0xFFE8F5E9),
+        ),
         useMaterial3: true,
       ),
-      home: const CodeRequestScreen(),
+      home: const AppShell(),
+    );
+  }
+}
+
+class AppShell extends StatefulWidget {
+  const AppShell({super.key});
+
+  @override
+  State<AppShell> createState() => _AppShellState();
+}
+
+class _AppShellState extends State<AppShell> {
+  int _selectedPage = 0;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: IndexedStack(
+        index: _selectedPage,
+        children: const [CodeRequestScreen(), AudioListeningScreen()],
+      ),
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: _selectedPage,
+        onDestinationSelected: (index) {
+          setState(() {
+            _selectedPage = index;
+          });
+        },
+        destinations: const [
+          NavigationDestination(
+            icon: Icon(Icons.device_hub_outlined),
+            selectedIcon: Icon(Icons.device_hub),
+            label: 'Connection',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.graphic_eq_outlined),
+            selectedIcon: Icon(Icons.graphic_eq),
+            label: 'Listen',
+          ),
+        ],
+      ),
     );
   }
 }
@@ -315,120 +385,129 @@ class _CodeRequestScreenState extends State<CodeRequestScreen> {
     final hasStoredDeviceId = _deviceId.value != null;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Dryad Mock Device')),
+      appBar: AppBar(title: const Text('Dryad')),
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(24),
-          child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 480),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  ElevatedButton(
-                    onPressed: _isBusy ? null : _runModelDemo,
-                    child: _isRunningModel
-                        ? const SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Text('Run ONNX model demo'),
-                  ),
-                  const SizedBox(height: 20),
-                  ValueListenableBuilder<int?>(
-                    valueListenable: _deviceId,
-                    builder: (context, deviceId, _) {
-                      if (deviceId == null) {
-                        return const SizedBox.shrink();
-                      }
-
-                      return Card(
-                        child: Padding(
-                          padding: const EdgeInsets.all(12),
-                          child: Text(
-                            'Stored device ID: $deviceId',
-                            style: const TextStyle(fontWeight: FontWeight.w600),
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 20),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: ElevatedButton(
-                          onPressed: _isBusy ? null : _toggleNetworkMode,
-                          child: Text(
-                            _isHotspotMode ? 'Mode: Hotspot' : 'Mode: Wi‑Fi',
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: ElevatedButton(
-                          onPressed: _isBusy ? null : _resetDeviceState,
-                          child: const Text('Reset state'),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 20),
-                  const Text(
-                    'Code',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
-                  ),
-                  const SizedBox(height: 8),
-                  TextField(
-                    controller: _codeController,
-                    decoration: const InputDecoration(
-                      border: OutlineInputBorder(),
-                      hintText: 'Enter your code',
-                    ),
-                    textCapitalization: TextCapitalization.characters,
-                  ),
-                  const SizedBox(height: 20),
-                  ElevatedButton(
-                    onPressed: _isBusy || _isSendingCode ? null : _sendCode,
-                    child: _isSendingCode
-                        ? const SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Text('Send code'),
-                  ),
-                  const SizedBox(height: 20),
-                  if (hasStoredDeviceId)
+          child: SingleChildScrollView(
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 480),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
                     ElevatedButton(
-                      onPressed: _isBusy || _isSendingReport
-                          ? null
-                          : _sendReport,
-                      child: _isSendingReport
+                      onPressed: _isBusy ? null : _runModelDemo,
+                      child: _isRunningModel
                           ? const SizedBox(
                               width: 18,
                               height: 18,
                               child: CircularProgressIndicator(strokeWidth: 2),
                             )
-                          : const Text('Send report'),
+                          : const Text('Run ONNX model demo'),
                     ),
-                  const SizedBox(height: 20),
-                  ValueListenableBuilder<String>(
-                    valueListenable: _statusMessage,
-                    builder: (context, statusText, _) {
-                      if (statusText.isEmpty) {
-                        return const SizedBox.shrink();
-                      }
-                      return Card(
-                        child: Padding(
-                          padding: const EdgeInsets.all(12),
-                          child: Text(statusText),
+                    const SizedBox(height: 20),
+                    ValueListenableBuilder<int?>(
+                      valueListenable: _deviceId,
+                      builder: (context, deviceId, _) {
+                        if (deviceId == null) {
+                          return const SizedBox.shrink();
+                        }
+
+                        return Card(
+                          child: Padding(
+                            padding: const EdgeInsets.all(12),
+                            child: Text(
+                              'Stored device ID: $deviceId',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 20),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: ElevatedButton(
+                            onPressed: _isBusy ? null : _toggleNetworkMode,
+                            child: Text(
+                              _isHotspotMode ? 'Mode: Hotspot' : 'Mode: Wi‑Fi',
+                            ),
+                          ),
                         ),
-                      );
-                    },
-                  ),
-                ],
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: ElevatedButton(
+                            onPressed: _isBusy ? null : _resetDeviceState,
+                            child: const Text('Reset state'),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 20),
+                    const Text(
+                      'Code',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: _codeController,
+                      decoration: const InputDecoration(
+                        border: OutlineInputBorder(),
+                        hintText: 'Enter your code',
+                      ),
+                      textCapitalization: TextCapitalization.characters,
+                    ),
+                    const SizedBox(height: 20),
+                    ElevatedButton(
+                      onPressed: _isBusy || _isSendingCode ? null : _sendCode,
+                      child: _isSendingCode
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Text('Send code'),
+                    ),
+                    const SizedBox(height: 20),
+                    if (hasStoredDeviceId)
+                      ElevatedButton(
+                        onPressed: _isBusy || _isSendingReport
+                            ? null
+                            : _sendReport,
+                        child: _isSendingReport
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Text('Send report'),
+                      ),
+                    const SizedBox(height: 20),
+                    ValueListenableBuilder<String>(
+                      valueListenable: _statusMessage,
+                      builder: (context, statusText, _) {
+                        if (statusText.isEmpty) {
+                          return const SizedBox.shrink();
+                        }
+                        return Card(
+                          child: Padding(
+                            padding: const EdgeInsets.all(12),
+                            child: Text(statusText),
+                          ),
+                        );
+                      },
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
