@@ -10,7 +10,7 @@ import StepThreePage from "@/components/StepPages/StepThreePage";
 import StepFourPage from "@/components/StepPages/StepFourPage";
 import StepFivePage from "@/components/StepPages/StepFivePage";
 import { LatLng } from "leaflet";
-import { apiFetch } from "@/lib/api";
+import { apiFetch } from "@/library/api";
 
 export type Member = {
   id : number;

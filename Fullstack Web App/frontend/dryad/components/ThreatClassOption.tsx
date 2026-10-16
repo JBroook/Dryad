@@ -1,4 +1,4 @@
-import getThreatIcon from "@/lib/threatIcons";
+import getThreatIcon from "@/library/threatIcons";
 import { IconType } from "react-icons";
 import { IoMdCheckmark } from "react-icons/io";
 

@@ -10,9 +10,9 @@ import { useState } from "react";
 import { BsThreeDots } from "react-icons/bs";
 import { IoIosArrowDown } from "react-icons/io";
 import { RxCross2 } from "react-icons/rx";
-import { apiFetch } from "@/lib/api";
+import { apiFetch } from "@/library/api";
 import { Member } from "@/app/home/projects/new/page";
-import { capitalizeFirstLetter } from "@/lib/general";
+import { capitalizeFirstLetter } from "@/library/general";
 
 interface StepPageProps {
     submitEvent : () => void;

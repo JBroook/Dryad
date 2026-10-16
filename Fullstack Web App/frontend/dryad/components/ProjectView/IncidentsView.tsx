@@ -4,7 +4,7 @@ import Incident from "../Incident";
 import { FaTruck } from "react-icons/fa";
 import type { IncidentType } from "@/app/home/project/page";
 import { useEffect, useRef, useState } from "react";
-import { apiFetch } from "@/lib/api";
+import { apiFetch } from "@/library/api";
 import { FaPersonCircleCheck, FaPlus } from "react-icons/fa6";
 import { IoSearch } from "react-icons/io5";
 import { Member, ThreatClass } from "@/app/home/projects/new/page";
@@ -13,7 +13,7 @@ import GlowButton from "../GlowButton";
 import { IoIosOptions, IoIosWarning, IoMdCheckmark } from "react-icons/io";
 import SortButton from "../SortButton";
 import ToggleGlowButton from "../ToggleGlowButton";
-import getThreatIcon from "@/lib/threatIcons";
+import getThreatIcon from "@/library/threatIcons";
 import { RxCross2 } from "react-icons/rx";
 import { useRouter, useSearchParams } from "next/navigation";
 

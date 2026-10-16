@@ -6,7 +6,7 @@ import { FaPlus } from "react-icons/fa";
 import { useEffect, useState } from "react";
 import { RxCross2 } from "react-icons/rx";
 import { IoSearch } from "react-icons/io5";
-import { apiFetch } from "@/lib/api";
+import { apiFetch } from "@/library/api";
 import { AiOutlineTeam } from "react-icons/ai";
 import MemberCard from "../MemberCard";
 

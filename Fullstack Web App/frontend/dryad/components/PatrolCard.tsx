@@ -1,11 +1,11 @@
-import getThreatIcon from "@/lib/threatIcons";
+import getThreatIcon from "@/library/threatIcons";
 import { useState } from "react";
 import { FaCopy, FaLocationArrow, FaMicrophone, FaPersonRunning, FaRegClock, FaRegUser } from "react-icons/fa6";
 import { IoIosArrowDown, IoIosArrowUp } from "react-icons/io";
 import { MdOutlineLocationOn, MdRemoveRedEye } from "react-icons/md";
 import GlowButton from "./GlowButton";
 import { Patrol } from "@/app/home/patrols/page";
-import { capitalizeFirstLetter, copyTextToClipboard, timeAgo } from "@/lib/general";
+import { capitalizeFirstLetter, copyTextToClipboard, timeAgo } from "@/library/general";
 import { TbMapRoute } from "react-icons/tb";
 import { FiExternalLink } from "react-icons/fi";
 import { useRouter } from "next/navigation";

@@ -2,7 +2,7 @@
 
 import NotificationOption from "@/components/NotificationOption";
 import ThemeButton from "@/components/ThemeButton";
-import { apiFetch } from "@/lib/api";
+import { apiFetch } from "@/library/api";
 import { useTheme } from "next-themes";
 import { useEffect, useState } from "react";
 import { BsFillLightningChargeFill } from "react-icons/bs";

@@ -8,8 +8,8 @@ import { ReactEventHandler, SubmitEventHandler, useEffect, useState } from "reac
 import { IoIosWarning, IoMdWifi } from "react-icons/io";
 import { RxCross2 } from "react-icons/rx";
 import { IoCopy } from "react-icons/io5";
-import { apiFetch } from "@/lib/api";
-import { copyTextToClipboard } from "@/lib/general";
+import { apiFetch } from "@/library/api";
+import { copyTextToClipboard } from "@/library/general";
 import { FaCheck } from "react-icons/fa6";
 import { useRouter } from "next/navigation";
 

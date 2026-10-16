@@ -1,11 +1,11 @@
-import getThreatIcon from "@/lib/threatIcons";
+import getThreatIcon from "@/library/threatIcons";
 import { useState } from "react";
 import { FaPersonRunning, FaRegClock } from "react-icons/fa6";
 import { IoIosArrowDown, IoIosArrowUp } from "react-icons/io";
 import { MdOutlineLocationOn } from "react-icons/md";
 import GlowButton from "./GlowButton";
 import { useRouter } from "next/navigation";
-import { capitalizeFirstLetter } from "@/lib/general";
+import { capitalizeFirstLetter } from "@/library/general";
 import { ProjectOverview } from "@/app/home/project/page";
 
 interface IncidentProps {

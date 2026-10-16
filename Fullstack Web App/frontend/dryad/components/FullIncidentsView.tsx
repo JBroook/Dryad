@@ -2,12 +2,12 @@
 
 import type { IncidentType } from "@/app/home/project/page";
 import { Fragment, useEffect, useRef, useState } from "react";
-import { apiFetch } from "@/lib/api";
+import { apiFetch } from "@/library/api";
 import { FaPersonCircleCheck, FaPlus } from "react-icons/fa6";
 import { IoSearch } from "react-icons/io5";
 import { Member, ThreatClass } from "@/app/home/projects/new/page";
 import { IoIosOptions, IoIosWarning, IoMdCheckmark } from "react-icons/io";
-import getThreatIcon from "@/lib/threatIcons";
+import getThreatIcon from "@/library/threatIcons";
 import { RxCross2 } from "react-icons/rx";
 import { useRouter, useSearchParams } from "next/navigation";
 import MemberOption from "./MemberOption";

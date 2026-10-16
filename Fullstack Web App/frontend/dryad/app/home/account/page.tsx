@@ -1,7 +1,7 @@
 "use client"
 
 import GlowButton from "@/components/GlowButton"
-import { apiFetch } from "@/lib/api"
+import { apiFetch } from "@/library/api"
 import { useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
 import { FaRegTrashAlt } from "react-icons/fa"

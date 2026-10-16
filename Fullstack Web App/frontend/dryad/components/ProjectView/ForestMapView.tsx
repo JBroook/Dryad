@@ -11,7 +11,7 @@ import type { FeatureGroup as LeafletFeatureGroup } from "leaflet";
 import { IoWarning } from "react-icons/io5";
 import type { GeoJSON } from 'geojson';
 import { Device, IncidentType } from "@/app/home/project/page";
-import { apiFetch } from "@/lib/api";
+import { apiFetch } from "@/library/api";
 import { useSearchParams } from "next/navigation";
 import { PiLightning } from "react-icons/pi";
 import { MdLoop } from "react-icons/md";

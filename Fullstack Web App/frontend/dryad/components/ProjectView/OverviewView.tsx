@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import HollowCard from "../HollowCard";
-import { apiFetch } from "@/lib/api";
+import { apiFetch } from "@/library/api";
 import { Member, Project } from "@/app/home/projects/new/page";
 import { Device, IncidentType } from "@/app/home/project/page";
 import ActivityChart from "../ActivityChart";

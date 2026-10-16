@@ -1,7 +1,7 @@
 "use client"
 
 import { Project, ThreatClass } from "@/app/home/projects/new/page";
-import { apiFetch } from "@/lib/api";
+import { apiFetch } from "@/library/api";
 import { useEffect, useRef, useState } from "react";
 import { FaRegTrashAlt, FaSave, FaSearch } from "react-icons/fa";
 import ThreatClassOption from "../ThreatClassOption";

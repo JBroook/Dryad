@@ -1,6 +1,6 @@
 "use client"
 
-import { apiFetch } from "@/lib/api";
+import { apiFetch } from "@/library/api";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { FaArrowLeft } from "react-icons/fa";
