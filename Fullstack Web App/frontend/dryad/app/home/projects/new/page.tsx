@@ -115,20 +115,25 @@ export default function New() {
         : project.geoJSON;
 
     try {
+      const proj = {
+        ...project,
+        coordinates : `${project.center!.lat},${project.center!.lng}`,
+        surface_area : project.area,
+        confidence_threshold : project.confidenceThreshold,
+        alert_recipients : project.alertPreference,
+        threat_classes : project.threatClasses.filter((threatClass)=>threatClass.active).map((threatClass)=>({
+          threat_class_id : threatClass.id
+        })),
+        monitoring_area : monitoringArea
+      }
+      console.log(proj)
+
       const res = await apiFetch(`http://127.0.0.1:8000/api/projects/`, {
         method : "POST",
         headers : {
           "Content-Type" : "application/json",
         },
-        body : JSON.stringify({
-          ...project,
-          coordinates : `${project.center!.lat},${project.center!.lng}`,
-          surface_area : project.area,
-          confidence_threshold : project.confidenceThreshold,
-          alert_recipients : project.alertPreference,
-          threat_classes : project.threatClasses.filter((threatClass)=>threatClass.active),
-          monitoring_area : monitoringArea
-        })
+        body : JSON.stringify(proj)
       });
 
       if (!res.ok) {

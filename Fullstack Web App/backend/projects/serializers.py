@@ -58,12 +58,13 @@ class ThreatClassSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 class ProjectThreatClassSerializer(serializers.Serializer):
-    id = serializers.IntegerField()
+    id = serializers.IntegerField(required=False)
     threat_class_id = serializers.IntegerField(source="threat_class.id")
 
     class Meta:
         model = ProjectThreatClass
         fields = ["id", "threat_class_id"]
+        read_only = ["id"]
 
 
 @transaction.atomic
@@ -200,7 +201,7 @@ class ProjectSerializer(GeoFeatureModelSerializer):
         for threat_class in threat_classes:
             ProjectThreatClass.objects.create(
                 project=project,
-                threat_class=ThreatClass.objects.get(pk=threat_class["id"])
+                threat_class=ThreatClass.objects.get(pk=threat_class["threat_class"]["id"])
             )
 
         return project

@@ -1,9 +1,5 @@
-import Link from "next/link";
-import { FaArrowLeft, FaArrowRight, FaMicrophone, FaQuestion, FaTree, FaTruck } from "react-icons/fa";
+import { FaMicrophone, FaQuestion, FaTree, FaTruck } from "react-icons/fa";
 import BottomBar from "./BottomBar";
-import { useState } from "react";
-import { GiChainsaw } from "react-icons/gi";
-import { IoMdCheckmark } from "react-icons/io";
 import ThreatClassOption from "../ThreatClassOption";
 import { TbEngineFilled } from "react-icons/tb";
 import { ThreatClass } from "@/app/home/projects/new/page";
