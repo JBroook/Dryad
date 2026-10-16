@@ -33,6 +33,11 @@ export default function StepTwoPage(props: StepPageProps) {
             `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(search)}`
         );
 
+        if (!response.ok){
+            setSearchSpinner(false);
+            throw new Error(await response.text());
+        }
+
         const data = await response.json();
 
         if(data.length>0){

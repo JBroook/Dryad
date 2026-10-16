@@ -130,7 +130,7 @@ export default function Incident(props : IncidentProps) {
                 <p className="text-secondary-content text-sm">
                     Confidence
                 </p>
-                <p className="text-accent text-sm">
+                <p className="text-accent text-sm text-end">
                     {props.confidence}%
                 </p>
             </div>

@@ -10,9 +10,6 @@ import pandas as pd
 import torch.nn as nn
 from models import Cnn10
 
-# ==============================
-# EDIT HERE
-# ==============================
 
 MODEL_PATH = "trainedModels/100epoch_pure_AC/checkpoint_epoch50.pth"
 

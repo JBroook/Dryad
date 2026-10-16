@@ -101,18 +101,19 @@ DEBUG = os.getenv('DEBUG') == 'True'
 DATABASES = {
     'default': {
         'ENGINE': "django.contrib.gis.db.backends.postgis",
-        'NAME': os.getenv('NAME'),                      
-        'USER': os.getenv('USER'),
-        'PASSWORD': os.getenv('PASSWORD'),
-        'HOST': os.getenv('HOST'),
-        'PORT': os.getenv('PORT'),
+        'NAME': os.getenv('NAME', "test_db"),                      
+        'USER': os.getenv('USER', "postgres"),
+        'PASSWORD': os.getenv('PASSWORD', "postgres"),
+        'HOST': os.getenv('HOST', "localhost"),
+        'PORT': os.getenv('PORT', "5432"),
     }
 }
 
 OSGEO4W_BIN = os.getenv('OSGEO4W_BIN_PATH')
 
-GDAL_LIBRARY_PATH = os.path.join(OSGEO4W_BIN, "gdal313.dll")
-GEOS_LIBRARY_PATH = os.path.join(OSGEO4W_BIN, "geos_c.dll")
+if os.name == "nt":
+    GDAL_LIBRARY_PATH = os.path.join(OSGEO4W_BIN, "gdal313.dll")
+    GEOS_LIBRARY_PATH = os.path.join(OSGEO4W_BIN, "geos_c.dll")
 
 AUTH_USER_MODEL = "users.User"
 
