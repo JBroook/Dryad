@@ -12,7 +12,12 @@ export type Patrol = {
   id : number;
   incident : IncidentType;
   target : { type : string; coordinates : number[]};
-  member : number;
+  assignedMembers : {
+    id : number;
+    firstName : string;
+    lastName : string;
+    role : string;
+  }[];
   project : Project;
   assignedBy : {
     firstName : string;
@@ -21,6 +26,15 @@ export type Patrol = {
   };
   assignedAt : string;
   status : string;
+}
+
+export type SerializedPatrolMember = {
+  id : number;
+  role : string;
+  user : {
+    first_name : string;
+    last_name : string;
+  };
 }
 
 export default function Patrols() {
@@ -49,6 +63,12 @@ export default function Patrols() {
           firstName : patrol.assigned_by.user.first_name,
           lastName : patrol.assigned_by.user.last_name,
         },
+        assignedMembers : patrol.members.map((member : SerializedPatrolMember) => ({
+          id : member.id,
+          firstName : member.user.first_name,
+          lastName : member.user.last_name,
+          role : member.role,
+        })),
         assignedAt : patrol.assigned_at,
         incident : {
           ...incident,

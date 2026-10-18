@@ -18,6 +18,9 @@ import DevicesView from "@/components/ProjectView/DevicesView";
 import TeamView from "@/components/ProjectView/TeamView";
 import OverviewView from "@/components/ProjectView/OverviewView";
 import SettingsView from "@/components/ProjectView/SettingsView";
+import { TbMapRoute } from "react-icons/tb";
+import { Patrol } from "../patrols/page";
+import PatrolsView from "@/components/ProjectView/PatrolsView";
 
 type Tab = "overview" | "incidents" | "forest_map" | "devices" | "team";
 
@@ -92,6 +95,7 @@ export default function Project() {
     {title : "Incidents", href : "incidents", icon : IoIosWarning },
     {title : "Forest Map", href : "forest_map", icon : FaMap },
     {title : "Devices", href : "devices", icon : IoMdWifi},
+    {title : "Patrols", href : "patrols", icon : TbMapRoute},
     {title : "Team", href : "team", icon : AiOutlineTeam},
     {title : "Settings", href : "settings", icon : FaGear},
   ]
@@ -132,6 +136,9 @@ export default function Project() {
       projectID={projectID}
       devices={devices}
       setDevices={setDevices}/>,
+    patrols : <PatrolsView
+      projectID={projectID}
+    />,
     team : <TeamView
       projectID={projectID}
       members={members}

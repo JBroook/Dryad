@@ -10,7 +10,7 @@ router.register(r'threat_classes', views.ThreatClassViewSet, basename='threat_cl
 router.register(r'incidents', views.IncidentViewSet, basename='incident')
 router.register(
     r'users/(?P<user_id>\d+)/patrols', 
-    views.PatrolViewSet, 
+    views.UserPatrolViewSet, 
     basename='user_patrol'
 )
 router.register(
@@ -27,6 +27,11 @@ router.register(
     r'projects/(?P<project_id>\d+)/devices', 
     views.DeviceViewSet, 
     basename='project_devices'
+)
+router.register(
+    r'projects/(?P<project_id>\d+)/patrols', 
+    views.ProjectPatrolViewSet, 
+    basename='project_patrols'
 )
 
 urlpatterns = [

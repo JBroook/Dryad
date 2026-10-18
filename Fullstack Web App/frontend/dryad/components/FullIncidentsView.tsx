@@ -130,18 +130,16 @@ export default function FullIncidentsView(props: FullIncidentsViewProps) {
         }
 
         try {
-            for (const member of selectedMembers) {
-                const res = await apiFetch(`http://127.0.0.1:8000/api/incidents/${props.incidents[incidentIndex].id}/assign_patrol`, {
-                    method : "POST",
-                    body : JSON.stringify({
-                        assignee_id : member.id,
-                        assigner_id : currentUserMembershipId
-                    })
-                });
+            const res = await apiFetch(`http://127.0.0.1:8000/api/incidents/${props.incidents[incidentIndex].id}/assign_patrol`, {
+                method : "POST",
+                body : JSON.stringify({
+                    assignee_ids : selectedMembers.map((member) => member.id),
+                    assigner_id : currentUserMembershipId
+                })
+            });
 
-                if (!res.ok) {
-                    throw new Error(await res.text());
-                }
+            if (!res.ok) {
+                throw new Error(await res.text());
             }
         } catch (err) {
             console.error("Fetch failed:", err);
@@ -397,7 +395,7 @@ export default function FullIncidentsView(props: FullIncidentsViewProps) {
                 Assign Patrol
             </h3>
             <p className="py-2 text-sm text-secondary-content">
-                Dispatch a project member to investigate
+                Dispatch selected project members to investigate together
             </p>
             <label className="input bg-secondary w-full border border-white/8 mt-2">
                 <IoSearch />

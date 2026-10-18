@@ -364,7 +364,7 @@ class InviteMemberView(APIView):
         )
     
 
-class PatrolViewSet(ModelViewSet):
+class UserPatrolViewSet(ModelViewSet):
     queryset = Patrol.objects.all()
     serializer_class = PatrolSerializer
 
@@ -386,7 +386,7 @@ class PatrolViewSet(ModelViewSet):
         user_id = self.kwargs["user_id"]
 
         return queryset.filter(
-            member__user_id=user_id
+            members__user_id=user_id
         )
 
 class GridCellViewSet(ModelViewSet):
@@ -405,6 +405,19 @@ class GridCellViewSet(ModelViewSet):
 class DeviceViewSet(ModelViewSet):
     queryset = Device.objects.all()
     serializer_class = DeviceSerializer
+
+    def get_queryset(self):
+        queryset = self.queryset
+
+        project_id = self.kwargs["project_id"]
+
+        return queryset.filter(
+            project_id=project_id
+        )
+
+class ProjectPatrolViewSet(ModelViewSet):
+    queryset = Patrol.objects.all()
+    serializer_class = PatrolSerializer
 
     def get_queryset(self):
         queryset = self.queryset
@@ -593,35 +606,64 @@ class PatrolAssignView(APIView):
             return Response({"details" : "Incident does not exist"}, status=status.HTTP_404_NOT_FOUND)
 
         assigner_id = request.data.get("assigner_id")
-        assignee_id = request.data.get("assignee_id")
+        assignee_ids = request.data.get("assignee_ids")
+        if assignee_ids is None and request.data.get("assignee_id") is not None:
+            assignee_ids = [request.data.get("assignee_id")]
 
-        if assigner_id and assignee_id:
-            try:
-                assignee = Membership.objects.get(pk=assignee_id)
-                assigner = Membership.objects.get(pk=assigner_id)
-            except Membership.DoesNotExist:
-                return Response({"details" : "Members do not exist"}, status=status.HTTP_404_NOT_FOUND)
+        if not assigner_id or not isinstance(assignee_ids, list) or not assignee_ids:
+            return Response(
+                {"details" : "Assigner and assignees must be provided"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
-            incident.status = Incident.Status.REVIEWING
-            incident.save()
+        try:
+            assigner_id = int(assigner_id)
+            assignee_ids = list(dict.fromkeys(int(assignee_id) for assignee_id in assignee_ids))
+        except (TypeError, ValueError):
+            return Response(
+                {"details" : "Assigner and assignee IDs must be valid"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
+        assignees = list(Membership.objects.filter(
+            pk__in=assignee_ids,
+            project=incident.project
+        ))
+        if len(assignees) != len(assignee_ids):
+            return Response(
+                {"details" : "One or more assignees do not belong to this project"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        try:
+            assigner = Membership.objects.get(pk=assigner_id, project=incident.project)
+        except Membership.DoesNotExist:
+            return Response(
+                {"details" : "Assigner does not belong to this project"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        incident.status = Incident.Status.REVIEWING
+        incident.save()
+
+        patrol = Patrol.objects.filter(
+            incident=incident,
+            status=Patrol.Status.PENDING
+        ).order_by("assigned_at").first()
+        if patrol is None:
             patrol = Patrol.objects.create(
                 project=incident.project,
                 incident=incident,
-                member=assignee,
                 target=incident.coordinates,
                 assigned_by=assigner
             )
 
-            return Response(
-                PatrolSerializer(patrol).data,
-                status=status.HTTP_200_OK
-            )
-        else:
-            return Response(
-                {"details" : "Members not provided"}, 
-                status=status.HTTP_400_BAD_REQUEST
-                )
+        patrol.members.add(*assignees)
+
+        return Response(
+            PatrolSerializer(patrol).data,
+            status=status.HTTP_200_OK
+        )
 
 class CalculateProjectRiskView(APIView):
     def post(self, request, project_id):

@@ -249,7 +249,7 @@ class PatrolAssignerSerializer(serializers.ModelSerializer):
     user = MembershipUserSerializer()
     class Meta:
         model = Membership
-        fields = ['user', 'role']
+        fields = ['id', 'user', 'role']
 
 class PatrolProjectNameSerializer(serializers.ModelSerializer):
     class Meta:
@@ -260,6 +260,8 @@ class PatrolSerializer(serializers.ModelSerializer):
     incident = IncidentSerializer()
     project = PatrolProjectNameSerializer()
     assigned_by = PatrolAssignerSerializer()
+    members = PatrolAssignerSerializer(many=True, read_only=True)
+
     class Meta:
         model = Patrol
         fields = '__all__'

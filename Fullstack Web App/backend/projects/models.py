@@ -196,7 +196,7 @@ class Incident(models.Model):
 
 class Patrol(models.Model):
     target = models.PointField()
-    member = models.ForeignKey(to=Membership, on_delete=models.CASCADE)
+    members = models.ManyToManyField(to=Membership)
     project = models.ForeignKey(to=Project, on_delete=models.CASCADE)
     incident = models.ForeignKey(to=Incident, on_delete=models.CASCADE)
     assigned_by = models.ForeignKey(to=Membership, on_delete=models.CASCADE, related_name="assignments")
