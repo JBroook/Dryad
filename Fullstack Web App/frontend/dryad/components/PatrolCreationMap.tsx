@@ -11,6 +11,7 @@ import {
     TileLayer,
     useMap,
     GeoJSON,
+    Polyline,
 } from "react-leaflet";
 import type { FeatureGroup as LeafletFeatureGroup } from "leaflet";
 import { EditControl } from "react-leaflet-draw";
@@ -41,26 +42,6 @@ export default function PatrolCreationMap({
     gridOpacity = 0.5,
     ...props
 }: PatrolCreationMapProps) {
-    useEffect(() => {
-        const featureGroup = props.drawnItemsReference.current;
-
-        if (!featureGroup) {
-            return;
-        }
-
-        const drawnPathLayers: L.Polyline[] = [];
-        featureGroup.eachLayer((layer) => {
-            if (layer instanceof L.Polyline && !(layer instanceof L.Polygon)) {
-                drawnPathLayers.push(layer);
-            }
-        });
-        drawnPathLayers.forEach((layer) => featureGroup.removeLayer(layer));
-
-        if (props.pathCoordinates.length >= 2) {
-            featureGroup.addLayer(L.polyline(props.pathCoordinates));
-        }
-    }, [props.drawnItemsReference, props.pathCoordinates]);
-
     function GeoJSONLoader({
         geoJSON,
         featureGroupRef,
@@ -117,7 +98,7 @@ export default function PatrolCreationMap({
             (point) => [point.lat, point.lng]
         );
 
-        // Send the completed path to the parent component.
+        props.drawnItemsReference.current?.removeLayer(line);
         props.handlePath(coordinates);
     }
 
@@ -226,6 +207,13 @@ export default function PatrolCreationMap({
                             </Marker>
                         );
                     }
+                )}
+
+                {props.pathCoordinates.length >= 2 && (
+                    <Polyline
+                        positions={props.pathCoordinates}
+                        pathOptions={{ color: "#2563eb", weight: 4 }}
+                    />
                 )}
 
                 {/* Drawing controls and loaded GeoJSON */}

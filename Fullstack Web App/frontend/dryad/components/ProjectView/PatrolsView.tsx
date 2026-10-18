@@ -2,7 +2,7 @@
 
 import { Patrol, SerializedPatrolMember } from "@/app/home/patrols/page";
 import ToggleGlowButton from "../ToggleGlowButton";
-import { TbMapRoute } from "react-icons/tb";
+import { TbMapRoute, TbTrash } from "react-icons/tb";
 import { useEffect, useRef, useState } from "react";
 import { apiFetch } from "@/library/api";
 import ProjectPatrolCard from "../ProjectPatrolCard";
@@ -15,6 +15,7 @@ import dynamic from "next/dynamic";
 import type { GeoJSON } from 'geojson';
 import type { FeatureGroup as LeafletFeatureGroup } from "leaflet";
 import Waypoint from "../Waypoint";
+import { length as turfLength, lineString } from "@turf/turf";
 
 export type RoutinePatrol = {
     id: number;
@@ -57,13 +58,33 @@ export default function DevicesView(props: DevicesViewProps) {
     const [routineFetchError, setRoutineFetchError] = useState("");
     const [filterIndex, setFilterIndex] = useState<number>(1);
     const [isCreatingPatrol, setIsCreatingPatrol] = useState<boolean>(false);
-    const [patrolName, setPatrolName] = useState("");
+    const [patrolName, setPatrolName] = useState("Routine Patrol");
     const [frequency, setFrequency] = useState("weekly");
     const [startDate, setStartDate] = useState("");
     const [pathCoordinates, setPathCoordinates] = useState<[number, number][]>([]);
     const [isSavingPatrol, setIsSavingPatrol] = useState(false);
+    const [isGeneratingPath, setIsGeneratingPath] = useState(false);
     const [creationError, setCreationError] = useState("");
     const [creationMessage, setCreationMessage] = useState("");
+    const routeDistanceKm = pathCoordinates.length >= 2
+        ? turfLength(
+            lineString(pathCoordinates.map(([latitude, longitude]) => [longitude, latitude])),
+            { units: "kilometers" }
+        )
+        : null;
+    const routeDurationMinutes = routeDistanceKm === null
+        ? null
+        : Math.ceil(routeDistanceKm / 5 * 60);
+    const formattedDistance = routeDistanceKm === null
+        ? "-"
+        : routeDistanceKm < 1
+            ? `${Math.round(routeDistanceKm * 1000)} m`
+            : `${routeDistanceKm.toFixed(2)} km`;
+    const formattedDuration = routeDurationMinutes === null
+        ? "-"
+        : routeDurationMinutes < 60
+            ? `${routeDurationMinutes} min`
+            : `${Math.floor(routeDurationMinutes / 60)} h ${routeDurationMinutes % 60} min`;
     const filterOptions = [
         {title : "All", key : "all", count : patrols.length + routinePatrols.length},
         {title : "Pending", key : "pending", count : patrols.reduce((count, patrol)=> {return patrol.status === "pending" ? (count + 1) : count}, 0)},
@@ -176,6 +197,40 @@ export default function DevicesView(props: DevicesViewProps) {
             );
         } finally {
             setIsSavingPatrol(false);
+        }
+    };
+
+    const autoGeneratePath = async () => {
+        setCreationError("");
+        if (!props.projectID) {
+            setCreationError("A project is required to generate a patrol path.");
+            return;
+        }
+
+        setIsGeneratingPath(true);
+        try {
+            const response = await apiFetch(
+                `http://127.0.0.1:8000/api/projects/${props.projectID}/generate_routine_patrol_path/`,
+                { method: "POST" }
+            );
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.detail ?? "Unable to generate a patrol path.");
+            }
+
+            const data: {
+                path: { type: "LineString"; coordinates: [number, number][] };
+                hotspot_count: number;
+            } = await response.json();
+            setPathCoordinates(
+                data.path.coordinates.map(([longitude, latitude]) => [latitude, longitude])
+            );
+        } catch (error) {
+            setCreationError(
+                error instanceof Error ? error.message : "Unable to generate a patrol path."
+            );
+        } finally {
+            setIsGeneratingPath(false);
         }
     };
     
@@ -324,7 +379,7 @@ export default function DevicesView(props: DevicesViewProps) {
                         </CenteredCard>
                         <CenteredCard>
                             <h1 className="font-semibold">
-                                -
+                                {formattedDistance}
                             </h1>
                             <p className="text-secondary-content text-xs">
                                 Est. Distance
@@ -332,7 +387,7 @@ export default function DevicesView(props: DevicesViewProps) {
                         </CenteredCard>
                         <CenteredCard>
                             <h1 className="font-semibold">
-                                -
+                                {formattedDuration}
                             </h1>
                             <p className="text-secondary-content text-xs">
                                 Est. Duration
@@ -365,9 +420,21 @@ export default function DevicesView(props: DevicesViewProps) {
 
             <div className="flex-5">
                 <div className="flex ml-6 items-center">
-                    <button className="btn btn-accent">
+                    <button
+                        className="btn btn-accent"
+                        onClick={autoGeneratePath}
+                        disabled={isGeneratingPath || !props.projectID}
+                    >
                         <PiMagicWand className="text-xl"/>
-                        Auto-Generate Path
+                        {isGeneratingPath ? "Generating..." : "Auto-Generate Path"}
+                    </button>
+                    <button
+                        className="btn btn-secondary ml-2"
+                        onClick={() => setPathCoordinates([])}
+                        disabled={pathCoordinates.length === 0}
+                    >
+                        <TbTrash className="text-xl" />
+                        Clear Path
                     </button>
 
                     <p className="text-secondary-content text-sm ml-auto">

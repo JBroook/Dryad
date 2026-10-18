@@ -1,4 +1,6 @@
 import hashlib
+import json
+import math
 from datetime import timedelta
 from django.utils import timezone
 import secrets
@@ -25,8 +27,8 @@ from rest_framework.filters import OrderingFilter
 from django.shortcuts import get_object_or_404
 from django.utils.dateparse import parse_datetime
 from django.db.models import Count
-from django.db import IntegrityError
-from django.contrib.gis.geos import Point
+from django.db import IntegrityError, connection
+from django.contrib.gis.geos import LineString, Point
 from django.db.models.functions import TruncDate
 from django.contrib.auth.hashers import check_password
 
@@ -465,6 +467,107 @@ class ProjectRoutinePatrolView(ListCreateAPIView):
             user=self.request.user,
         )
         serializer.save(project=project, created_by=creator)
+
+
+class GenerateRoutinePatrolPathView(APIView):
+    permission_classes = [IsAuthenticated]
+    hotspot_risk_threshold = 0.8
+
+    def post(self, request, project_id):
+        project = get_object_or_404(Project, pk=project_id)
+        get_object_or_404(
+            Membership,
+            project=project,
+            user=request.user,
+        )
+
+        with connection.cursor() as cursor:
+            cursor.execute(
+                f"""
+                SELECT
+                    risk_score,
+                    ST_X(hotspot_center),
+                    ST_Y(hotspot_center)
+                FROM (
+                    SELECT
+                        MAX(risk_score) AS risk_score,
+                        ST_Centroid(ST_Collect(geometry)) AS hotspot_center
+                    FROM (
+                        SELECT
+                            risk_score,
+                            geometry,
+                            ST_ClusterDBSCAN(geometry, 0, 1)
+                                OVER () AS hotspot_cluster
+                        FROM {GridCell._meta.db_table}
+                        WHERE project_id = %s
+                          AND risk_score >= %s
+                    ) AS high_risk_cells
+                    GROUP BY hotspot_cluster
+                ) AS risk_hotspots
+                ORDER BY risk_score DESC
+                """,
+                [project.id, self.hotspot_risk_threshold],
+            )
+            hotspot_rows = cursor.fetchall()
+
+        hotspots = [
+            (
+                risk_score,
+                Point(longitude, latitude, srid=4326),
+            )
+            for risk_score, longitude, latitude in hotspot_rows
+        ]
+        if len(hotspots) < 2:
+            return Response(
+                {
+                    "detail": (
+                        "At least two separate very-high-risk hotspots (risk score 0.8 or "
+                        "higher) are needed to generate a patrol path."
+                    )
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        remaining = hotspots
+        remaining.sort(key=lambda hotspot: hotspot[0], reverse=True)
+        ordered_points = [remaining.pop(0)[1]]
+
+        while remaining:
+            current_point = ordered_points[-1]
+            nearest_index = min(
+                range(len(remaining)),
+                key=lambda index: self._distance_meters(
+                    current_point,
+                    remaining[index][1],
+                ),
+            )
+            ordered_points.append(remaining.pop(nearest_index)[1])
+
+        route = LineString(
+            [point.coords for point in ordered_points],
+            srid=4326,
+        )
+        return Response(
+            {
+                "path": json.loads(route.geojson),
+                "hotspot_count": len(ordered_points),
+            },
+            status=status.HTTP_200_OK,
+        )
+
+    @staticmethod
+    def _distance_meters(first, second):
+        first_latitude, first_longitude = map(math.radians, (first.y, first.x))
+        second_latitude, second_longitude = map(math.radians, (second.y, second.x))
+        latitude_delta = second_latitude - first_latitude
+        longitude_delta = second_longitude - first_longitude
+        haversine = (
+            math.sin(latitude_delta / 2) ** 2
+            + math.cos(first_latitude)
+            * math.cos(second_latitude)
+            * math.sin(longitude_delta / 2) ** 2
+        )
+        return 6_371_000 * 2 * math.asin(math.sqrt(haversine))
 
 
 class ProjectGetCodeView(APIView):

@@ -163,7 +163,7 @@ class PatrolAssignmentTests(TestCase):
             name="North boundary",
             frequency=RoutinePatrol.Frequency.WEEKLY,
             start_date="2026-10-20",
-            path=LineString((1, 2), (3, 4), srid=4326),
+            path=LineString([(1, 2), (3, 4)], srid=4326),
         )
 
         response = self.client.get(
@@ -183,7 +183,7 @@ class PatrolAssignmentTests(TestCase):
             name="North boundary",
             frequency=RoutinePatrol.Frequency.WEEKLY,
             start_date="2026-10-20",
-            path=LineString((1, 2), (3, 4), srid=4326),
+            path=LineString([(1, 2), (3, 4)], srid=4326),
         )
 
         response = self.client.get(
@@ -193,3 +193,41 @@ class PatrolAssignmentTests(TestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data), 1)
         self.assertEqual(response.data[0]["name"], "North boundary")
+
+    def test_generate_routine_patrol_path_uses_very_high_risk_grid_cells(self):
+        self.client.force_authenticate(user=self.assigner_user)
+        GridCell.objects.filter(pk=self.incident.grid_cell_id).update(
+            risk_score=0.95,
+            geometry=Polygon.from_bbox((0, 0, 2, 2)),
+        )
+        GridCell.objects.create(
+            project=self.project,
+            geometry=Polygon.from_bbox((8, 8, 10, 10)),
+            risk_score=0.85,
+            identifier="cell-2",
+        )
+        GridCell.objects.create(
+            project=self.project,
+            geometry=Polygon.from_bbox((0, 5, 2, 7)),
+            risk_score=0.79,
+            identifier="cell-3",
+        )
+
+        response = self.client.post(
+            reverse("generate_routine_patrol_path", args=[self.project.id])
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["path"]["type"], "LineString")
+        self.assertEqual(response.data["hotspot_count"], 2)
+        self.assertEqual(len(response.data["path"]["coordinates"]), 2)
+
+    def test_generate_routine_patrol_path_requires_two_hotspots(self):
+        self.client.force_authenticate(user=self.assigner_user)
+        GridCell.objects.filter(pk=self.incident.grid_cell_id).update(risk_score=0.9)
+
+        response = self.client.post(
+            reverse("generate_routine_patrol_path", args=[self.project.id])
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)

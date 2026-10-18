@@ -49,6 +49,11 @@ urlpatterns = [
         name="project_routine_patrols",
     ),
     path(
+        'projects/<int:project_id>/generate_routine_patrol_path/',
+        views.GenerateRoutinePatrolPathView.as_view(),
+        name="generate_routine_patrol_path",
+    ),
+    path(
         'users/<int:user_id>/routine_patrols/',
         views.UserRoutinePatrolListView.as_view(),
         name="user_routine_patrols",
