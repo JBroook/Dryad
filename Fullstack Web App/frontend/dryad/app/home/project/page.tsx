@@ -138,6 +138,8 @@ export default function Project() {
       setDevices={setDevices}/>,
     patrols : <PatrolsView
       projectID={projectID}
+      geoJSON={project?.geoJSON}
+      gridCells={gridCells}
     />,
     team : <TeamView
       projectID={projectID}
