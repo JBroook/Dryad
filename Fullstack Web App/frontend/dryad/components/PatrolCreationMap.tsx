@@ -33,6 +33,7 @@ interface PatrolCreationMapProps {
     drawnItemsReference: RefObject<LeafletFeatureGroup | null>;
     incidents: IncidentType[];
     devices: Device[];
+    pathCoordinates: [number, number][];
     handlePath: (coordinates: [number, number][]) => void;
 }
 
@@ -40,6 +41,26 @@ export default function PatrolCreationMap({
     gridOpacity = 0.5,
     ...props
 }: PatrolCreationMapProps) {
+    useEffect(() => {
+        const featureGroup = props.drawnItemsReference.current;
+
+        if (!featureGroup) {
+            return;
+        }
+
+        const drawnPathLayers: L.Polyline[] = [];
+        featureGroup.eachLayer((layer) => {
+            if (layer instanceof L.Polyline && !(layer instanceof L.Polygon)) {
+                drawnPathLayers.push(layer);
+            }
+        });
+        drawnPathLayers.forEach((layer) => featureGroup.removeLayer(layer));
+
+        if (props.pathCoordinates.length >= 2) {
+            featureGroup.addLayer(L.polyline(props.pathCoordinates));
+        }
+    }, [props.drawnItemsReference, props.pathCoordinates]);
+
     function GeoJSONLoader({
         geoJSON,
         featureGroupRef,

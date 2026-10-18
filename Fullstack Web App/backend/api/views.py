@@ -5,17 +5,19 @@ import secrets
 import string
 from projects.BNN import calculate_project_risk
 from rest_framework import status
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
 from users.serializers import ForgotPasswordSerializer, LoginSerializer, RegisterSerializer, ResetPasswordSerializer, UserSettingsSerializer, VerifyEmailSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.response import Response
+from rest_framework.generics import ListCreateAPIView, ListAPIView
 from rest_framework.viewsets import ModelViewSet
 from users.serializers import UserSerializer
 from users.models import User
-from projects.models import ConnectionCode, Project, Incident, ThreatClass, Membership, Patrol, GridCell, Device
+from projects.models import ConnectionCode, Project, Incident, ThreatClass, Membership, Patrol, GridCell, Device, RoutinePatrol
 from projects.serializers import (DeviceConnectSerializer, ProjectOverviewSerializer, ProjectSerializer, IncidentSerializer, 
 ThreatClassSerializer, MembershipSerializer, PatrolSerializer,
-GridCellSerializer, DeviceSerializer)
+GridCellSerializer, DeviceSerializer, RoutinePatrolSerializer)
 from django.db.models import Q
 from django_filters.rest_framework import DjangoFilterBackend
 import django_filters
@@ -389,6 +391,23 @@ class UserPatrolViewSet(ModelViewSet):
             members__user_id=user_id
         )
 
+
+class UserRoutinePatrolListView(ListAPIView):
+    serializer_class = RoutinePatrolSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        if self.request.user.pk != int(self.kwargs["user_id"]):
+            return RoutinePatrol.objects.none()
+
+        return RoutinePatrol.objects.filter(
+            project__members__user=self.request.user
+        ).select_related(
+            "project",
+            "created_by__user",
+        ).distinct().order_by("-created_at")
+
+
 class GridCellViewSet(ModelViewSet):
     queryset = GridCell.objects.all()
     serializer_class = GridCellSerializer
@@ -427,6 +446,26 @@ class ProjectPatrolViewSet(ModelViewSet):
         return queryset.filter(
             project_id=project_id
         )
+
+
+class ProjectRoutinePatrolView(ListCreateAPIView):
+    serializer_class = RoutinePatrolSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return RoutinePatrol.objects.filter(
+            project_id=self.kwargs["project_id"]
+        ).select_related("project", "created_by__user").order_by("-created_at")
+
+    def perform_create(self, serializer):
+        project = get_object_or_404(Project, pk=self.kwargs["project_id"])
+        creator = get_object_or_404(
+            Membership,
+            project=project,
+            user=self.request.user,
+        )
+        serializer.save(project=project, created_by=creator)
+
 
 class ProjectGetCodeView(APIView):
     def post(self, request, project_id):

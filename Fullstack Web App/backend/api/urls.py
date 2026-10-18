@@ -43,6 +43,16 @@ urlpatterns = [
     path('delete_account/', views.DeleteAccountView.as_view(), name="delete_account"),
     path('', include(router.urls)),
     path('projects/<int:project_id>/connection_code', views.ProjectGetCodeView.as_view(), name="project_code"),
+    path(
+        'projects/<int:project_id>/routine_patrols/',
+        views.ProjectRoutinePatrolView.as_view(),
+        name="project_routine_patrols",
+    ),
+    path(
+        'users/<int:user_id>/routine_patrols/',
+        views.UserRoutinePatrolListView.as_view(),
+        name="user_routine_patrols",
+    ),
     path('devices/connect', views.DeviceConnectionView.as_view(), name="connect_device"),
     path('devices/<int:device_id>/report', views.DeviceReportView.as_view(), name="report_incident"),
     path('projects/<int:project_id>/invite', views.InviteMemberView.as_view(), name="invite"),

@@ -210,6 +210,36 @@ class Patrol(models.Model):
     status = models.CharField(choices=Status.choices, default=Status.PENDING)
 
 
+class RoutinePatrol(models.Model):
+    class Frequency(models.TextChoices):
+        ONCE = "once", "Once"
+        DAILY = "daily", "Daily"
+        WEEKLY = "weekly", "Weekly"
+        MONTHLY = "monthly", "Monthly"
+
+    project = models.ForeignKey(
+        to=Project,
+        on_delete=models.CASCADE,
+        related_name="routine_patrols",
+    )
+    created_by = models.ForeignKey(
+        to=Membership,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="created_routine_patrols",
+    )
+    name = models.CharField(max_length=100)
+    frequency = models.CharField(
+        max_length=10,
+        choices=Frequency.choices,
+        default=Frequency.WEEKLY,
+    )
+    start_date = models.DateField()
+    path = models.LineStringField(srid=4326)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+
 class ConnectionCode(models.Model):
     code = models.CharField(max_length=6, unique=True)
     project = models.ForeignKey(to=Project, on_delete=models.CASCADE)

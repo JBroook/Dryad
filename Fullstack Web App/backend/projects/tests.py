@@ -1,10 +1,10 @@
-from django.contrib.gis.geos import Point, Polygon
+from django.contrib.gis.geos import LineString, Point, Polygon
 from django.test import TestCase
 from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APIClient
 
-from projects.models import GridCell, Incident, Membership, Patrol, Project, ThreatClass
+from projects.models import GridCell, Incident, Membership, Patrol, Project, RoutinePatrol, ThreatClass
 from users.models import User
 
 
@@ -109,3 +109,87 @@ class PatrolAssignmentTests(TestCase):
                 Patrol.objects.get(members=member).status,
                 Patrol.Status.COMPLETED,
             )
+
+    def test_project_can_create_routine_patrol_with_route(self):
+        self.client.force_authenticate(user=self.assigner_user)
+        response = self.client.post(
+            reverse("project_routine_patrols", args=[self.project.id]),
+            {
+                "name": "North boundary",
+                "frequency": RoutinePatrol.Frequency.WEEKLY,
+                "start_date": "2026-10-20",
+                "path": {
+                    "type": "LineString",
+                    "coordinates": [[1, 2], [3, 4]],
+                },
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        routine_patrol = RoutinePatrol.objects.get()
+        self.assertEqual(routine_patrol.project, self.project)
+        self.assertEqual(routine_patrol.created_by, self.assigner)
+        self.assertEqual(routine_patrol.name, "North boundary")
+        self.assertEqual(routine_patrol.frequency, RoutinePatrol.Frequency.WEEKLY)
+        self.assertEqual(routine_patrol.start_date.isoformat(), "2026-10-20")
+        self.assertEqual(routine_patrol.path.geom_type, "LineString")
+        self.assertEqual(len(routine_patrol.path.coords), 2)
+
+    def test_routine_patrol_requires_a_route_with_two_waypoints(self):
+        self.client.force_authenticate(user=self.assigner_user)
+        response = self.client.post(
+            reverse("project_routine_patrols", args=[self.project.id]),
+            {
+                "name": "Incomplete route",
+                "frequency": RoutinePatrol.Frequency.DAILY,
+                "start_date": "2026-10-20",
+                "path": {
+                    "type": "LineString",
+                    "coordinates": [[1, 2]],
+                },
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertFalse(RoutinePatrol.objects.exists())
+
+    def test_project_can_list_its_routine_patrols(self):
+        self.client.force_authenticate(user=self.assigner_user)
+        RoutinePatrol.objects.create(
+            project=self.project,
+            created_by=self.assigner,
+            name="North boundary",
+            frequency=RoutinePatrol.Frequency.WEEKLY,
+            start_date="2026-10-20",
+            path=LineString((1, 2), (3, 4), srid=4326),
+        )
+
+        response = self.client.get(
+            reverse("project_routine_patrols", args=[self.project.id])
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 1)
+        self.assertEqual(response.data[0]["name"], "North boundary")
+        self.assertEqual(response.data[0]["created_by"]["id"], self.assigner.id)
+
+    def test_user_can_list_routine_patrols_from_their_projects(self):
+        self.client.force_authenticate(user=self.assigner_user)
+        RoutinePatrol.objects.create(
+            project=self.project,
+            created_by=self.assigner,
+            name="North boundary",
+            frequency=RoutinePatrol.Frequency.WEEKLY,
+            start_date="2026-10-20",
+            path=LineString((1, 2), (3, 4), srid=4326),
+        )
+
+        response = self.client.get(
+            reverse("user_routine_patrols", args=[self.assigner_user.id])
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 1)
+        self.assertEqual(response.data[0]["name"], "North boundary")

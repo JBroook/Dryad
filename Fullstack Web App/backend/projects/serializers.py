@@ -2,7 +2,7 @@ import random
 
 from .terrain import download_dem, download_osm_roads, generate_slope_raster, populate_road_distances, populate_terrain_data, save_osm_roads
 from rest_framework import serializers
-from .models import ConnectionCode, GridCell, Project, Membership, ThreatClass, ProjectThreatClass, Incident, Device, Patrol
+from .models import ConnectionCode, GridCell, Project, Membership, ThreatClass, ProjectThreatClass, Incident, Device, Patrol, RoutinePatrol
 from users.models import User
 from rest_framework_gis.serializers import GeoFeatureModelSerializer
 from django.contrib.gis.geos import GEOSGeometry
@@ -266,6 +266,34 @@ class PatrolSerializer(serializers.ModelSerializer):
         model = Patrol
         fields = '__all__'
         geo_field = 'target'
+
+
+class RoutinePatrolSerializer(serializers.ModelSerializer):
+    project = PatrolProjectNameSerializer(read_only=True)
+    created_by = PatrolAssignerSerializer(read_only=True)
+    path = GeometryField()
+
+    class Meta:
+        model = RoutinePatrol
+        fields = [
+            "id",
+            "project",
+            "created_by",
+            "name",
+            "frequency",
+            "start_date",
+            "path",
+            "created_at",
+        ]
+        read_only_fields = ["id", "project", "created_by", "created_at"]
+
+    def validate_path(self, value):
+        if value.geom_type != "LineString" or len(value.coords) < 2:
+            raise serializers.ValidationError(
+                "Path must be a LineString with at least two waypoints."
+            )
+        return value
+
 
 class DeviceConnectSerializer(serializers.Serializer):
     code = serializers.CharField(max_length=6)

@@ -2,10 +2,11 @@
 
 import { Patrol, SerializedPatrolMember } from "@/app/home/patrols/page";
 import ToggleGlowButton from "../ToggleGlowButton";
-import { TbMapRoute, TbTrash } from "react-icons/tb";
+import { TbMapRoute } from "react-icons/tb";
 import { useEffect, useRef, useState } from "react";
 import { apiFetch } from "@/library/api";
 import ProjectPatrolCard from "../ProjectPatrolCard";
+import RoutinePatrolCard from "../RoutinePatrolCard";
 import { RxCross2 } from "react-icons/rx";
 import { FaPlus } from "react-icons/fa";
 import CenteredCard from "../CenteredCard";
@@ -14,6 +15,30 @@ import dynamic from "next/dynamic";
 import type { GeoJSON } from 'geojson';
 import type { FeatureGroup as LeafletFeatureGroup } from "leaflet";
 import Waypoint from "../Waypoint";
+
+export type RoutinePatrol = {
+    id: number;
+    name: string;
+    frequency: string;
+    start_date: string;
+    path: {
+        type: "LineString";
+        coordinates: [number, number][];
+    };
+    created_at: string;
+    created_by: {
+        id: number;
+        role: string;
+        user: {
+            first_name: string;
+            last_name: string;
+        };
+    } | null;
+    project: {
+        id: number;
+        name: string;
+    };
+};
 
 const PatrolCreationMap = dynamic(() => import("../PatrolCreationMap"), {
     ssr: false,
@@ -28,13 +53,23 @@ interface DevicesViewProps {
 
 export default function DevicesView(props: DevicesViewProps) {
     const [patrols, setPatrols] = useState<Patrol[]>([]);
+    const [routinePatrols, setRoutinePatrols] = useState<RoutinePatrol[]>([]);
+    const [routineFetchError, setRoutineFetchError] = useState("");
     const [filterIndex, setFilterIndex] = useState<number>(1);
     const [isCreatingPatrol, setIsCreatingPatrol] = useState<boolean>(false);
+    const [patrolName, setPatrolName] = useState("");
+    const [frequency, setFrequency] = useState("weekly");
+    const [startDate, setStartDate] = useState("");
+    const [pathCoordinates, setPathCoordinates] = useState<[number, number][]>([]);
+    const [isSavingPatrol, setIsSavingPatrol] = useState(false);
+    const [creationError, setCreationError] = useState("");
+    const [creationMessage, setCreationMessage] = useState("");
     const filterOptions = [
-        {title : "All", key : "all", count : patrols.length},
+        {title : "All", key : "all", count : patrols.length + routinePatrols.length},
         {title : "Pending", key : "pending", count : patrols.reduce((count, patrol)=> {return patrol.status === "pending" ? (count + 1) : count}, 0)},
         {title : "Completed", key : "completed", count : patrols.reduce((count, patrol)=> {return patrol.status === "completed" ? (count + 1) : count}, 0)},
         {title : "Cancelled", key : "cancelled", count : patrols.reduce((count, patrol)=> {return patrol.status === "cancelled" ? (count + 1) : count}, 0)},
+        {title : "Routine", key : "routine", count : routinePatrols.length},
     ]
     const drawnItemsReference = useRef<LeafletFeatureGroup | null>(null);
   
@@ -67,28 +102,100 @@ export default function DevicesView(props: DevicesViewProps) {
     }
 
     useEffect(()=>{
-        // fetch project patrols
+        if (!props.projectID) {
+            return;
+        }
+
         apiFetch(`http://127.0.0.1:8000/api/projects/${props.projectID}/patrols/`)
         .then(async (res) => {
         if (!res.ok) throw new Error(await res.text());
         return res.json();
         })
-        .then((data)=>{console.log(data); return data})
         .then((data)=>extractPatrols(data))
         .catch((err) => console.error("Fetch failed:", err));
 
-        import("cally");
-    },[])
-    
-    let matchingPatrols = patrols;
+        apiFetch(`http://127.0.0.1:8000/api/projects/${props.projectID}/routine_patrols/`)
+        .then(async (res) => {
+            if (!res.ok) throw new Error(await res.text());
+            return res.json();
+        })
+        .then((data: RoutinePatrol[]) => setRoutinePatrols(data))
+        .catch((err) => {
+            console.error("Routine patrol fetch failed:", err);
+            setRoutineFetchError("Unable to load routine patrols.");
+        });
+    },[props.projectID])
 
-    if(filterIndex!=0){
-    matchingPatrols = patrols.filter(patrol => patrol.status===filterOptions[filterIndex].key)
-    }
+    const createRoutinePatrol = async () => {
+        setCreationError("");
+        if (!props.projectID) {
+            setCreationError("A project is required to create a routine patrol.");
+            return;
+        }
+        if (patrolName.trim() === "" || startDate === "" || pathCoordinates.length < 2) {
+            setCreationError("Enter a patrol name and start date, and draw a path with at least two waypoints.");
+            return;
+        }
+
+        setIsSavingPatrol(true);
+        try {
+            const response = await apiFetch(
+                `http://127.0.0.1:8000/api/projects/${props.projectID}/routine_patrols/`,
+                {
+                    method: "POST",
+                    body: JSON.stringify({
+                        name: patrolName.trim(),
+                        frequency,
+                        start_date: startDate,
+                        path: {
+                            type: "LineString",
+                            coordinates: pathCoordinates.map(([latitude, longitude]) => [
+                                longitude,
+                                latitude,
+                            ]),
+                        },
+                    }),
+                }
+            );
+            if (!response.ok) {
+                throw new Error(await response.text());
+            }
+
+            const createdPatrol: RoutinePatrol = await response.json();
+            setRoutinePatrols((current) => [createdPatrol, ...current]);
+            setFilterIndex(filterOptions.findIndex((option) => option.key === "routine"));
+            setCreationMessage("Routine patrol created.");
+            setIsCreatingPatrol(false);
+            setPatrolName("");
+            setFrequency("weekly");
+            setStartDate("");
+            setPathCoordinates([]);
+        } catch (error) {
+            setCreationError(
+                error instanceof Error ? error.message : "Unable to create the routine patrol."
+            );
+        } finally {
+            setIsSavingPatrol(false);
+        }
+    };
     
+    const selectedFilter = filterOptions[filterIndex].key;
+    const matchingPatrols = selectedFilter === "all"
+        ? patrols
+        : patrols.filter((patrol) => patrol.status === selectedFilter);
+    const matchingRoutinePatrols = selectedFilter === "all" || selectedFilter === "routine"
+        ? routinePatrols
+        : [];
+    const hasMatchingPatrols = matchingPatrols.length > 0 || matchingRoutinePatrols.length > 0;
+
     return (<>
     {!isCreatingPatrol ?
         <>
+        {creationMessage && (
+            <div role="status" className="alert alert-success mx-6 mt-3 hover:cursor-pointer" onClick={()=>setCreationMessage("")}>
+                {creationMessage}
+            </div>
+        )}
         <div className="flex gap-2 mx-6 mt-4 items-center">
             {filterOptions.map((option, index)=>{
                 return <ToggleGlowButton
@@ -102,7 +209,7 @@ export default function DevicesView(props: DevicesViewProps) {
             })}
 
             <p className="text-secondary-content ml-auto">
-                {patrols.length} patrols
+                {patrols.length + routinePatrols.length} patrols
             </p>
             <button className="btn btn-primary ml-2" onClick={()=>setIsCreatingPatrol(true)}>
                 <FaPlus/> New Patrol    
@@ -110,21 +217,29 @@ export default function DevicesView(props: DevicesViewProps) {
         </div>
 
         <div className="mx-6 mt-5">
-        {matchingPatrols.length>0 ?
-            matchingPatrols.map((patrol, index)=>{
-            return <ProjectPatrolCard
-                key={index}
+        {routineFetchError && (selectedFilter === "routine" || selectedFilter === "all") && (
+            <p role="alert" className="text-error">{routineFetchError}</p>
+        )}
+        {hasMatchingPatrols ?
+            <>
+            {matchingPatrols.map((patrol) => (
+            <ProjectPatrolCard
+                key={`patrol-${patrol.id}`}
                 color="#F97316"
                 patrol={patrol}
                 cancelPatrol={()=>{}}
             />
-        })
+            ))}
+            {matchingRoutinePatrols.map((patrol) => (
+                <RoutinePatrolCard key={`routine-${patrol.id}`} patrol={patrol} />
+            ))}
+            </>
         :
         <div className="w-full flex flex-col justify-center items-center text-secondary-content pt-30">
             <TbMapRoute className="text-4xl"/>
             
-            {filterOptions[filterIndex].key!=="all" ? 
-            <h1>This project has no {filterOptions[filterIndex].key} patrols</h1>
+            {selectedFilter!=="all" ?
+            <h1>This project has no {selectedFilter} patrols</h1>
             :
             <h1>This project has no patrols</h1>
             }
@@ -156,14 +271,15 @@ export default function DevicesView(props: DevicesViewProps) {
             <div className="flex-2 mb-20">
                 <div className="rounded-xl bg-base-200 p-6 border border-white/8">
                     <h1 className="font-semibold">Patrol Details</h1>
-                    <form>
+                    <form onSubmit={(event) => event.preventDefault()}>
                         <fieldset className="fieldset flex-1">
                         <legend className="fieldset-legend font-medium text-secondary-content">PATROL NAME</legend>
                         <input
                             type="text"
                             className="input w-full bg-base-200 border border-white/15 text-base-content"   
-                            // value={firstNameInput}
-                            // onChange={(e)=>setFirstNameInput(e.target.value)}
+                            maxLength={100}
+                            value={patrolName}
+                            onChange={(event) => setPatrolName(event.target.value)}
                         />
                         </fieldset>
 
@@ -171,6 +287,8 @@ export default function DevicesView(props: DevicesViewProps) {
                         <legend className="fieldset-legend font-medium text-secondary-content">FREQUENCY</legend>
                         <select
                         className="select w-full bg-base-200 border"
+                        value={frequency}
+                        onChange={(event) => setFrequency(event.target.value)}
                         >
                             <option value="once">Once</option>
                             <option value="daily">Daily</option>
@@ -181,40 +299,16 @@ export default function DevicesView(props: DevicesViewProps) {
 
                         <fieldset className="fieldset flex-1">
                         <legend className="fieldset-legend font-medium text-secondary-content">START DATE</legend>
+                        <input
+                            type="date"
+                            className="input w-full bg-base-200 border border-white/15 text-base-content"
+                            required
+                            value={startDate}
+                            onChange={(event) => setStartDate(event.target.value)}
+                        />
                         </fieldset>
                     </form>
 
-                    <button
-                    popoverTarget="cally-popover1" style={{ anchorName: "--cally1" } as React.CSSProperties}
-                    className="input w-full bg-base-200 border border-white/15 text-base-content" id="cally1"
-                    >
-                    Pick a date
-                    </button>
-
-                    <div
-                    popover="auto" id="cally-popover1" className="dropdown bg-base-100 rounded-box shadow-lg"
-                    style={{ positionAnchor: "--cally1" } as React.CSSProperties}
-                    >
-                    <calendar-date
-                        className="cally"
-                        onChange={(e) => {
-                        }}
-                    >
-                        <svg aria-label="Previous" className="fill-current size-4"
-                        slot="previous" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"
-                        >
-                        <path d="M15.75 19.5 8.25 12l7.5-7.5" />
-                        </svg>
-
-                        <svg aria-label="Next" className="fill-current size-4"
-                        slot="next" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"
-                        >
-                        <path d="m8.25 4.5 7.5 7.5 7.5-7.5" />
-                        </svg>
-
-                        <calendar-month />
-                    </calendar-date>
-                    </div>
                 </div>
 
                 <div className="rounded-xl bg-base-200 p-6 border mt-4 border-white/8">
@@ -222,7 +316,7 @@ export default function DevicesView(props: DevicesViewProps) {
                     <div className="grid grid-cols-2 gap-2 mt-4">
                         <CenteredCard>
                             <h1 className="font-semibold">
-                                0
+                                {pathCoordinates.length}
                             </h1>
                             <p className="text-secondary-content text-xs">
                                 Waypoints
@@ -246,7 +340,7 @@ export default function DevicesView(props: DevicesViewProps) {
                         </CenteredCard>
                         <CenteredCard>
                             <h1 className="font-semibold">
-                                Weekly
+                                {frequency.charAt(0).toUpperCase() + frequency.slice(1)}
                             </h1>
                             <p className="text-secondary-content text-xs">
                                 Frequency
@@ -256,8 +350,15 @@ export default function DevicesView(props: DevicesViewProps) {
                     <p className="mt-2 text-secondary-content text-sm text-center">At least two waypoints required</p>
                 </div>
 
-                <button className="btn btn-primary w-full mt-4">
-                    Create Patrol
+                {creationError && (
+                    <p role="alert" className="text-error text-sm mt-3">{creationError}</p>
+                )}
+                <button
+                    className="btn btn-primary w-full mt-4"
+                    onClick={createRoutinePatrol}
+                    disabled={isSavingPatrol || !props.projectID || pathCoordinates.length < 2}
+                >
+                    {isSavingPatrol ? "Creating..." : "Create Patrol"}
                 </button>
             </div>
 
@@ -283,7 +384,8 @@ export default function DevicesView(props: DevicesViewProps) {
                     gridOpacity={0.7}
                     incidents={[]}
                     devices={[]}
-                    handlePath={()=>{}}
+                    pathCoordinates={pathCoordinates}
+                    handlePath={setPathCoordinates}
                     />
                 </div>
 
@@ -292,11 +394,16 @@ export default function DevicesView(props: DevicesViewProps) {
                         Waypoints
                     </h1>
 
-                    <Waypoint
-                        count={1}
-                        coords="1.194°, 113.816°"
-                        deleteEvent={()=>{}}
-                    />
+                    {pathCoordinates.map(([latitude, longitude], index) => (
+                        <Waypoint
+                            key={`${latitude}-${longitude}-${index}`}
+                            count={index + 1}
+                            coords={`${latitude.toFixed(6)}°, ${longitude.toFixed(6)}°`}
+                            deleteEvent={() => setPathCoordinates((current) =>
+                                current.filter((_, waypointIndex) => waypointIndex !== index)
+                            )}
+                        />
+                    ))}
                 </div>
             </div>
         </div>
