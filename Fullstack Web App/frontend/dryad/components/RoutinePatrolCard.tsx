@@ -1,11 +1,12 @@
 import { useState } from "react";
-import { FaLocationArrow, FaRegClock, FaRegUser } from "react-icons/fa6";
+import { FaDownload, FaRegClock, FaRegUser } from "react-icons/fa6";
 import { IoIosArrowDown, IoIosArrowUp } from "react-icons/io";
 import { TbMapRoute } from "react-icons/tb";
 import type { RoutinePatrol } from "./ProjectView/PatrolsView";
 import { capitalizeFirstLetter, timeAgo } from "@/library/general";
 import GlowButton from "./GlowButton";
 import { FiExternalLink } from "react-icons/fi";
+import { apiFetch } from "@/library/api";
 
 interface RoutinePatrolCardProps {
     patrol: RoutinePatrol;
@@ -16,17 +17,37 @@ export default function RoutinePatrolCard({ patrol }: RoutinePatrolCardProps) {
     const createdAt = new Date(patrol.created_at);
     const createdBy = patrol.created_by?.user;
     const coordinates = patrol.path.coordinates;
-    const waypoints = coordinates.map(([longitude, latitude]) => `${latitude},${longitude}`);
-    const navigationUrl = waypoints.length >= 2
-        ? `https://www.google.com/maps/dir/?api=1&${new URLSearchParams({
-            origin: waypoints[0],
-            destination: waypoints[waypoints.length - 1],
-            ...(waypoints.length > 2
-                ? { waypoints: waypoints.slice(1, -1).join("|") }
-                : {}),
-            travelmode: "walking",
-        }).toString()}`
-        : undefined;
+    const [isExporting, setIsExporting] = useState(false);
+    const [exportError, setExportError] = useState("");
+
+    const exportGPX = async () => {
+        setIsExporting(true);
+        setExportError("");
+        try {
+            const response = await apiFetch(
+                `http://127.0.0.1:8000/api/projects/${patrol.project.id}/routine_patrols/${patrol.id}/export/`
+            );
+            if (!response.ok) {
+                throw new Error(await response.text());
+            }
+
+            const gpxFile = await response.blob();
+            const downloadUrl = URL.createObjectURL(gpxFile);
+            const link = document.createElement("a");
+            link.href = downloadUrl;
+            link.download = `routine-patrol-${patrol.id}.gpx`;
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            window.setTimeout(() => URL.revokeObjectURL(downloadUrl), 1000);
+        } catch (error) {
+            setExportError(
+                error instanceof Error ? error.message : "Unable to export this patrol."
+            );
+        } finally {
+            setIsExporting(false);
+        }
+    };
 
     return (
         <div className="collapse rounded-2xl w-full border border-2 border-white/5 px-2 bg-base-200 mb-4">
@@ -96,18 +117,20 @@ export default function RoutinePatrolCard({ patrol }: RoutinePatrolCardProps) {
                     <p className="text-secondary-content text-sm">
                         Route · {coordinates.length} waypoints
                     </p>
-                    {navigationUrl && (
+                    {coordinates.length >= 2 && (
                         <GlowButton
                             className="btn btn-secondary"
                             color="#60A5FA"
-                            onClick={() => window.open(navigationUrl, "_blank", "noopener,noreferrer")}
+                            onClick={exportGPX}
+                            disabled={isExporting}
                         >
-                            <FaLocationArrow />
-                            Navigate
+                            <FaDownload />
+                            {isExporting ? "Exporting..." : "Export"}
                             <FiExternalLink />
                         </GlowButton>
                     )}
                 </div>
+                {exportError && <p role="alert" className="text-error text-sm mt-2">{exportError}</p>}
             </div>
         </div>
     );

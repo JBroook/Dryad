@@ -1,6 +1,7 @@
 from django.contrib.gis.geos import LineString, Point, Polygon
 from django.test import TestCase
 from django.urls import reverse
+from xml.etree import ElementTree
 from rest_framework import status
 from rest_framework.test import APIClient
 
@@ -174,6 +175,59 @@ class PatrolAssignmentTests(TestCase):
         self.assertEqual(len(response.data), 1)
         self.assertEqual(response.data[0]["name"], "North boundary")
         self.assertEqual(response.data[0]["created_by"]["id"], self.assigner.id)
+
+    def test_routine_patrol_gpx_export_returns_track_for_project_member(self):
+        self.client.force_authenticate(user=self.assigner_user)
+        routine_patrol = RoutinePatrol.objects.create(
+            project=self.project,
+            created_by=self.assigner,
+            name="North & East",
+            frequency=RoutinePatrol.Frequency.WEEKLY,
+            start_date="2026-10-20",
+            path=LineString([(1, 2), (3, 4)], srid=4326),
+        )
+
+        response = self.client.get(
+            reverse(
+                "routine_patrol_gpx_export",
+                args=[self.project.id, routine_patrol.id],
+            )
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response["Content-Type"], "application/gpx+xml; charset=utf-8")
+        self.assertIn(".gpx", response["Content-Disposition"])
+        document = ElementTree.fromstring(response.content)
+        namespace = {"gpx": "http://www.topografix.com/GPX/1/1"}
+        track_name = document.findtext("gpx:trk/gpx:name", namespaces=namespace)
+        trackpoints = document.findall(".//gpx:trkpt", namespace)
+        self.assertEqual(track_name, "North & East")
+        self.assertEqual(len(trackpoints), 2)
+        self.assertEqual(trackpoints[0].attrib, {"lat": "2.0000000", "lon": "1.0000000"})
+
+    def test_routine_patrol_gpx_export_is_not_available_to_non_members(self):
+        outsider = User.objects.create_user(
+            email="outsider@example.com",
+            password="test-password-123",
+        )
+        self.client.force_authenticate(user=outsider)
+        routine_patrol = RoutinePatrol.objects.create(
+            project=self.project,
+            created_by=self.assigner,
+            name="North boundary",
+            frequency=RoutinePatrol.Frequency.WEEKLY,
+            start_date="2026-10-20",
+            path=LineString([(1, 2), (3, 4)], srid=4326),
+        )
+
+        response = self.client.get(
+            reverse(
+                "routine_patrol_gpx_export",
+                args=[self.project.id, routine_patrol.id],
+            )
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
     def test_user_can_list_routine_patrols_from_their_projects(self):
         self.client.force_authenticate(user=self.assigner_user)

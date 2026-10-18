@@ -99,24 +99,24 @@ export default function DevicesView(props: DevicesViewProps) {
         const incident = patrol.incident;
         return {...patrol,
             assignedBy : {
-            ...patrol.assigned_by,
-            firstName : patrol.assigned_by.user.first_name,
-            lastName : patrol.assigned_by.user.last_name,
+                ...patrol.assigned_by,
+                firstName : patrol.assigned_by.user.first_name,
+                lastName : patrol.assigned_by.user.last_name,
             },
             assignedMembers : patrol.members.map((member : SerializedPatrolMember) => ({
-            id : member.id,
-            firstName : member.user.first_name,
-            lastName : member.user.last_name,
-            role : member.role,
+                id : member.id,
+                firstName : member.user.first_name,
+                lastName : member.user.last_name,
+                role : member.role,
             })),
             assignedAt : patrol.assigned_at,
             incident : {
-            ...incident,
-            threatClass : incident.threat_class,
-            coordinates : {
-                lat : parseFloat(incident.coordinates.coordinates[0]),
-                lng : parseFloat(incident.coordinates.coordinates[1])
-            }
+                ...incident,
+                threatClass : incident.threat_class,
+                coordinates : {
+                    lat : parseFloat(incident.coordinates.coordinates[0]),
+                    lng : parseFloat(incident.coordinates.coordinates[1])
+                }
             }
         }
         }))
@@ -185,11 +185,14 @@ export default function DevicesView(props: DevicesViewProps) {
             const createdPatrol: RoutinePatrol = await response.json();
             setRoutinePatrols((current) => [createdPatrol, ...current]);
             setFilterIndex(filterOptions.findIndex((option) => option.key === "routine"));
+
             setCreationMessage("Routine patrol created.");
             setIsCreatingPatrol(false);
+
             setPatrolName("");
             setFrequency("weekly");
             setStartDate("");
+
             setPathCoordinates([]);
         } catch (error) {
             setCreationError(

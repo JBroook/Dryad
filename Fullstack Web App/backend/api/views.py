@@ -2,6 +2,8 @@ import hashlib
 import json
 import math
 from datetime import timedelta
+from xml.sax.saxutils import escape
+from django.http import HttpResponse
 from django.utils import timezone
 import secrets
 import string
@@ -467,6 +469,42 @@ class ProjectRoutinePatrolView(ListCreateAPIView):
             user=self.request.user,
         )
         serializer.save(project=project, created_by=creator)
+
+
+class RoutinePatrolGPXExportView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, project_id, routine_patrol_id):
+        patrol = get_object_or_404(
+            RoutinePatrol.objects.select_related("project"),
+            pk=routine_patrol_id,
+            project_id=project_id,
+            project__members__user=request.user,
+        )
+        waypoints = "\n".join(
+            f'      <trkpt lat="{latitude:.7f}" lon="{longitude:.7f}"></trkpt>'
+            for longitude, latitude in patrol.path.coords
+        )
+        gpx = (
+            '<?xml version="1.0" encoding="UTF-8"?>\n'
+            '<gpx version="1.1" creator="Dryad" '
+            'xmlns="http://www.topografix.com/GPX/1/1">\n'
+            "  <metadata>\n"
+            f"    <name>{escape(patrol.name)}</name>\n"
+            "  </metadata>\n"
+            "  <trk>\n"
+            f"    <name>{escape(patrol.name)}</name>\n"
+            "    <trkseg>\n"
+            f"{waypoints}\n"
+            "    </trkseg>\n"
+            "  </trk>\n"
+            "</gpx>\n"
+        )
+        response = HttpResponse(gpx, content_type="application/gpx+xml; charset=utf-8")
+        response["Content-Disposition"] = (
+            f'attachment; filename="routine-patrol-{patrol.pk}.gpx"'
+        )
+        return response
 
 
 class GenerateRoutinePatrolPathView(APIView):
