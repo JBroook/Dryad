@@ -1,11 +1,11 @@
-import getThreatIcon from "@/lib/threatIcons";
+import getThreatIcon from "@/library/threatIcons";
 import { useState } from "react";
 import { FaCopy, FaLocationArrow, FaMicrophone, FaPersonRunning, FaRegClock, FaRegUser } from "react-icons/fa6";
 import { IoIosArrowDown, IoIosArrowUp } from "react-icons/io";
 import { MdOutlineLocationOn, MdRemoveRedEye } from "react-icons/md";
 import GlowButton from "./GlowButton";
 import { Patrol } from "@/app/home/patrols/page";
-import { capitalizeFirstLetter, copyTextToClipboard, timeAgo } from "@/lib/general";
+import { capitalizeFirstLetter, copyTextToClipboard, timeAgo } from "@/library/general";
 import { TbMapRoute } from "react-icons/tb";
 import { FiExternalLink } from "react-icons/fi";
 import { useRouter } from "next/navigation";
@@ -97,6 +97,16 @@ export default function PatrolCard(props : PatrolCardProps) {
         </div>
 
         <div className="collapse-content w-full">
+            <h1 className="font-semibold text-secondary-content text-sm">ASSIGNED MEMBERS</h1>
+            <div className="flex flex-wrap gap-3 my-4">
+                {props.patrol.assignedMembers.map((member) => (
+                    <div key={member.id} className="rounded-xl bg-secondary p-3 min-w-42">
+                        <h1 className="font-semibold text-sm">{member.firstName} {member.lastName}</h1>
+                        <p className="text-sm">{capitalizeFirstLetter(member.role)}</p>
+                    </div>
+                ))}
+            </div>
+
             <div className="w-full flex">
                 <div className="flex-1 bg-base-300 rounded-xl p-4 mr-2">
                     <div className="flex gap-2 items-center">

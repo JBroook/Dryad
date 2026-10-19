@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { IncidentType } from "../project/page";
 import { ThreatClass } from "../projects/new/page";
 import FullIncidentsView from "@/components/FullIncidentsView";
-import { apiFetch } from "@/lib/api";
+import { apiFetch } from "@/library/api";
 
 export default function Incidents() {
   const [incidents, setIncidents] = useState<IncidentType[]>([])

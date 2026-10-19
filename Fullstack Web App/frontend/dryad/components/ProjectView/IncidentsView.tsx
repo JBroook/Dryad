@@ -4,7 +4,7 @@ import Incident from "../Incident";
 import { FaTruck } from "react-icons/fa";
 import type { IncidentType } from "@/app/home/project/page";
 import { useEffect, useRef, useState } from "react";
-import { apiFetch } from "@/lib/api";
+import { apiFetch } from "@/library/api";
 import { FaPersonCircleCheck, FaPlus } from "react-icons/fa6";
 import { IoSearch } from "react-icons/io5";
 import { Member, ThreatClass } from "@/app/home/projects/new/page";
@@ -13,7 +13,7 @@ import GlowButton from "../GlowButton";
 import { IoIosOptions, IoIosWarning, IoMdCheckmark } from "react-icons/io";
 import SortButton from "../SortButton";
 import ToggleGlowButton from "../ToggleGlowButton";
-import getThreatIcon from "@/lib/threatIcons";
+import getThreatIcon from "@/library/threatIcons";
 import { RxCross2 } from "react-icons/rx";
 import { useRouter, useSearchParams } from "next/navigation";
 
@@ -134,18 +134,16 @@ export default function IncidentsView(props: IncidentsViewProps) {
         }
 
         try {
-            for (const member of selectedMembers) {
-                const res = await apiFetch(`http://127.0.0.1:8000/api/incidents/${props.incidents[incidentIndex].id}/assign_patrol`, {
-                    method : "POST",
-                    body : JSON.stringify({
-                        assignee_id : member.id,
-                        assigner_id : currentUserMembershipId
-                    })
-                });
+            const res = await apiFetch(`http://127.0.0.1:8000/api/incidents/${props.incidents[incidentIndex].id}/assign_patrol`, {
+                method : "POST",
+                body : JSON.stringify({
+                    assignee_ids : selectedMembers.map((member) => member.id),
+                    assigner_id : currentUserMembershipId
+                })
+            });
 
-                if (!res.ok) {
-                    throw new Error(await res.text());
-                }
+            if (!res.ok) {
+                throw new Error(await res.text());
             }
         } catch (err) {
             console.error("Fetch failed:", err);
@@ -398,7 +396,7 @@ export default function IncidentsView(props: IncidentsViewProps) {
                 Assign Patrol
             </h3>
             <p className="py-2 text-sm text-secondary-content">
-                Dispatch a project member to investigate
+                Dispatch selected project members to investigate together
             </p>
             <label className="input bg-secondary w-full border border-white/8 mt-2">
                 <IoSearch />

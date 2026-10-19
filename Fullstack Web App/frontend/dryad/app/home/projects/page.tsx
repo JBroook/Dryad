@@ -3,7 +3,7 @@
 import HollowCard from "@/components/HollowCard";
 import ProjectCard from "@/components/ProjectCard";
 import ProjectCreator from "@/components/ProjectCreator";
-import { apiFetch } from "@/lib/api";
+import { apiFetch } from "@/library/api";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
@@ -15,7 +15,7 @@ import { IoMdWifi } from "react-icons/io";
 import { IoWarning } from "react-icons/io5";
 
 import type { Project } from "./new/page";
-import { timeAgo } from "@/lib/general";
+import { timeAgo } from "@/library/general";
 import { RxCross2 } from "react-icons/rx";
 
 interface OverviewCard {

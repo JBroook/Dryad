@@ -1,6 +1,6 @@
 import { Device } from "@/app/home/project/page";
-import { capitalizeFirstLetter, timeAgo } from "@/lib/general";
-import getThreatIcon from "@/lib/threatIcons";
+import { capitalizeFirstLetter, timeAgo } from "@/library/general";
+import getThreatIcon from "@/library/threatIcons";
 import { FaMicrophone } from "react-icons/fa6";
 
 interface DevicePopupProps {

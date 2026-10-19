@@ -10,7 +10,7 @@ router.register(r'threat_classes', views.ThreatClassViewSet, basename='threat_cl
 router.register(r'incidents', views.IncidentViewSet, basename='incident')
 router.register(
     r'users/(?P<user_id>\d+)/patrols', 
-    views.PatrolViewSet, 
+    views.UserPatrolViewSet, 
     basename='user_patrol'
 )
 router.register(
@@ -28,6 +28,11 @@ router.register(
     views.DeviceViewSet, 
     basename='project_devices'
 )
+router.register(
+    r'projects/(?P<project_id>\d+)/patrols', 
+    views.ProjectPatrolViewSet, 
+    basename='project_patrols'
+)
 
 urlpatterns = [
     path('login/', views.LoginView.as_view(), name="login"),
@@ -38,6 +43,26 @@ urlpatterns = [
     path('delete_account/', views.DeleteAccountView.as_view(), name="delete_account"),
     path('', include(router.urls)),
     path('projects/<int:project_id>/connection_code', views.ProjectGetCodeView.as_view(), name="project_code"),
+    path(
+        'projects/<int:project_id>/routine_patrols/',
+        views.ProjectRoutinePatrolView.as_view(),
+        name="project_routine_patrols",
+    ),
+    path(
+        'projects/<int:project_id>/routine_patrols/<int:routine_patrol_id>/export/',
+        views.RoutinePatrolGPXExportView.as_view(),
+        name="routine_patrol_gpx_export",
+    ),
+    path(
+        'projects/<int:project_id>/generate_routine_patrol_path/',
+        views.GenerateRoutinePatrolPathView.as_view(),
+        name="generate_routine_patrol_path",
+    ),
+    path(
+        'users/<int:user_id>/routine_patrols/',
+        views.UserRoutinePatrolListView.as_view(),
+        name="user_routine_patrols",
+    ),
     path('devices/connect', views.DeviceConnectionView.as_view(), name="connect_device"),
     path('devices/<int:device_id>/report', views.DeviceReportView.as_view(), name="report_incident"),
     path('projects/<int:project_id>/invite', views.InviteMemberView.as_view(), name="invite"),

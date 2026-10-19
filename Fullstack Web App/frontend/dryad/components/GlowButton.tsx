@@ -15,7 +15,8 @@ export default function GlowButton({
   children,
   className = "",
   color,
-  onClick=()=>{}
+  onClick=()=>{},
+  disabled=false
 }: GlowButtonProps) {
     const { theme } = useTheme();
     const [mounted, setMounted] = useState(false);
@@ -30,6 +31,7 @@ export default function GlowButton({
       <button 
       className={`btn border ${className}`}
       onClick={onClick}
+      disabled={disabled}
       style={{
         backgroundColor : isLightTheme ? `${color}1f` : `${color}26`,
         border : isLightTheme ? `1px solid ${color}66` : `1px solid ${color}40`,

@@ -1,21 +1,27 @@
 import hashlib
+import json
+import math
 from datetime import timedelta
+from xml.sax.saxutils import escape
+from django.http import HttpResponse
 from django.utils import timezone
 import secrets
 import string
 from projects.BNN import calculate_project_risk
 from rest_framework import status
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
 from users.serializers import ForgotPasswordSerializer, LoginSerializer, RegisterSerializer, ResetPasswordSerializer, UserSettingsSerializer, VerifyEmailSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.response import Response
+from rest_framework.generics import ListCreateAPIView, ListAPIView
 from rest_framework.viewsets import ModelViewSet
 from users.serializers import UserSerializer
 from users.models import User
-from projects.models import ConnectionCode, Project, Incident, ThreatClass, Membership, Patrol, GridCell, Device
+from projects.models import ConnectionCode, Project, Incident, ThreatClass, Membership, Patrol, GridCell, Device, RoutinePatrol
 from projects.serializers import (DeviceConnectSerializer, ProjectOverviewSerializer, ProjectSerializer, IncidentSerializer, 
 ThreatClassSerializer, MembershipSerializer, PatrolSerializer,
-GridCellSerializer, DeviceSerializer)
+GridCellSerializer, DeviceSerializer, RoutinePatrolSerializer)
 from django.db.models import Q
 from django_filters.rest_framework import DjangoFilterBackend
 import django_filters
@@ -23,8 +29,8 @@ from rest_framework.filters import OrderingFilter
 from django.shortcuts import get_object_or_404
 from django.utils.dateparse import parse_datetime
 from django.db.models import Count
-from django.db import IntegrityError
-from django.contrib.gis.geos import Point
+from django.db import IntegrityError, connection
+from django.contrib.gis.geos import LineString, Point
 from django.db.models.functions import TruncDate
 from django.contrib.auth.hashers import check_password
 
@@ -364,7 +370,7 @@ class InviteMemberView(APIView):
         )
     
 
-class PatrolViewSet(ModelViewSet):
+class UserPatrolViewSet(ModelViewSet):
     queryset = Patrol.objects.all()
     serializer_class = PatrolSerializer
 
@@ -386,8 +392,25 @@ class PatrolViewSet(ModelViewSet):
         user_id = self.kwargs["user_id"]
 
         return queryset.filter(
-            member__user_id=user_id
+            members__user_id=user_id
         )
+
+
+class UserRoutinePatrolListView(ListAPIView):
+    serializer_class = RoutinePatrolSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        if self.request.user.pk != int(self.kwargs["user_id"]):
+            return RoutinePatrol.objects.none()
+
+        return RoutinePatrol.objects.filter(
+            project__members__user=self.request.user
+        ).select_related(
+            "project",
+            "created_by__user",
+        ).distinct().order_by("-created_at")
+
 
 class GridCellViewSet(ModelViewSet):
     queryset = GridCell.objects.all()
@@ -414,6 +437,176 @@ class DeviceViewSet(ModelViewSet):
         return queryset.filter(
             project_id=project_id
         )
+
+class ProjectPatrolViewSet(ModelViewSet):
+    queryset = Patrol.objects.all()
+    serializer_class = PatrolSerializer
+
+    def get_queryset(self):
+        queryset = self.queryset
+
+        project_id = self.kwargs["project_id"]
+
+        return queryset.filter(
+            project_id=project_id
+        )
+
+
+class ProjectRoutinePatrolView(ListCreateAPIView):
+    serializer_class = RoutinePatrolSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return RoutinePatrol.objects.filter(
+            project_id=self.kwargs["project_id"]
+        ).select_related("project", "created_by__user").order_by("-created_at")
+
+    def perform_create(self, serializer):
+        project = get_object_or_404(Project, pk=self.kwargs["project_id"])
+        creator = get_object_or_404(
+            Membership,
+            project=project,
+            user=self.request.user,
+        )
+        serializer.save(project=project, created_by=creator)
+
+
+class RoutinePatrolGPXExportView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, project_id, routine_patrol_id):
+        patrol = get_object_or_404(
+            RoutinePatrol.objects.select_related("project"),
+            pk=routine_patrol_id,
+            project_id=project_id,
+            project__members__user=request.user,
+        )
+        waypoints = "\n".join(
+            f'      <trkpt lat="{latitude:.7f}" lon="{longitude:.7f}"></trkpt>'
+            for longitude, latitude in patrol.path.coords
+        )
+        gpx = (
+            '<?xml version="1.0" encoding="UTF-8"?>\n'
+            '<gpx version="1.1" creator="Dryad" '
+            'xmlns="http://www.topografix.com/GPX/1/1">\n'
+            "  <metadata>\n"
+            f"    <name>{escape(patrol.name)}</name>\n"
+            "  </metadata>\n"
+            "  <trk>\n"
+            f"    <name>{escape(patrol.name)}</name>\n"
+            "    <trkseg>\n"
+            f"{waypoints}\n"
+            "    </trkseg>\n"
+            "  </trk>\n"
+            "</gpx>\n"
+        )
+        response = HttpResponse(gpx, content_type="application/gpx+xml; charset=utf-8")
+        response["Content-Disposition"] = (
+            f'attachment; filename="routine-patrol-{patrol.pk}.gpx"'
+        )
+        return response
+
+
+class GenerateRoutinePatrolPathView(APIView):
+    permission_classes = [IsAuthenticated]
+    hotspot_risk_threshold = 0.8
+
+    def post(self, request, project_id):
+        project = get_object_or_404(Project, pk=project_id)
+        get_object_or_404(
+            Membership,
+            project=project,
+            user=request.user,
+        )
+
+        with connection.cursor() as cursor:
+            cursor.execute(
+                f"""
+                SELECT
+                    risk_score,
+                    ST_X(hotspot_center),
+                    ST_Y(hotspot_center)
+                FROM (
+                    SELECT
+                        MAX(risk_score) AS risk_score,
+                        ST_Centroid(ST_Collect(geometry)) AS hotspot_center
+                    FROM (
+                        SELECT
+                            risk_score,
+                            geometry,
+                            ST_ClusterDBSCAN(geometry, 0, 1)
+                                OVER () AS hotspot_cluster
+                        FROM {GridCell._meta.db_table}
+                        WHERE project_id = %s
+                          AND risk_score >= %s
+                    ) AS high_risk_cells
+                    GROUP BY hotspot_cluster
+                ) AS risk_hotspots
+                ORDER BY risk_score DESC
+                """,
+                [project.id, self.hotspot_risk_threshold],
+            )
+            hotspot_rows = cursor.fetchall()
+
+        hotspots = [
+            (
+                risk_score,
+                Point(longitude, latitude, srid=4326),
+            )
+            for risk_score, longitude, latitude in hotspot_rows
+        ]
+        if len(hotspots) < 2:
+            return Response(
+                {
+                    "detail": (
+                        "At least two separate very-high-risk hotspots (risk score 0.8 or "
+                        "higher) are needed to generate a patrol path."
+                    )
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        remaining = hotspots
+        remaining.sort(key=lambda hotspot: hotspot[0], reverse=True)
+        ordered_points = [remaining.pop(0)[1]]
+
+        while remaining:
+            current_point = ordered_points[-1]
+            nearest_index = min(
+                range(len(remaining)),
+                key=lambda index: self._distance_meters(
+                    current_point,
+                    remaining[index][1],
+                ),
+            )
+            ordered_points.append(remaining.pop(nearest_index)[1])
+
+        route = LineString(
+            [point.coords for point in ordered_points],
+            srid=4326,
+        )
+        return Response(
+            {
+                "path": json.loads(route.geojson),
+                "hotspot_count": len(ordered_points),
+            },
+            status=status.HTTP_200_OK,
+        )
+
+    @staticmethod
+    def _distance_meters(first, second):
+        first_latitude, first_longitude = map(math.radians, (first.y, first.x))
+        second_latitude, second_longitude = map(math.radians, (second.y, second.x))
+        latitude_delta = second_latitude - first_latitude
+        longitude_delta = second_longitude - first_longitude
+        haversine = (
+            math.sin(latitude_delta / 2) ** 2
+            + math.cos(first_latitude)
+            * math.cos(second_latitude)
+            * math.sin(longitude_delta / 2) ** 2
+        )
+        return 6_371_000 * 2 * math.asin(math.sqrt(haversine))
+
 
 class ProjectGetCodeView(APIView):
     def post(self, request, project_id):
@@ -593,35 +786,64 @@ class PatrolAssignView(APIView):
             return Response({"details" : "Incident does not exist"}, status=status.HTTP_404_NOT_FOUND)
 
         assigner_id = request.data.get("assigner_id")
-        assignee_id = request.data.get("assignee_id")
+        assignee_ids = request.data.get("assignee_ids")
+        if assignee_ids is None and request.data.get("assignee_id") is not None:
+            assignee_ids = [request.data.get("assignee_id")]
 
-        if assigner_id and assignee_id:
-            try:
-                assignee = Membership.objects.get(pk=assignee_id)
-                assigner = Membership.objects.get(pk=assigner_id)
-            except Membership.DoesNotExist:
-                return Response({"details" : "Members do not exist"}, status=status.HTTP_404_NOT_FOUND)
+        if not assigner_id or not isinstance(assignee_ids, list) or not assignee_ids:
+            return Response(
+                {"details" : "Assigner and assignees must be provided"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
-            incident.status = Incident.Status.REVIEWING
-            incident.save()
+        try:
+            assigner_id = int(assigner_id)
+            assignee_ids = list(dict.fromkeys(int(assignee_id) for assignee_id in assignee_ids))
+        except (TypeError, ValueError):
+            return Response(
+                {"details" : "Assigner and assignee IDs must be valid"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
+        assignees = list(Membership.objects.filter(
+            pk__in=assignee_ids,
+            project=incident.project
+        ))
+        if len(assignees) != len(assignee_ids):
+            return Response(
+                {"details" : "One or more assignees do not belong to this project"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        try:
+            assigner = Membership.objects.get(pk=assigner_id, project=incident.project)
+        except Membership.DoesNotExist:
+            return Response(
+                {"details" : "Assigner does not belong to this project"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        incident.status = Incident.Status.REVIEWING
+        incident.save()
+
+        patrol = Patrol.objects.filter(
+            incident=incident,
+            status=Patrol.Status.PENDING
+        ).order_by("assigned_at").first()
+        if patrol is None:
             patrol = Patrol.objects.create(
                 project=incident.project,
                 incident=incident,
-                member=assignee,
                 target=incident.coordinates,
                 assigned_by=assigner
             )
 
-            return Response(
-                PatrolSerializer(patrol).data,
-                status=status.HTTP_200_OK
-            )
-        else:
-            return Response(
-                {"details" : "Members not provided"}, 
-                status=status.HTTP_400_BAD_REQUEST
-                )
+        patrol.members.add(*assignees)
+
+        return Response(
+            PatrolSerializer(patrol).data,
+            status=status.HTTP_200_OK
+        )
 
 class CalculateProjectRiskView(APIView):
     def post(self, request, project_id):

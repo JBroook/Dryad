@@ -1,6 +1,6 @@
 import { IncidentType } from "@/app/home/project/page";
-import { capitalizeFirstLetter } from "@/lib/general";
-import getThreatIcon from "@/lib/threatIcons";
+import { capitalizeFirstLetter } from "@/library/general";
+import getThreatIcon from "@/library/threatIcons";
 
 interface IncidentPopupProps {
     incident : IncidentType;

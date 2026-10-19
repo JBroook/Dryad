@@ -1,5 +1,5 @@
 import { Device } from "@/app/home/project/page";
-import { capitalizeFirstLetter, timeAgo } from "@/lib/general";
+import { capitalizeFirstLetter, timeAgo } from "@/library/general";
 import { useState } from "react";
 import { BsThreeDots } from "react-icons/bs";
 import { FaWifi } from "react-icons/fa6";

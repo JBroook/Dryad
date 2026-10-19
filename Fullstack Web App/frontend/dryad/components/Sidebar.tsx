@@ -9,7 +9,7 @@ import HollowCard from "./HollowCard";
 import { MdOutlineDarkMode, MdOutlineLightMode } from "react-icons/md";
 import { useEffect, useState } from "react";
 import { useTheme } from "next-themes";
-import { apiFetch } from "@/lib/api";
+import { apiFetch } from "@/library/api";
 
 export default function Sidebar() {
     const sidebarOptions = [

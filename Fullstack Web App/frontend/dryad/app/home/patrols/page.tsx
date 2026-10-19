@@ -2,17 +2,24 @@
 
 import PatrolCard from "@/components/PatrolCard";
 import ToggleGlowButton from "@/components/ToggleGlowButton";
-import { apiFetch } from "@/lib/api";
+import { apiFetch } from "@/library/api";
 import { useEffect, useState } from "react";
 import { IncidentType } from "../project/page";
 import { Project } from "../projects/new/page";
 import { TbMapRoute } from "react-icons/tb";
+import RoutinePatrolCard from "@/components/RoutinePatrolCard";
+import type { RoutinePatrol } from "@/components/ProjectView/PatrolsView";
 
 export type Patrol = {
   id : number;
   incident : IncidentType;
   target : { type : string; coordinates : number[]};
-  member : number;
+  assignedMembers : {
+    id : number;
+    firstName : string;
+    lastName : string;
+    role : string;
+  }[];
   project : Project;
   assignedBy : {
     firstName : string;
@@ -23,8 +30,19 @@ export type Patrol = {
   status : string;
 }
 
+export type SerializedPatrolMember = {
+  id : number;
+  role : string;
+  user : {
+    first_name : string;
+    last_name : string;
+  };
+}
+
 export default function Patrols() {
   const [patrols, setPatrols] = useState<Patrol[]>([]);
+  const [routinePatrols, setRoutinePatrols] = useState<RoutinePatrol[]>([]);
+  const [routineFetchError, setRoutineFetchError] = useState("");
   const [filterIndex, setFilterIndex] = useState<number>(1);
   const [patrolIndex, setPatrolIndex] = useState<number>(-1);
   const [confirmationCoordinates, setConfirmationCoordinates] = useState({
@@ -34,10 +52,11 @@ export default function Patrols() {
   const [locationError, setLocationError] = useState("");
 
   const filterOptions = [
-    {title : "All", key : "all", count : patrols.length},
+    {title : "All", key : "all", count : patrols.length + routinePatrols.length},
     {title : "Pending", key : "pending", count : patrols.reduce((count, patrol)=> {return patrol.status === "pending" ? (count + 1) : count}, 0)},
     {title : "Completed", key : "completed", count : patrols.reduce((count, patrol)=> {return patrol.status === "completed" ? (count + 1) : count}, 0)},
     {title : "Cancelled", key : "cancelled", count : patrols.reduce((count, patrol)=> {return patrol.status === "cancelled" ? (count + 1) : count}, 0)},
+    // {title : "Routine", key : "routine", count : routinePatrols.length},
   ]
   
   const extractPatrols = (data : any)=>{
@@ -49,6 +68,12 @@ export default function Patrols() {
           firstName : patrol.assigned_by.user.first_name,
           lastName : patrol.assigned_by.user.last_name,
         },
+        assignedMembers : patrol.members.map((member : SerializedPatrolMember) => ({
+          id : member.id,
+          firstName : member.user.first_name,
+          lastName : member.user.last_name,
+          role : member.role,
+        })),
         assignedAt : patrol.assigned_at,
         incident : {
           ...incident,
@@ -243,23 +268,39 @@ export default function Patrols() {
   }
 
   useEffect(()=>{
-    // fetch project patrols
     const userID = localStorage.getItem("userID")
+    if (!userID) {
+      return;
+    }
+
     apiFetch(`http://127.0.0.1:8000/api/users/${userID}/patrols/`)
       .then(async (res) => {
         if (!res.ok) throw new Error(await res.text());
         return res.json();
       })
-      .then((data)=>{console.log(data); return data})
       .then((data)=>extractPatrols(data))
       .catch((err) => console.error("Fetch failed:", err));
+
+    apiFetch(`http://127.0.0.1:8000/api/users/${userID}/routine_patrols/`)
+      .then(async (res) => {
+        if (!res.ok) throw new Error(await res.text());
+        return res.json();
+      })
+      .then((data: RoutinePatrol[]) => setRoutinePatrols(data))
+      .catch((err) => {
+        console.error("Routine patrol fetch failed:", err);
+        setRoutineFetchError("Unable to load routine patrols.");
+      });
   },[])
 
-  let matchingPatrols = patrols;
-
-  if(filterIndex!=0){
-    matchingPatrols = patrols.filter(patrol => patrol.status===filterOptions[filterIndex].key)
-  }
+  const selectedFilter = filterOptions[filterIndex].key;
+  const matchingPatrols = selectedFilter === "all"
+    ? patrols
+    : patrols.filter((patrol) => patrol.status === selectedFilter);
+  const matchingRoutinePatrols = selectedFilter === "all" || selectedFilter === "routine"
+    ? routinePatrols
+    : [];
+  const hasMatchingPatrols = matchingPatrols.length > 0 || matchingRoutinePatrols.length > 0;
 
   return (<>
     <dialog id="cancelModal" className="modal">
@@ -373,7 +414,7 @@ export default function Patrols() {
           My Patrols
         </h1>
         <p className="text-sm text-secondary-content">
-          Field patrols dispatched to you
+          Field and routine patrols from your projects
         </p>
       </div>
     </div>
@@ -391,28 +432,36 @@ export default function Patrols() {
       })}
 
       <p className="text-secondary-content ml-auto">
-        {patrols.length} patrols
+        {patrols.length + routinePatrols.length} patrols
       </p>
     </div>
 
     <div className="mx-6 mt-5">
-      {matchingPatrols.length>0 ?
-        matchingPatrols.map((patrol, index)=>{
-          return <PatrolCard
-            key={index}
+      {routineFetchError && (selectedFilter === "all" || selectedFilter === "routine") && (
+        <p role="alert" className="text-error">{routineFetchError}</p>
+      )}
+      {hasMatchingPatrols ?
+        <>
+        {matchingPatrols.map((patrol, index)=>(
+          <PatrolCard
+            key={`patrol-${patrol.id}`}
             color="#F97316"
             patrol={patrol}
             confirmPatrol={()=>openModal("confirmModal", index)}
             cancelPatrol={()=>openModal("cancelModal", index)}
             dismissPatrol={()=>openModal("dismissModal", index)}
           />
-      })
+        ))}
+        {matchingRoutinePatrols.map((patrol) => (
+          <RoutinePatrolCard key={`routine-${patrol.id}`} patrol={patrol} />
+        ))}
+        </>
       :
       <div className="w-full flex flex-col justify-center items-center text-secondary-content pt-30">
         <TbMapRoute className="text-4xl"/>
         
-        {filterOptions[filterIndex].key!=="all" ? 
-          <h1>You have no {filterOptions[filterIndex].key} patrols</h1>
+        {selectedFilter!=="all" ?
+          <h1>You have no {selectedFilter} patrols</h1>
           :
           <h1>You have no patrols</h1>
         }

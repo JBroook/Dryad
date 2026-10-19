@@ -12,7 +12,7 @@ import 'leaflet/dist/leaflet.css';
 import 'leaflet-draw/dist/leaflet.draw.css';
 import 'leaflet/dist/leaflet.css';
 import { Device, IncidentType } from '@/app/home/project/page';
-import getThreatIcon from '@/lib/threatIcons';
+import getThreatIcon from '@/library/threatIcons';
 import { renderToStaticMarkup } from 'react-dom/server';
 import IncidentPopup from './IncidentPopup';
 import { FaMicrophone } from 'react-icons/fa6';

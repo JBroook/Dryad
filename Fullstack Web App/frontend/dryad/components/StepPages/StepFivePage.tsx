@@ -83,7 +83,7 @@ export default function StepFivePage(props: StepPageProps) {
                 <>
                     <h3 className="font-bold text-lg">Project Created!</h3>
                     <p className="pt-4 text-sm text-secondary-content">
-                    Your project, {props.project.name}, is ready!
+                    {props.project.name} is up and running!
                     </p>
                     <div className="modal-action justify-end">
                         <button

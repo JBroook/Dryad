@@ -196,7 +196,7 @@ class Incident(models.Model):
 
 class Patrol(models.Model):
     target = models.PointField()
-    member = models.ForeignKey(to=Membership, on_delete=models.CASCADE)
+    members = models.ManyToManyField(to=Membership)
     project = models.ForeignKey(to=Project, on_delete=models.CASCADE)
     incident = models.ForeignKey(to=Incident, on_delete=models.CASCADE)
     assigned_by = models.ForeignKey(to=Membership, on_delete=models.CASCADE, related_name="assignments")
@@ -208,6 +208,36 @@ class Patrol(models.Model):
             CANCELLED = "cancelled", "Cancelled"
     
     status = models.CharField(choices=Status.choices, default=Status.PENDING)
+
+
+class RoutinePatrol(models.Model):
+    class Frequency(models.TextChoices):
+        ONCE = "once", "Once"
+        DAILY = "daily", "Daily"
+        WEEKLY = "weekly", "Weekly"
+        MONTHLY = "monthly", "Monthly"
+
+    project = models.ForeignKey(
+        to=Project,
+        on_delete=models.CASCADE,
+        related_name="routine_patrols",
+    )
+    created_by = models.ForeignKey(
+        to=Membership,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="created_routine_patrols",
+    )
+    name = models.CharField(max_length=100)
+    frequency = models.CharField(
+        max_length=10,
+        choices=Frequency.choices,
+        default=Frequency.WEEKLY,
+    )
+    start_date = models.DateField()
+    path = models.LineStringField(srid=4326)
+    created_at = models.DateTimeField(auto_now_add=True)
 
 
 class ConnectionCode(models.Model):

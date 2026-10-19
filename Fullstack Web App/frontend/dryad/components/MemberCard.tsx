@@ -6,7 +6,7 @@ import { MdDeleteOutline, MdOutlineEdit, MdRemoveRedEye } from "react-icons/md";
 import { RiVipCrown2Fill } from "react-icons/ri";
 import RoleBadge from "./RoleBadge";
 import { IoIosArrowDown } from "react-icons/io";
-import { capitalizeFirstLetter } from "@/lib/general";
+import { capitalizeFirstLetter } from "@/library/general";
 import { useState } from "react";
 import { RxCross2 } from "react-icons/rx";
 
