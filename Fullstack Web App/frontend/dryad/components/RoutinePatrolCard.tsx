@@ -58,15 +58,15 @@ export default function RoutinePatrolCard({ patrol }: RoutinePatrolCardProps) {
                 onChange={(event) => setIsOpen(event.target.checked)}
             />
 
-            <div className="collapse-title flex flex-row items-center pr-4">
-                <div className="h-full min-h-12 w-1 rounded-xs ml-2 my-1 bg-emerald-500" />
-                <div className="p-3 rounded-xl border ml-4 bg-emerald-500/10 border-emerald-500/10">
+            <div className="collapse-title flex flex-row items-center pr-2 md:pr-4">
+                <div className="my-1 ml-1 h-full min-h-12 w-1 rounded-xs bg-emerald-500 md:ml-2" />
+                <div className="ml-2 rounded-xl border border-emerald-500/10 bg-emerald-500/10 p-2 md:ml-4 md:p-3">
                     <TbMapRoute className="text-xl text-emerald-500" />
                 </div>
 
-                <div className="ml-4">
+                <div className="ml-2 min-w-0 flex-1 md:ml-4">
                     <h1 className="font-semibold mb-1">{patrol.name}</h1>
-                    <div className="flex flex-row items-center text-secondary-content text-sm">
+                    <div className="flex flex-wrap items-center text-secondary-content text-xs md:flex-row md:text-sm">
                         <TbMapRoute className="mr-1" />
                         <p className="mr-3">{capitalizeFirstLetter(patrol.frequency)}</p>
                         <FaRegClock className="mr-1" />
@@ -74,7 +74,7 @@ export default function RoutinePatrolCard({ patrol }: RoutinePatrolCardProps) {
                     </div>
                 </div>
 
-                <div className="ml-auto flex flex-row items-center">
+                <div className="ml-auto flex shrink-0 flex-row items-center">
                     {isOpen
                         ? <IoIosArrowUp className="text-2xl text-secondary-content ml-4" />
                         : <IoIosArrowDown className="text-2xl text-secondary-content ml-4" />}
@@ -83,8 +83,8 @@ export default function RoutinePatrolCard({ patrol }: RoutinePatrolCardProps) {
 
             <div className="collapse-content w-full">
                 <h1 className="font-semibold text-secondary-content text-sm">PATROL DETAILS</h1>
-                <div className="w-full flex mt-4">
-                    <div className="flex-1 bg-base-300 rounded-xl p-4 mr-2">
+                <div className="mt-4 flex w-full flex-col gap-2 md:flex-row">
+                    <div className="flex-1 rounded-xl bg-base-300 p-4 md:mr-2">
                         <div className="flex gap-2 items-center">
                             <FaRegUser className="text-xs" />
                             <p className="text-secondary-content text-sm">Created By</p>
@@ -101,7 +101,7 @@ export default function RoutinePatrolCard({ patrol }: RoutinePatrolCardProps) {
                         )}
                     </div>
 
-                    <div className="flex-1 bg-secondary rounded-xl p-4">
+                    <div className="flex-1 rounded-xl bg-secondary p-4">
                         <div className="flex gap-2 items-center">
                             <FaRegClock className="text-xs" />
                             <p className="text-secondary-content text-sm">Created At</p>

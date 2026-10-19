@@ -56,27 +56,27 @@ export default function PatrolCard(props : PatrolCardProps) {
     };
 
     return (
-    <div className="collapse rounded-2xl w-full border border-2 border-white/5 px-2 bg-base-200 mb-4">
+    <div className="collapse mb-4 w-full rounded-2xl border border-2 border-white/5 bg-base-200 px-2">
         <input 
         type="checkbox" 
         className="p-0"
         checked={isOpen}
         onChange={(e) => setIsOpen(e.target.checked)}/>
 
-        <div className="collapse-title flex flex-row items-center pr-4">
-            <div className="h-full min-h-12 w-1 rounded-xs ml-2 my-1" style={{backgroundColor : color}} />
+        <div className="collapse-title flex flex-row items-center pr-2 md:pr-4">
+            <div className="my-1 ml-1 h-full min-h-12 w-1 rounded-xs md:ml-2" style={{backgroundColor : color}} />
 
-            <div className="p-3 rounded-xl border ml-4" style={{backgroundColor : `${color}1A`, borderColor : `${color}1A`}}> 
+            <div className="ml-2 rounded-xl border p-2 md:ml-4 md:p-3" style={{backgroundColor : `${color}1A`, borderColor : `${color}1A`}}>
                 {/* 1A appended to give 10% opacity */}
                 <Icon className="text-xl" style={{color : color}}/>
             </div>
 
-            <div className="ml-4">
+            <div className="ml-2 min-w-0 flex-1 md:ml-4">
                 <div className="flex flex-row mb-1">
                     <h1 className="font-semibold">{incident.threatClass.name} Activity</h1>
                 </div>
 
-                <div className="flex flex-row items-center text-secondary-content text-sm">
+                <div className="flex flex-wrap items-center text-secondary-content text-xs md:flex-row md:text-sm">
                     <MdOutlineLocationOn className="mr-1"/> 
                     <p className="mr-3">{`${incident.coordinates.lat?.toPrecision(5)}°, ${incident.coordinates.lng?.toPrecision(5)}°`}</p>
 
@@ -87,7 +87,7 @@ export default function PatrolCard(props : PatrolCardProps) {
                 </div>
             </div>
 
-            <div className="ml-auto flex flex-row items-center">
+            <div className="ml-auto flex shrink-0 flex-row items-center">
                 {isOpen ?
                     <IoIosArrowUp className="text-2xl text-secondary-content ml-4" />
                     :
@@ -107,8 +107,8 @@ export default function PatrolCard(props : PatrolCardProps) {
                 ))}
             </div>
 
-            <div className="w-full flex">
-                <div className="flex-1 bg-base-300 rounded-xl p-4 mr-2">
+            <div className="flex w-full flex-col gap-2 md:flex-row">
+                <div className="flex-1 rounded-xl bg-base-300 p-4 md:mr-2">
                     <div className="flex gap-2 items-center">
                         <FaRegUser className="text-xs"/> <p className="text-secondary-content text-sm">Assigned By</p>
                     </div>
@@ -120,7 +120,7 @@ export default function PatrolCard(props : PatrolCardProps) {
                     </p>
                 </div>
 
-                <div className="flex-1 bg-secondary rounded-xl p-4 mr-2">
+                <div className="flex-1 rounded-xl bg-secondary p-4 md:mr-2">
                     <div className="flex gap-2 items-center">
                         <FaRegClock className="text-xs"/> <p className="text-secondary-content text-sm">Assigned At</p>
                     </div>
@@ -132,7 +132,7 @@ export default function PatrolCard(props : PatrolCardProps) {
                     </p>
                 </div>
 
-                <div className="flex-1 bg-secondary rounded-xl p-4 mr-2">
+                <div className="flex-1 rounded-xl bg-secondary p-4 md:mr-2">
                     <div className="flex gap-2 items-center">
                         <MdOutlineLocationOn className="text-xs"/> <p className="text-secondary-content text-sm">GPS Coordinates</p>
                     </div>
@@ -171,9 +171,9 @@ export default function PatrolCard(props : PatrolCardProps) {
 
             <progress className="progress progress-primary w-full mt-2" value={incident.confidence} max="100"></progress>
 
-            <div className="flex mt-2 justify-between">
-                <div className="flex gap-2">
-                    <GlowButton className="btn btn-secondary" color="#4ADE80"
+            <div className="mt-2 flex flex-col gap-3 md:flex-row md:justify-between">
+                <div className="flex flex-wrap gap-2">
+                    <GlowButton className="btn btn-secondary hidden md:inline-flex" color="#4ADE80"
                     onClick={()=>router.push(`/home/project?pid=${props.patrol.project.id}&tab=forest_map&lat=${
                         incident.coordinates.lng
                     }&lng=${
@@ -192,7 +192,7 @@ export default function PatrolCard(props : PatrolCardProps) {
                     </GlowButton>
                 </div>
 
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
                     {props.patrol.status==="pending" &&
                         <>
                         <GlowButton color="#94A3B8" onClick={props.cancelPatrol}>

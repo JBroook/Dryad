@@ -42,8 +42,8 @@ export default function ForgotPassword() {
   }
 
   return (
-  <div className="flex flex-row w-screen h-screen bg-base-100 text-base-content">
-    <div className="flex flex-col w-1/2 h-full pt-10 pl-10 bg-base-200/80 bg-[url('/assets/login_graphic.svg')] bg-contain bg-bottom bg-no-repeat border-r border-base-300">
+  <div className="flex min-h-screen w-full flex-col bg-base-100 text-base-content md:h-screen md:flex-row">
+    <div className="hidden flex-col bg-base-200/80 bg-[url('/assets/login_graphic.svg')] bg-contain bg-bottom bg-no-repeat pt-10 pl-10 md:flex md:h-full md:w-1/2 md:border-r md:border-base-300">
       <div>
         <h1 className="text-3xl font-semibold">Dryad</h1>
       </div>
@@ -93,8 +93,8 @@ export default function ForgotPassword() {
       </div>
     </div>
 
-    <div className="flex w-1/2 h-full items-center justify-center ">
-      <HollowCard className="p-8 w-[60%] max-w-xl h-fit overflow-y-auto">
+    <div className="flex w-full flex-1 items-center justify-center px-4 py-8 md:h-full md:w-1/2 md:px-0 md:py-0">
+      <HollowCard className="h-fit w-full max-w-xl overflow-y-auto p-5 md:w-[60%] md:p-8">
         <h1 className="text-3xl font-bold text-base-content">
           Reset Password
         </h1>
