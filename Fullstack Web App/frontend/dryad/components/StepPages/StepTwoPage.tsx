@@ -93,6 +93,7 @@ export default function StepTwoPage(props: StepPageProps) {
                 longitude={longitude}
                 handleArea={handleArea}
                 drawingEnabled={props.forestArea==null}
+                editingEnabled={true}
                 drawnItemsReference={drawnItemsReference}
                 geoJSON={props.geoJSON}
                 />

@@ -21,6 +21,7 @@ import SettingsView from "@/components/ProjectView/SettingsView";
 import { TbMapRoute } from "react-icons/tb";
 import { Patrol } from "../patrols/page";
 import PatrolsView from "@/components/ProjectView/PatrolsView";
+import { hasProjectRole, type ProjectRole } from "@/library/projectPermissions";
 
 type Tab = "overview" | "incidents" | "forest_map" | "devices" | "team";
 
@@ -66,6 +67,7 @@ export default function Project() {
   const [threatClasses, setThreatClasses] = useState<ThreatClass[]>([]);
   const [gridCells, setGridCells] = useState(null);
   const [devices, setDevices] = useState<Device[]>([]);
+  const [projectRole, setProjectRole] = useState<ProjectRole | null>(null);
 
   const extractProjectFeatures = (data : any) => {
     setProject({
@@ -115,6 +117,7 @@ export default function Project() {
     />,
     incidents : <IncidentsView 
       projectID={projectID}
+      canManage={hasProjectRole(projectRole, "manager")}
       filterIndex={filterIndex}
       filterOptions={filterOptions}
       setFilterIndex={(index)=>setFilterIndex(index)}
@@ -131,23 +134,31 @@ export default function Project() {
       incidents={incidents}
       devices={devices}
       project={project!}
+      canManage={hasProjectRole(projectRole, "manager")}
     />,
     devices : <DevicesView 
       projectID={projectID}
       devices={devices}
-      setDevices={setDevices}/>,
+      setDevices={setDevices}
+      canManage={hasProjectRole(projectRole, "manager")}/>,
     patrols : <PatrolsView
       projectID={projectID}
       geoJSON={project?.geoJSON}
       gridCells={gridCells}
+      canManage={hasProjectRole(projectRole, "manager")}
     />,
     team : <TeamView
       projectID={projectID}
       members={members}
       setMembers={setMembers}
+      canManageMembers={hasProjectRole(projectRole, "manager")}
+      canInviteMembers={hasProjectRole(projectRole, "admin")}
+      canManageOwner={projectRole === "owner"}
     />,
     settings : <SettingsView 
       projectID={projectID}
+      canEdit={hasProjectRole(projectRole, "admin")}
+      isOwner={projectRole === "owner"}
     />,
   }
 
@@ -156,6 +167,8 @@ export default function Project() {
   };
 
   useEffect(()=>{
+    setProjectRole(null);
+
     // fetch project info
     apiFetch(`http://127.0.0.1:8000/api/projects/${projectID}`)
       .then(async (res) => {
@@ -182,14 +195,20 @@ export default function Project() {
         if (!res.ok) throw new Error(await res.text());
         return res.json();
       })
-      .then((data)=>setMembers(data.map((member : any)=>{
-        return {...member, 
-          firstName : member.user.first_name, 
+      .then((data)=>{
+        const currentUserID = Number(localStorage.getItem("userID"));
+        const currentMembership = data.find(
+          (member : any) => member.user?.id === currentUserID && member.accepted
+        );
+        setProjectRole(currentMembership?.role ?? null);
+        setMembers(data.map((member : any)=>({
+          ...member,
+          firstName : member.user.first_name,
           lastName : member.user.last_name,
           email : member.user.email,
           joinDate : member.join_date
-        }
-      })))
+        })));
+      })
       .catch((err) => console.error("Fetch failed:", err));
 
     // fetch threat classes for incidents filter
@@ -226,7 +245,7 @@ export default function Project() {
       }));
     })
     .catch((err) => console.error("Fetch failed:", err));
-  }, [])
+  }, [projectID])
 
   return (<div className="flex flex-col">
       {project!=null ? 

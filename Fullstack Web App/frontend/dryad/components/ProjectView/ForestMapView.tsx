@@ -28,6 +28,7 @@ interface ForestMapViewProps {
     incidents : IncidentType[];
     devices : Device[];
     project : Project;
+    canManage: boolean;
 }
 
 export default function ForestMapView(props: ForestMapViewProps) {
@@ -183,6 +184,7 @@ export default function ForestMapView(props: ForestMapViewProps) {
             />
         </div>
 
+        {props.canManage && (
         <div className="mx-6 mt-4 border border-white/8 flex justify-between bg-base-200 py-4 px-6 rounded-xl">
             <div>
                 <h1 className="font-semibold">
@@ -199,6 +201,7 @@ export default function ForestMapView(props: ForestMapViewProps) {
                 Calculate Risk
             </button>
         </div>
+        )}
 
         <div className="flex  gap-4 mx-6 mt-4 mb-30">
             <div className="border border-white/8 bg-base-200 py-4 px-6 rounded-xl flex-3">

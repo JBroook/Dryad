@@ -19,6 +19,7 @@ interface ForestMapProps {
     longitude : number;
     handleArea : (area : GeoJSONType, surfaceArea : number, center : LatLng) => void;
     drawingEnabled : boolean;
+    editingEnabled : boolean;
     drawnItemsReference : RefObject<LeafletFeatureGroup | null>;
     geoJSON : GeoJSONType | null;
     gridCells? : any;
@@ -165,6 +166,10 @@ export default function ForestMap({
 
                 <EditControl
                     position="topright"
+                    edit={{
+                        edit: props.editingEnabled ? {} : false,
+                        remove: props.editingEnabled,
+                    }}
                     draw={{
                         rectangle: props.drawingEnabled,
                         polygon: props.drawingEnabled,

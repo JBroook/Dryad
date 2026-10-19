@@ -26,6 +26,7 @@ interface IncidentsViewProps {
     threatClasses : ThreatClass[];
     setThreatClasses : (newThreatClasses : ThreatClass[]) => void;
     setIncidents : (incidents : IncidentType[]) => void;
+    canManage: boolean;
 }
 
 
@@ -488,9 +489,9 @@ export default function IncidentsView(props: IncidentsViewProps) {
             Confidence
         </SortButton>
 
-        <button className="btn btn-primary ml-2">
+        {props.canManage && <button className="btn btn-primary ml-2">
             <FaPlus/> New Incident
-        </button>
+        </button>}
     </div>
     
 
@@ -608,6 +609,7 @@ export default function IncidentsView(props: IncidentsViewProps) {
                     assignPatrol={()=>assignPatrolModal(index)}
                     status={incident.status}
                     projectID={parseInt(props.projectID!)}
+                    canManage={props.canManage}
                 />
             })
             :

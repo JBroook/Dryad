@@ -12,6 +12,7 @@ interface DeviceCardProps {
     renameDevice : (id : number, newName : string) => void;
     toggleDevice : (id : number) => void;
     showOnMap : () => void;
+    canManage: boolean;
 }
 
 export default function DeviceCard(props : DeviceCardProps) {
@@ -85,26 +86,28 @@ export default function DeviceCard(props : DeviceCardProps) {
                 <details className="dropdown dropdown-left">
                     <summary className="btn p-1"><BsThreeDots/></summary>
                     <ul className="menu dropdown-content bg-secondary rounded-box z-1 w-52 p-2 mr-2">
-                        <li><a onClick={()=>props.toggleDevice(props.device.id)}>
-                            {props.device.status==="offline" ? 
-                                <>
-                                    <IoPower className="text-accent text-lg"/>
-                                    Set Online
-                                </>
-                            : 
-                                <>
-                                    <IoPower className="text-warning text-lg"/>
-                                    Set Offline
-                                </>}
-                        </a></li>
-                        <li><a onClick={handleRename}>
-                            <MdOutlineEdit className="text-[#60A5FA] text-xl"/> Rename
-                        </a></li>
+                        {props.canManage && <>
+                            <li><a onClick={()=>props.toggleDevice(props.device.id)}>
+                                {props.device.status==="offline" ?
+                                    <>
+                                        <IoPower className="text-accent text-lg"/>
+                                        Set Online
+                                    </>
+                                :
+                                    <>
+                                        <IoPower className="text-warning text-lg"/>
+                                        Set Offline
+                                    </>}
+                            </a></li>
+                            <li><a onClick={handleRename}>
+                                <MdOutlineEdit className="text-[#60A5FA] text-xl"/> Rename
+                            </a></li>
+                            <li><a onClick={()=>props.deleteEvent(props.device.id)}>
+                                <MdDeleteOutline className="text-error text-lg"/> Remove
+                            </a></li>
+                        </>}
                         <li><a onClick={props.showOnMap}>
                             <IoLocationOutline className="text-[#A78BFA] text-lg"/> Show on Map
-                        </a></li>
-                        <li><a onClick={()=>props.deleteEvent(props.device.id)}>
-                            <MdDeleteOutline className="text-error text-lg"/> Remove
                         </a></li>
                     </ul>
                 </details>

@@ -186,5 +186,5 @@ if __name__ == '__main__':
             save_checkpoint(f'trainedModels/{training_name}checkpoint_epoch{epoch + 1}.pth', epoch,
                             model, optimiser, running_loss)
 
-    with open(f"trainedModels/{training_name}training_stats.json", "w") as f:
+    with open(f"trainedModels/{training_name}_training_stats.json", "w") as f:
         json.dump(training_stats, f, indent=4)

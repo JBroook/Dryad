@@ -14,7 +14,7 @@ import { RxCross2 } from "react-icons/rx";
 interface ProjectPatrolCardProps {
     color : string;
     patrol : Patrol;
-    cancelPatrol : ()=>void;
+    cancelPatrol? : ()=>void;
 }
 
 export default function ProjectPatrolCard(props : ProjectPatrolCardProps) {
@@ -185,7 +185,7 @@ export default function ProjectPatrolCard(props : ProjectPatrolCardProps) {
                 </div>
 
                 <div className="flex gap-2">
-                    {props.patrol.status==="pending" &&
+                    {props.patrol.status==="pending" && props.cancelPatrol &&
                         <>
                         <GlowButton color="#94A3B8" onClick={props.cancelPatrol}>
                             <RxCross2/>

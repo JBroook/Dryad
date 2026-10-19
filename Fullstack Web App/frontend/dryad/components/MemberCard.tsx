@@ -14,6 +14,9 @@ interface MemberCardProps {
     member : Member;
     changeMemberRole : (id : number, newRole : string) => void;
     removeModal : () => void;
+    canManage: boolean;
+    canManageOwner: boolean;
+    isCurrentUser: boolean;
 }
 
 export default function MemberCard(props : MemberCardProps) {
@@ -81,23 +84,25 @@ export default function MemberCard(props : MemberCardProps) {
                     Invite pending...
                 </p>
             }
-            <details className="dropdown dropdown-left">
-                <summary className="btn mx-2">
-                    <BsThreeDots />
-                </summary>
-                <ul className="menu dropdown-content bg-secondary rounded-box z-1 w-52 p-2 mr-2 font-semibold">
-                    <li><a onClick={()=>setIsEditing(!isEditing)}>
-                        {isEditing?
-                            <><RxCross2 className="text-xl"/> Cancel Edit</>
-                            :
-                            <><MdOutlineEdit className="text-[#60A5FA] text-xl"/> Change Role</>
-                        }
-                    </a></li>
-                    <li><a onClick={props.removeModal}>
-                        <MdDeleteOutline className="text-error text-lg"/> Remove
-                    </a></li>
-                </ul>
-            </details>
+            {props.canManage && !props.isCurrentUser &&
+                (props.canManageOwner || props.member.role !== "owner") &&
+                <details className="dropdown dropdown-left">
+                    <summary className="btn mx-2">
+                        <BsThreeDots />
+                    </summary>
+                    <ul className="menu dropdown-content bg-secondary rounded-box z-1 w-52 p-2 mr-2 font-semibold">
+                        <li><a onClick={()=>setIsEditing(!isEditing)}>
+                            {isEditing?
+                                <><RxCross2 className="text-xl"/> Cancel Edit</>
+                                :
+                                <><MdOutlineEdit className="text-[#60A5FA] text-xl"/> Change Role</>
+                            }
+                        </a></li>
+                        <li><a onClick={props.removeModal}>
+                            <MdDeleteOutline className="text-error text-lg"/> Remove
+                        </a></li>
+                    </ul>
+                </details>}
         </div>
     </div>);
 }

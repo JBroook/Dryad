@@ -9,7 +9,8 @@ import secrets
 import string
 from projects.BNN import calculate_project_risk
 from rest_framework import status
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.exceptions import PermissionDenied
+from rest_framework.permissions import IsAuthenticated, SAFE_METHODS
 from rest_framework.views import APIView
 from users.serializers import ForgotPasswordSerializer, LoginSerializer, RegisterSerializer, ResetPasswordSerializer, UserSettingsSerializer, VerifyEmailSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -19,6 +20,7 @@ from rest_framework.viewsets import ModelViewSet
 from users.serializers import UserSerializer
 from users.models import User
 from projects.models import ConnectionCode, Project, Incident, ThreatClass, Membership, Patrol, GridCell, Device, RoutinePatrol
+from projects.permissions import require_project_role
 from projects.serializers import (DeviceConnectSerializer, ProjectOverviewSerializer, ProjectSerializer, IncidentSerializer, 
 ThreatClassSerializer, MembershipSerializer, PatrolSerializer,
 GridCellSerializer, DeviceSerializer, RoutinePatrolSerializer)
@@ -29,7 +31,7 @@ from rest_framework.filters import OrderingFilter
 from django.shortcuts import get_object_or_404
 from django.utils.dateparse import parse_datetime
 from django.db.models import Count
-from django.db import IntegrityError, connection
+from django.db import IntegrityError, connection, transaction
 from django.contrib.gis.geos import LineString, Point
 from django.db.models.functions import TruncDate
 from django.contrib.auth.hashers import check_password
@@ -52,6 +54,8 @@ class LoginView(APIView):
         })
 
 class DeleteAccountView(APIView):
+    permission_classes = [IsAuthenticated]
+
     def post(self, request):
         user = request.user
         user.is_active = False
@@ -170,9 +174,12 @@ class VerifyEmailView(APIView):
 class UserViewSet(ModelViewSet):
     queryset = User.objects.all()
     serializer_class = UserSerializer
+    permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
         queryset = super().get_queryset()
+        if self.action in ("retrieve", "update", "partial_update", "destroy"):
+            return queryset.filter(pk=self.request.user.pk)
         email = self.request.query_params.get('email')
 
         if email:
@@ -184,16 +191,42 @@ class UserViewSet(ModelViewSet):
 class ProjectViewSet(ModelViewSet):
     queryset = Project.objects.all()
     serializer_class = ProjectSerializer
+    permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
         return Project.objects.filter(
-            members__user=self.request.user
-        )
+            Q(members__user=self.request.user, members__accepted=True)
+            | Q(owner=self.request.user)
+        ).distinct()
 
     def perform_create(self, serializer):
         serializer.save(owner=self.request.user)
 
+    def perform_update(self, serializer):
+        require_project_role(
+            self.request,
+            self.get_object().pk,
+            Membership.Role.ADMIN,
+        )
+        if serializer.validated_data.get("status") is False:
+            require_project_role(
+                self.request,
+                self.get_object().pk,
+                Membership.Role.OWNER,
+            )
+        serializer.save()
+
+    def perform_destroy(self, instance):
+        require_project_role(
+            self.request,
+            instance.pk,
+            Membership.Role.OWNER,
+        )
+        instance.delete()
+
 class ProjectOverviewView(APIView):
+    permission_classes = [IsAuthenticated]
+
     def get(self, request):
         projects = Project.objects.annotate(
             member_count=Count('members', distinct=True),
@@ -214,21 +247,24 @@ class ProjectOverviewView(APIView):
         project_id = request.query_params.get("project_id")
 
         if project_id:
-            projects = projects.get(pk=project_id)
+            require_project_role(request, project_id)
+            projects = projects.filter(pk=project_id)
         else:
             projects = projects.filter(
-                members__user=request.user,
-                members__accepted=True
-            )
+                Q(members__user=request.user, members__accepted=True)
+                | Q(owner=request.user)
+            ).distinct()
 
         return Response(
-            ProjectOverviewSerializer(projects, many=project_id==None).data,
+            ProjectOverviewSerializer(projects, many=not project_id).data,
             status=status.HTTP_200_OK
         )
 
 class ThreatClassViewSet(ModelViewSet):
     queryset = ThreatClass.objects.all()
     serializer_class = ThreatClassSerializer
+    permission_classes = [IsAuthenticated]
+    http_method_names = ["get", "head", "options"]
 
 class NumberInFilter(
     django_filters.BaseInFilter,
@@ -259,6 +295,7 @@ class IncidentFilter(django_filters.FilterSet):
 class IncidentViewSet(ModelViewSet):
     queryset = Incident.objects.all()
     serializer_class = IncidentSerializer
+    permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend, OrderingFilter]
     filterset_class = IncidentFilter
 
@@ -271,31 +308,65 @@ class IncidentViewSet(ModelViewSet):
     ]
 
     def get_queryset(self):
+        queryset = Incident.objects.filter(
+            Q(project__members__user=self.request.user, project__members__accepted=True)
+            | Q(project__owner=self.request.user)
+        ).distinct()
         project_id = self.request.query_params.get("project")
 
         if project_id:
-            self.queryset = self.queryset.filter(project_id=project_id)
+            queryset = queryset.filter(project_id=project_id)
 
             search_param = self.request.query_params.get("search")
             if search_param:
-                self.queryset = self.queryset.filter(threat_class__name__icontains=search_param)
+                queryset = queryset.filter(threat_class__name__icontains=search_param)
 
 
         user_id = self.request.query_params.get("user_id")
-        if user_id:
-            self.queryset = self.queryset.filter(project__members__user_id=user_id)
+        if user_id and str(self.request.user.pk) == user_id:
+            queryset = queryset.filter(
+                Q(project__members__user_id=user_id, project__members__accepted=True)
+                | Q(project__owner_id=user_id)
+            )
             
             search_param = self.request.query_params.get("search")
             if search_param:
-                self.queryset = self.queryset.filter(threat_class__name__icontains=search_param)
+                queryset = queryset.filter(threat_class__name__icontains=search_param)
             
-        return self.queryset
+        elif user_id:
+            return Incident.objects.none()
+        return queryset
+
+    def perform_create(self, serializer):
+        project = serializer.validated_data.get("project")
+        if project is None:
+            raise PermissionDenied("An incident project is required.")
+        require_project_role(self.request, project.pk, Membership.Role.MANAGER)
+        serializer.save()
+
+    def perform_update(self, serializer):
+        require_project_role(
+            self.request,
+            self.get_object().project_id,
+            Membership.Role.MANAGER,
+        )
+        serializer.save()
+
+    def perform_destroy(self, instance):
+        require_project_role(
+            self.request,
+            instance.project_id,
+            Membership.Role.MANAGER,
+        )
+        instance.delete()
 
 class MembershipViewSet(ModelViewSet):
     queryset = Membership.objects.all()
     serializer_class = MembershipSerializer
+    permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
+        require_project_role(self.request, self.kwargs["project_id"])
         queryset = self.queryset
         
         project_id = self.kwargs["project_id"]
@@ -314,8 +385,60 @@ class MembershipViewSet(ModelViewSet):
             
         return queryset
 
+    def perform_create(self, serializer):
+        require_project_role(
+            self.request,
+            self.kwargs["project_id"],
+            Membership.Role.ADMIN,
+        )
+        if serializer.validated_data.get("role") == Membership.Role.OWNER:
+            require_project_role(
+                self.request,
+                self.kwargs["project_id"],
+                Membership.Role.OWNER,
+            )
+        serializer.save()
+
+    def perform_update(self, serializer):
+        membership = self.get_object()
+        caller = require_project_role(
+            self.request,
+            membership.project_id,
+            Membership.Role.MANAGER,
+        )
+        if (
+            membership.user_id == self.request.user.pk
+            and serializer.validated_data.get("role", membership.role) != membership.role
+        ):
+            raise PermissionDenied("You cannot change your own project role.")
+        if membership.role == Membership.Role.OWNER and (
+            caller is None or caller.role != Membership.Role.OWNER
+        ):
+            raise PermissionDenied("Only the project owner can modify an owner.")
+        if serializer.validated_data.get("role") == Membership.Role.OWNER and (
+            caller is None or caller.role != Membership.Role.OWNER
+        ):
+            raise PermissionDenied("Only the project owner can assign the owner role.")
+        serializer.save()
+
+    def perform_destroy(self, instance):
+        caller = require_project_role(
+            self.request,
+            instance.project_id,
+            Membership.Role.MANAGER,
+        )
+        if instance.role == Membership.Role.OWNER and (
+            caller is None or caller.role != Membership.Role.OWNER
+        ):
+            raise PermissionDenied("Only the project owner can remove an owner.")
+        instance.delete()
+
 class UserMembershipsView(APIView):
+    permission_classes = [IsAuthenticated]
+
     def get(self, request, user_id):
+        if request.user.pk != user_id:
+            raise PermissionDenied("You can only view your own memberships.")
         user = get_object_or_404(User, pk=user_id)
         return Response(
             MembershipSerializer(user.memberships, many=True).data,
@@ -323,8 +446,15 @@ class UserMembershipsView(APIView):
         )
 
 class AcceptInviteView(APIView):
+    permission_classes = [IsAuthenticated]
+
     def post(self, request, membership_id):
-        membership = get_object_or_404(Membership, pk=membership_id)
+        membership = get_object_or_404(
+            Membership,
+            pk=membership_id,
+            user=request.user,
+            accepted=False,
+        )
         accepted_invite = request.data.get("accepted")
         if accepted_invite:
             membership.accepted = True
@@ -339,7 +469,10 @@ class AcceptInviteView(APIView):
         )
 
 class InviteMemberView(APIView):
+    permission_classes = [IsAuthenticated]
+
     def post(self, request, project_id):
+        require_project_role(request, project_id, Membership.Role.ADMIN)
         email = request.query_params.get("email")
 
         if not email:
@@ -373,6 +506,12 @@ class InviteMemberView(APIView):
 class UserPatrolViewSet(ModelViewSet):
     queryset = Patrol.objects.all()
     serializer_class = PatrolSerializer
+    permission_classes = [IsAuthenticated]
+
+    def initial(self, request, *args, **kwargs):
+        super().initial(request, *args, **kwargs)
+        if str(request.user.pk) != str(kwargs["user_id"]):
+            raise PermissionDenied("You can only access your own patrols.")
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(
@@ -388,12 +527,40 @@ class UserPatrolViewSet(ModelViewSet):
         )
 
     def get_queryset(self):
-        queryset = self.queryset
-        user_id = self.kwargs["user_id"]
+        return self.queryset.filter(
+            members__user=self.request.user,
+            members__accepted=True,
+        ).distinct()
 
-        return queryset.filter(
-            members__user_id=user_id
+    def perform_update(self, serializer):
+        require_project_role(
+            self.request,
+            self.get_object().project_id,
+            Membership.Role.MANAGER,
         )
+        serializer.save()
+
+    def perform_destroy(self, instance):
+        require_project_role(
+            self.request,
+            instance.project_id,
+            Membership.Role.MANAGER,
+        )
+        instance.delete()
+
+    def create(self, request, *args, **kwargs):
+        patrols = request.data if isinstance(request.data, list) else [request.data]
+        for patrol_data in patrols:
+            project_data = patrol_data.get("project")
+            project_id = (
+                project_data.get("id")
+                if isinstance(project_data, dict)
+                else project_data
+            )
+            if project_id is None:
+                raise PermissionDenied("A project is required to create a patrol.")
+            require_project_role(request, project_id, Membership.Role.MANAGER)
+        return super().create(request, *args, **kwargs)
 
 
 class UserRoutinePatrolListView(ListAPIView):
@@ -405,7 +572,8 @@ class UserRoutinePatrolListView(ListAPIView):
             return RoutinePatrol.objects.none()
 
         return RoutinePatrol.objects.filter(
-            project__members__user=self.request.user
+            project__members__user=self.request.user,
+            project__members__accepted=True,
         ).select_related(
             "project",
             "created_by__user",
@@ -415,8 +583,19 @@ class UserRoutinePatrolListView(ListAPIView):
 class GridCellViewSet(ModelViewSet):
     queryset = GridCell.objects.all()
     serializer_class = GridCellSerializer
-    
+    permission_classes = [IsAuthenticated]
+
+    def initial(self, request, *args, **kwargs):
+        super().initial(request, *args, **kwargs)
+        if request.method not in SAFE_METHODS:
+            require_project_role(
+                request,
+                kwargs["project_id"],
+                Membership.Role.MANAGER,
+            )
+
     def get_queryset(self):
+        require_project_role(self.request, self.kwargs["project_id"])
         queryset = self.queryset
 
         project_id = self.kwargs["project_id"]
@@ -428,8 +607,19 @@ class GridCellViewSet(ModelViewSet):
 class DeviceViewSet(ModelViewSet):
     queryset = Device.objects.all()
     serializer_class = DeviceSerializer
+    permission_classes = [IsAuthenticated]
+
+    def initial(self, request, *args, **kwargs):
+        super().initial(request, *args, **kwargs)
+        if request.method not in SAFE_METHODS:
+            require_project_role(
+                request,
+                kwargs["project_id"],
+                Membership.Role.MANAGER,
+            )
 
     def get_queryset(self):
+        require_project_role(self.request, self.kwargs["project_id"])
         queryset = self.queryset
 
         project_id = self.kwargs["project_id"]
@@ -441,8 +631,19 @@ class DeviceViewSet(ModelViewSet):
 class ProjectPatrolViewSet(ModelViewSet):
     queryset = Patrol.objects.all()
     serializer_class = PatrolSerializer
+    permission_classes = [IsAuthenticated]
+
+    def initial(self, request, *args, **kwargs):
+        super().initial(request, *args, **kwargs)
+        if request.method not in SAFE_METHODS:
+            require_project_role(
+                request,
+                kwargs["project_id"],
+                Membership.Role.MANAGER,
+            )
 
     def get_queryset(self):
+        require_project_role(self.request, self.kwargs["project_id"])
         queryset = self.queryset
 
         project_id = self.kwargs["project_id"]
@@ -456,13 +657,28 @@ class ProjectRoutinePatrolView(ListCreateAPIView):
     serializer_class = RoutinePatrolSerializer
     permission_classes = [IsAuthenticated]
 
+    def initial(self, request, *args, **kwargs):
+        super().initial(request, *args, **kwargs)
+        if request.method not in SAFE_METHODS:
+            require_project_role(
+                request,
+                kwargs["project_id"],
+                Membership.Role.MANAGER,
+            )
+
     def get_queryset(self):
+        require_project_role(self.request, self.kwargs["project_id"])
         return RoutinePatrol.objects.filter(
             project_id=self.kwargs["project_id"]
         ).select_related("project", "created_by__user").order_by("-created_at")
 
     def perform_create(self, serializer):
-        project = get_object_or_404(Project, pk=self.kwargs["project_id"])
+        project = get_object_or_404(
+            Project,
+            pk=self.kwargs["project_id"],
+            members__user=self.request.user,
+            members__accepted=True,
+        )
         creator = get_object_or_404(
             Membership,
             project=project,
@@ -476,10 +692,12 @@ class RoutinePatrolGPXExportView(APIView):
 
     def get(self, request, project_id, routine_patrol_id):
         patrol = get_object_or_404(
-            RoutinePatrol.objects.select_related("project"),
+            RoutinePatrol.objects.select_related("project").filter(
+                Q(project__members__user=request.user, project__members__accepted=True)
+                | Q(project__owner=request.user)
+            ).distinct(),
             pk=routine_patrol_id,
             project_id=project_id,
-            project__members__user=request.user,
         )
         waypoints = "\n".join(
             f'      <trkpt lat="{latitude:.7f}" lon="{longitude:.7f}"></trkpt>'
@@ -512,12 +730,8 @@ class GenerateRoutinePatrolPathView(APIView):
     hotspot_risk_threshold = 0.8
 
     def post(self, request, project_id):
+        require_project_role(request, project_id, Membership.Role.MANAGER)
         project = get_object_or_404(Project, pk=project_id)
-        get_object_or_404(
-            Membership,
-            project=project,
-            user=request.user,
-        )
 
         with connection.cursor() as cursor:
             cursor.execute(
@@ -609,7 +823,10 @@ class GenerateRoutinePatrolPathView(APIView):
 
 
 class ProjectGetCodeView(APIView):
+    permission_classes = [IsAuthenticated]
+
     def post(self, request, project_id):
+        require_project_role(request, project_id, Membership.Role.MANAGER)
         characters = string.ascii_uppercase + string.digits
         code = ''.join(secrets.choice(characters) for _ in range(6))
 
@@ -736,6 +953,9 @@ class DeviceReportView(APIView):
         )
 
 class PatrolCompletionView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @transaction.atomic
     def post(self, request, patrol_id):
         try:
             patrol = Patrol.objects.get(pk=patrol_id)
@@ -747,67 +967,92 @@ class PatrolCompletionView(APIView):
         longitude = request.data.get("longitude")
         latitude = request.data.get("latitude")
 
-        if patrol_status:
-            patrol.status = patrol_status
-            patrol.save()
-
-            if patrol_status!="cancelled":
-                if not incident_status:
-                    return Response(
-                        {"details" : "Incident status not provided"}, 
-                        status=status.HTTP_400_BAD_REQUEST
-                        ) 
-                
-                patrol.incident.status = incident_status
-                if incident_status=="complete":
-                    patrol.incident.coordinates = Point(longitude, latitude, srid=4326)
-                patrol.incident.save()
-
-                return Response({
-                    "details" : "Success!"
-                }, status=status.HTTP_200_OK)
-            else:
-                patrol.delete()
-                
-                return Response({
-                    "details" : "Success!"
-                }, status=status.HTTP_200_OK)
-        else:
+        if patrol_status not in Patrol.Status.values:
             return Response(
-                {"details" : "Patrol status not provided"}, 
-                status=status.HTTP_400_BAD_REQUEST
-                )
+                {"details": "A valid patrol status is required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        membership = require_project_role(
+            request,
+            patrol.project_id,
+            Membership.Role.VIEWER,
+        )
+        if membership is not None and membership.role == Membership.Role.VIEWER:
+            if not patrol.members.filter(pk=membership.pk).exists():
+                raise PermissionDenied("Viewers can only update patrols assigned to them.")
+            if patrol.status != Patrol.Status.PENDING:
+                raise PermissionDenied("Viewers can only update pending assigned patrols.")
+            if patrol_status not in (
+                Patrol.Status.CANCELLED,
+                Patrol.Status.COMPLETED,
+            ):
+                raise PermissionDenied("Viewers can only cancel or complete assigned patrols.")
+            if patrol_status == Patrol.Status.CANCELLED and incident_status is not None:
+                raise PermissionDenied("Cancelling a patrol cannot change its incident.")
+
+        if patrol_status == Patrol.Status.CANCELLED:
+            patrol.delete()
+            return Response({"details": "Success!"}, status=status.HTTP_200_OK)
+
+        if incident_status not in (
+            Incident.Status.CONFIRMED,
+            Incident.Status.DISMISSED,
+        ):
+            return Response(
+                {"details": "A confirmed or dismissed incident status is required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        patrol.status = patrol_status
+        patrol.save(update_fields=["status"])
+        patrol.incident.status = incident_status
+        if (
+            incident_status == Incident.Status.CONFIRMED
+            and latitude is not None
+            and longitude is not None
+        ):
+            patrol.incident.coordinates = Point(longitude, latitude, srid=4326)
+        patrol.incident.save()
+
+        return Response({"details": "Success!"}, status=status.HTTP_200_OK)
 
 class PatrolAssignView(APIView):
+    permission_classes = [IsAuthenticated]
+
     def post(self, request, incident_id):
         try:
             incident = Incident.objects.get(pk=incident_id)
         except Incident.DoesNotExist:
             return Response({"details" : "Incident does not exist"}, status=status.HTTP_404_NOT_FOUND)
 
-        assigner_id = request.data.get("assigner_id")
+        require_project_role(
+            request,
+            incident.project_id,
+            Membership.Role.MANAGER,
+        )
         assignee_ids = request.data.get("assignee_ids")
         if assignee_ids is None and request.data.get("assignee_id") is not None:
             assignee_ids = [request.data.get("assignee_id")]
 
-        if not assigner_id or not isinstance(assignee_ids, list) or not assignee_ids:
+        if not isinstance(assignee_ids, list) or not assignee_ids:
             return Response(
-                {"details" : "Assigner and assignees must be provided"},
+                {"details" : "Assignees must be provided"},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
         try:
-            assigner_id = int(assigner_id)
             assignee_ids = list(dict.fromkeys(int(assignee_id) for assignee_id in assignee_ids))
         except (TypeError, ValueError):
             return Response(
-                {"details" : "Assigner and assignee IDs must be valid"},
+                {"details" : "Assignee IDs must be valid"},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
         assignees = list(Membership.objects.filter(
             pk__in=assignee_ids,
-            project=incident.project
+            project=incident.project,
+            accepted=True,
         ))
         if len(assignees) != len(assignee_ids):
             return Response(
@@ -815,13 +1060,12 @@ class PatrolAssignView(APIView):
                 status=status.HTTP_404_NOT_FOUND
             )
 
-        try:
-            assigner = Membership.objects.get(pk=assigner_id, project=incident.project)
-        except Membership.DoesNotExist:
-            return Response(
-                {"details" : "Assigner does not belong to this project"},
-                status=status.HTTP_404_NOT_FOUND
-            )
+        assigner = get_object_or_404(
+            Membership,
+            project=incident.project,
+            user=request.user,
+            accepted=True,
+        )
 
         incident.status = Incident.Status.REVIEWING
         incident.save()
@@ -846,7 +1090,10 @@ class PatrolAssignView(APIView):
         )
 
 class CalculateProjectRiskView(APIView):
+    permission_classes = [IsAuthenticated]
+
     def post(self, request, project_id):
+        require_project_role(request, project_id, Membership.Role.MANAGER)
         project = get_object_or_404(
             Project,
             id=project_id
@@ -864,7 +1111,11 @@ class CalculateProjectRiskView(APIView):
         }, status=status.HTTP_200_OK)
 
 class UserOverviewView(APIView):
+    permission_classes = [IsAuthenticated]
+
     def get(self, request, user_id):
+        if request.user.pk != user_id:
+            raise PermissionDenied("You can only view your own overview.")
         user = get_object_or_404(
             User,
             id=user_id
@@ -889,6 +1140,8 @@ class UserOverviewView(APIView):
         }, status=status.HTTP_200_OK)
 
 class UserSettingsView(APIView):
+    permission_classes = [IsAuthenticated]
+
     def get(self, request):
         user = self.request.user
 
@@ -915,7 +1168,10 @@ class UserSettingsView(APIView):
         )
 
 class IncidentActivityView(APIView):
+    permission_classes = [IsAuthenticated]
+
     def get(self, request, project_id):
+        require_project_role(request, project_id)
         project = get_object_or_404(Project, pk=project_id)
 
         today = timezone.localdate()

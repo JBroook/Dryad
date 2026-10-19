@@ -18,6 +18,8 @@ const ForestMap = dynamic(() => import("../ForestMap"), {
 
 interface SettingsViewProps {
     projectID : string | null;
+    canEdit: boolean;
+    isOwner: boolean;
 }
 
 
@@ -108,7 +110,7 @@ export default function SettingsView(props: SettingsViewProps) {
     }
 
     const saveChanges = async () => {
-        if (!project || !props.projectID || saveSpinner) return;
+        if (!props.canEdit || !project || !props.projectID || saveSpinner) return;
 
         if (!project.geoJSON || project.area == null) {
             setSaveError("Select a monitoring area before saving project changes.");
@@ -225,6 +227,12 @@ export default function SettingsView(props: SettingsViewProps) {
     if (project!=null){
         return (
         <>
+        {!props.canEdit && (
+            <p className="alert mx-6 mt-4" role="status">
+                Project settings are read-only for your role.
+            </p>
+        )}
+        <fieldset disabled={!props.canEdit} className="contents">
         <dialog id="disableModal" className="modal">
             <div className="modal-box bg-base-200 border border-white/8">
                 <h3 className="font-bold text-lg">Disable Project</h3>
@@ -344,6 +352,7 @@ export default function SettingsView(props: SettingsViewProps) {
                                     return <ThreatClassOption 
                                         key={index}
                                         setActive={()=>toggleThreatClass(index)}
+                                        disabled={!props.canEdit}
                                         name={threatClass.name}
                                         description={threatClass.description}
                                         active={threatClass.active}
@@ -382,14 +391,15 @@ export default function SettingsView(props: SettingsViewProps) {
                     latitude={latitude}
                     longitude={longitude}
                     handleArea={handleArea}
-                    drawingEnabled={project.area==null}
+                    drawingEnabled={props.canEdit && project.area==null}
+                    editingEnabled={props.canEdit}
                     drawnItemsReference={drawnItemsReference}
                     geoJSON={project.geoJSON}
                 />
 
-                <p className="text-secondary-content text-md mt-1">
+                {props.canEdit && <p className="text-secondary-content text-md mt-1">
                     *Use the buttons on the top right of the map to draw the area you want to monitor
-                </p>
+                </p>}
 
                 {project.area!=null ?
                 <div className="mt-5 w-full flex flex-row items-center bg-base-300 p-4 rounded-xl border border-white/8">
@@ -401,16 +411,16 @@ export default function SettingsView(props: SettingsViewProps) {
                         <p className="text-sm text-secondary-content">You can proceed to the next step, or clear and choose a different area.</p>
                     </div>
 
-                    <button className="btn btn-error/10 ml-auto text-error border border-error/25"
+                    {props.canEdit && <button className="btn btn-error/10 ml-auto text-error border border-error/25"
                         onClick={resetForestArea}>
                         <RxCross2 className="text-error"/>
                         Clear Selection
-                    </button>
+                    </button>}
                 </div>:<></>}
             </div>
 
             <div className="flex gap-2 items-center mt-4 mb-20">
-                <button
+                {props.canEdit && <button
                     type="button"
                     className="btn btn-primary"
                     onClick={saveChanges}
@@ -422,15 +432,15 @@ export default function SettingsView(props: SettingsViewProps) {
                         <FaSave />
                     )}
                     {saveSpinner ? "Saving..." : "Save Changes"}
-                </button>
+                </button>}
 
-                <button className="btn btn-warning" onClick={()=>openModal("disableModal")}>
+                {props.isOwner && <button className="btn btn-warning" onClick={()=>openModal("disableModal")}>
                     <IoPower/> Disable Project
-                </button>
+                </button>}
 
-                <button className="btn btn-error" onClick={()=>openModal("deleteModal")}>
+                {props.isOwner && <button className="btn btn-error" onClick={()=>openModal("deleteModal")}>
                     <FaRegTrashAlt/> Delete Project
-                </button>
+                </button>}
             </div>
             {saveError && (
                 <p role="alert" className="text-error -mt-16 mb-20">
@@ -443,6 +453,7 @@ export default function SettingsView(props: SettingsViewProps) {
                 </p>
             )}
         </div>
+        </fieldset>
     </>);
     }else{
         return (<div className="w-full h-screen flex justify-center items-center">

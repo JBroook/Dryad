@@ -15,6 +15,7 @@ import ToggleGlowButton from "./ToggleGlowButton";
 import SortButton from "./SortButton";
 import Incident from "./Incident";
 import GlowButton from "./GlowButton";
+import { hasProjectRole, type ProjectRole } from "@/library/projectPermissions";
 
 interface FullIncidentsViewProps {
     filterOptions : string[];
@@ -25,6 +26,7 @@ interface FullIncidentsViewProps {
     setThreatClasses : (newThreatClasses : ThreatClass[]) => void;
     setIncidents : (incidents : IncidentType[]) => void;
     userID : string | null;
+    projectRoles: Record<number, ProjectRole>;
 }
 
 
@@ -489,9 +491,11 @@ export default function FullIncidentsView(props: FullIncidentsViewProps) {
             Confidence
         </SortButton>
 
-        <button className="btn btn-primary ml-auto md:ml-2">
+        {Object.values(props.projectRoles).some((role) =>
+            hasProjectRole(role, "manager")
+        ) && <button className="btn btn-primary ml-auto md:ml-2">
             <FaPlus/> New Incident
-        </button>
+        </button>}
     </div>
     
 
@@ -621,6 +625,10 @@ export default function FullIncidentsView(props: FullIncidentsViewProps) {
                     assignPatrol={()=>assignPatrolModal(index)}
                     status={incident.status}
                     projectID={incident.project.id}
+                    canManage={hasProjectRole(
+                        props.projectRoles[incident.project.id] ?? null,
+                        "manager"
+                    )}
                 />
                 </Fragment>)
             })

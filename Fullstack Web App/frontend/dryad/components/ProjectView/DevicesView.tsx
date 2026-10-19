@@ -17,6 +17,7 @@ interface DevicesViewProps {
     projectID : string | null;
     devices : Device[];
     setDevices : React.Dispatch<React.SetStateAction<Device[]>>
+    canManage: boolean;
 }
 
 
@@ -332,10 +333,10 @@ export default function DevicesView(props: DevicesViewProps) {
                     {offlineDevices} offline
                 </p>
 
-                <GlowButton className="btn btn-accent" color="#4ADE80" onClick={openDeviceModal}>
+                {props.canManage && <GlowButton className="btn btn-accent" color="#4ADE80" onClick={openDeviceModal}>
                     <FaPlus />
                     Add Device
-                </GlowButton>
+                </GlowButton>}
             </div>
         </div>
 
@@ -348,6 +349,7 @@ export default function DevicesView(props: DevicesViewProps) {
                 deleteEvent={openRemoveModal}
                 renameDevice={renameDevice}
                 toggleDevice={toggleDevice}
+                canManage={props.canManage}
                 showOnMap={()=>router.push(`/home/project?pid=${props.projectID}&tab=forest_map&lat=${
                     device.location.coordinates[1]
                 }&lng=${

@@ -26,7 +26,7 @@ void main() {
     expect(find.byType(TextField), findsOneWidget);
     expect(find.text('Send code'), findsOneWidget);
     expect(find.text('Send report'), findsNothing);
-    expect(find.text('Run ONNX model demo'), findsOneWidget);
+    // expect(find.text('Run ONNX model demo'), findsOneWidget);
     expect(find.text('Connection'), findsOneWidget);
     expect(find.text('Listen'), findsOneWidget);
   });

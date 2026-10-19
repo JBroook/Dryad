@@ -50,6 +50,7 @@ interface DevicesViewProps {
     projectID : string | null;
     geoJSON : GeoJSON | null | undefined;
     gridCells : any;
+    canManage: boolean;
 }
 
 export default function DevicesView(props: DevicesViewProps) {
@@ -269,9 +270,9 @@ export default function DevicesView(props: DevicesViewProps) {
             <p className="text-secondary-content ml-auto">
                 {patrols.length + routinePatrols.length} patrols
             </p>
-            <button className="btn btn-primary ml-2" onClick={()=>setIsCreatingPatrol(true)}>
+            {props.canManage && <button className="btn btn-primary ml-2" onClick={()=>setIsCreatingPatrol(true)}>
                 <FaPlus/> New Patrol    
-            </button>
+            </button>}
         </div>
 
         <div className="mx-6 mt-5">
@@ -285,7 +286,6 @@ export default function DevicesView(props: DevicesViewProps) {
                 key={`patrol-${patrol.id}`}
                 color="#F97316"
                 patrol={patrol}
-                cancelPatrol={()=>{}}
             />
             ))}
             {matchingRoutinePatrols.map((patrol) => (
@@ -301,7 +301,7 @@ export default function DevicesView(props: DevicesViewProps) {
             :
             <h1>This project has no patrols</h1>
             }
-            <p className="text-sm">Assign a patrol or create one to get started</p>
+            {props.canManage && <p className="text-sm">Assign a patrol or create one to get started</p>}
         </div>
         }
         </div>
