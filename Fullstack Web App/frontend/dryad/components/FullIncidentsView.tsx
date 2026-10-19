@@ -442,7 +442,7 @@ export default function FullIncidentsView(props: FullIncidentsViewProps) {
 
     {props.userID &&
     <>
-    <div className="mx-6 flex flex-row items-center mt-5">
+    <div className="mx-4 mt-5 flex flex-wrap items-center gap-2 md:mx-6 md:flex-nowrap">
         <label className="input bg-secondary w-full border border-white/8 flex-1">
             <IoSearch />
             <input 
@@ -453,7 +453,7 @@ export default function FullIncidentsView(props: FullIncidentsViewProps) {
             onChange={(e)=>setSearchIncident(e.target.value)} />
         </label>
 
-        <ToggleGlowButton active={showFilters} color="#4ADE80" className="mx-2" onClick={()=>setShowFilters(!showFilters)}>
+        <ToggleGlowButton active={showFilters} color="#4ADE80" className="md:mx-2" onClick={()=>setShowFilters(!showFilters)}>
             <IoIosOptions />
             Filters
         </ToggleGlowButton>
@@ -463,7 +463,7 @@ export default function FullIncidentsView(props: FullIncidentsViewProps) {
         
         <SortButton 
         active={sortBy=="date"} 
-        className="mx-2" 
+        className="md:mx-2"
         onClick={()=>{
             filterSortIncidents({
                 sortKey : "date",
@@ -477,7 +477,7 @@ export default function FullIncidentsView(props: FullIncidentsViewProps) {
 
         <SortButton 
         active={sortBy=="confidence"} 
-        className="mx-2" 
+        className="md:mx-2"
         onClick={()=>{
             filterSortIncidents({
                 sortKey : "confidence",
@@ -489,15 +489,15 @@ export default function FullIncidentsView(props: FullIncidentsViewProps) {
             Confidence
         </SortButton>
 
-        <button className="btn btn-primary ml-2">
+        <button className="btn btn-primary ml-auto md:ml-2">
             <FaPlus/> New Incident
         </button>
     </div>
     
 
-    {showFilters && <div className="rounded-xl bg-base-200 border border-white/8 mx-6 my-4 p-4">
+    {showFilters && <div className="mx-4 my-4 rounded-xl border border-white/8 bg-base-200 p-4 md:mx-6">
         <p className="font-semibold text-secondary-content text-sm">THREAT TYPE</p>
-        <div className="flex flex-row gap-2 mt-2">
+        <div className="mt-2 flex flex-row flex-wrap gap-2">
             {props.threatClasses.map((threatClass, index)=>{
                 const Icon = getThreatIcon(threatClass.name);
                 return( 
@@ -517,7 +517,7 @@ export default function FullIncidentsView(props: FullIncidentsViewProps) {
         <div className="divider"></div>
 
         <p className="font-semibold text-secondary-content text-sm">STATUS</p>
-        <div className="flex flex-row gap-2 mt-2">
+        <div className="mt-2 flex flex-row flex-wrap gap-2">
             {statusOptions.map((option, index)=>{
                 return( 
                 <ToggleGlowButton 
@@ -549,7 +549,7 @@ export default function FullIncidentsView(props: FullIncidentsViewProps) {
             </h3>
         </div>
         
-        <div className="flex mt-2 items-center">
+        <div className="mt-2 flex flex-wrap items-center gap-y-2">
             <input
                 type="range"
                 min={0}
@@ -594,7 +594,7 @@ export default function FullIncidentsView(props: FullIncidentsViewProps) {
 
     </div>}
 
-    <div className="mx-6 mt-5">
+    <div className="mx-4 mt-5 md:mx-6">
         {props.incidents.length>0 ?
             props.incidents.map((incident, index)=>{
                 const projectChanged = index===0 || incident.project.id!==props.incidents[index-1].project.id;

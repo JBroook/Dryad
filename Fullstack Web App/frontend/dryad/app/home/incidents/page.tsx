@@ -48,7 +48,7 @@ export default function Incidents() {
   }, [])
 
   return (<>
-    <div className="w-full py-5 pl-8 border-b-white/8 border-b border-b-width-[2px] flex flex-row items-center justify-between ">
+    <div className="flex w-full flex-row items-center justify-between border-b border-b-white/8 px-4 py-5 md:pl-8">
       <div>
         <h1 className="font-bold text-2xl">
           Incidents

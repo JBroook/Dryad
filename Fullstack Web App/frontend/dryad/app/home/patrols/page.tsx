@@ -408,8 +408,8 @@ export default function Patrols() {
       </div>
     </dialog>
 
-    <div className="w-full py-5 pl-8 border-b-white/8 border-b border-b-width-[2px] flex flex-row items-center justify-between ">
-      <div>
+    <div className="flex w-full flex-row items-center justify-between border-b border-b-white/8 px-4 py-5 md:pl-8">
+      <div className="min-w-0">
         <h1 className="font-bold text-2xl">
           My Patrols
         </h1>
@@ -419,7 +419,7 @@ export default function Patrols() {
       </div>
     </div>
 
-    <div className="flex gap-2 mx-6 mt-4 items-center">
+    <div className="mx-4 mt-4 flex flex-wrap items-center gap-2 md:mx-6">
       {filterOptions.map((option, index)=>{
         return <ToggleGlowButton
         key={index}
@@ -431,12 +431,12 @@ export default function Patrols() {
         </ToggleGlowButton>
       })}
 
-      <p className="text-secondary-content ml-auto">
+      <p className="ml-auto text-secondary-content">
         {patrols.length + routinePatrols.length} patrols
       </p>
     </div>
 
-    <div className="mx-6 mt-5">
+    <div className="mx-4 mt-5 md:mx-6">
       {routineFetchError && (selectedFilter === "all" || selectedFilter === "routine") && (
         <p role="alert" className="text-error">{routineFetchError}</p>
       )}
