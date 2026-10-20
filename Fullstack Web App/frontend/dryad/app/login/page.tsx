@@ -9,6 +9,7 @@ import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { useToast } from "@/components/ToastProvider";
 
 const registerSchema = z
   .object({
@@ -58,6 +59,7 @@ export default function Login() {
   });
 
   const router = useRouter();
+  const { showToast } = useToast();
 
   const handleLogin: React.SubmitEventHandler<HTMLFormElement> = async (e) => {
     e.preventDefault();
@@ -87,6 +89,7 @@ export default function Login() {
     localStorage.setItem("userID", data.user.id);
 
     router.push("/home/projects");
+    showToast("Welcome back!")
   }
 
   const handleRegister = async (data: RegisterForm) => {

@@ -10,6 +10,7 @@ import { MdOutlineDarkMode, MdOutlineLightMode } from "react-icons/md";
 import { useEffect, useState } from "react";
 import { useTheme } from "next-themes";
 import { apiFetch } from "@/library/api";
+import { useToast } from "./ToastProvider";
 
 export default function Sidebar() {
     const sidebarOptions = [
@@ -21,6 +22,7 @@ export default function Sidebar() {
     const [mode, setMode] = useState<boolean>(true);
     const pathname = usePathname();
     const {theme, setTheme} = useTheme();
+    const {showToast} = useToast();
     const changeTheme = () => {
         setMode(!mode)
         setTheme(mode ? "mytheme-light" : "mytheme-dark")
@@ -31,6 +33,7 @@ export default function Sidebar() {
         localStorage.removeItem("refresh");
 
         router.push("/login");
+        showToast("Signed out")
     }
 
     const [firstName, setFirstName] = useState<string>("")
