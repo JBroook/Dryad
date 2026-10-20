@@ -6,6 +6,7 @@ import { FiShield } from "react-icons/fi";
 import { BsTree } from "react-icons/bs";
 import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useToast } from "@/components/ToastProvider";
 
 export default function Verify() {
   const [submitted, setSubmitted] = useState<boolean>(false);
@@ -17,6 +18,7 @@ export default function Verify() {
   const searchParams = useSearchParams();
 
   const router = useRouter();
+  const { showToast } = useToast();
 
   const handleVerification = async (e : React.SubmitEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -34,12 +36,13 @@ export default function Verify() {
     });
 
     if (!res.ok) {
-      alert("Verification failed")
+      showToast("Email verification failed.", "error");
       setSubmitted(false);
       return;
     }
 
-    // registration succeeded
+    const data = await res.json();
+    showToast(data.message ?? "Email verified successfully.");
     router.push(`/login`)
   }
 

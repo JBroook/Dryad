@@ -75,6 +75,7 @@ class PatrolAssignmentTests(TestCase):
         )
 
         self.assertEqual(first_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(first_response.data["message"], "Patrol assigned successfully.")
         self.assertEqual(
             {member["id"] for member in first_response.data["members"]},
             {self.assignees[0].id, self.assignees[1].id},
@@ -108,6 +109,10 @@ class PatrolAssignmentTests(TestCase):
         )
 
         self.assertEqual(completion_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(
+            completion_response.data["message"],
+            "Patrol completed and incident status updated successfully.",
+        )
         for member in self.assignees:
             self.assertEqual(
                 Patrol.objects.get(members=member).status,
@@ -131,6 +136,10 @@ class PatrolAssignmentTests(TestCase):
         )
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(
+            response.data["message"],
+            "Routine patrol created successfully.",
+        )
         routine_patrol = RoutinePatrol.objects.get()
         self.assertEqual(routine_patrol.project, self.project)
         self.assertEqual(routine_patrol.created_by, self.assigner)

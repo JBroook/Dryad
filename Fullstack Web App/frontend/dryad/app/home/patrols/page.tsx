@@ -9,6 +9,7 @@ import { Project } from "../projects/new/page";
 import { TbMapRoute } from "react-icons/tb";
 import RoutinePatrolCard from "@/components/RoutinePatrolCard";
 import type { RoutinePatrol } from "@/components/ProjectView/PatrolsView";
+import { useToast } from "@/components/ToastProvider";
 
 export type Patrol = {
   id : number;
@@ -40,6 +41,7 @@ export type SerializedPatrolMember = {
 }
 
 export default function Patrols() {
+  const { showToast } = useToast();
   const [patrols, setPatrols] = useState<Patrol[]>([]);
   const [routinePatrols, setRoutinePatrols] = useState<RoutinePatrol[]>([]);
   const [routineFetchError, setRoutineFetchError] = useState("");
@@ -163,7 +165,7 @@ export default function Patrols() {
           if (!res.ok) throw new Error(await res.text());
           return res.json();
       })
-      .then(()=>{
+      .then((data)=> {
         if (patrolIndexInFullList === -1) {
           return;
         }
@@ -171,8 +173,12 @@ export default function Patrols() {
         const newPatrols = [...patrols]
         newPatrols[patrolIndexInFullList].status = "completed"
         setPatrols(newPatrols)
+        showToast(data.message ?? "Patrol completed and incident confirmed.");
       })
-      .catch((err) => console.error("Fetch failed:", err));
+      .catch((err) => {
+        console.error("Patrol confirmation failed:", err);
+        showToast("Unable to complete this patrol.", "error");
+      });
 
       const modal = document.getElementById('confirmModal') as HTMLDialogElement;
       modal.close();
@@ -200,7 +206,7 @@ export default function Patrols() {
       if (!res.ok) throw new Error(await res.text());
       return res.json();
     })
-    .then(()=>{
+    .then((data)=> {
       if (patrolIndexInFullList === -1) {
         return;
       }
@@ -208,8 +214,12 @@ export default function Patrols() {
       const newPatrols = [...patrols]
       newPatrols[patrolIndexInFullList].status = "completed"
       setPatrols(newPatrols)
+      showToast(data.message ?? "Patrol completed and incident dismissed.");
     })
-    .catch((err) => console.error("Fetch failed:", err));
+    .catch((err) => {
+      console.error("Patrol dismissal failed:", err);
+      showToast("Unable to dismiss this incident.", "error");
+    });
 
     const modal = document.getElementById('dismissModal') as HTMLDialogElement;
     modal.close();
@@ -235,7 +245,7 @@ export default function Patrols() {
       if (!res.ok) throw new Error(await res.text());
       return res.json();
     })
-    .then(()=>{
+    .then((data)=> {
       if (patrolIndexInFullList === -1) {
         return;
       }
@@ -243,8 +253,12 @@ export default function Patrols() {
       const newPatrols = [...patrols]
       newPatrols[patrolIndexInFullList].status = "cancelled"
       setPatrols(newPatrols)
+      showToast(data.message ?? "Patrol cancelled successfully.");
     })
-    .catch((err) => console.error("Fetch failed:", err));
+    .catch((err) => {
+      console.error("Patrol cancellation failed:", err);
+      showToast("Unable to cancel this patrol.", "error");
+    });
 
     const modal = document.getElementById('cancelModal') as HTMLDialogElement;
     modal.close();

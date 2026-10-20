@@ -12,6 +12,7 @@ import { IoWarning } from "react-icons/io5";
 import type { GeoJSON } from 'geojson';
 import { Device, IncidentType } from "@/app/home/project/page";
 import { apiFetch } from "@/library/api";
+import { useToast } from "../ToastProvider";
 import { useSearchParams } from "next/navigation";
 import { PiLightning } from "react-icons/pi";
 import { MdLoop } from "react-icons/md";
@@ -32,6 +33,7 @@ interface ForestMapViewProps {
 }
 
 export default function ForestMapView(props: ForestMapViewProps) {
+    const { showToast } = useToast();
     const [mapTags , setMapTags] = useState({
         incidents : {title : "Incidents", color : "#F87171", active : true, key : "incidents"},
         riskHeatmap : {title : "Risk Heatmap", color : "#F97316", active : true, key : "riskHeatmap"},
@@ -66,8 +68,12 @@ export default function ForestMapView(props: ForestMapViewProps) {
         })
         .then((data)=>{
             props.setGridCells(data)
+            showToast(data.message ?? "Risk calculation completed.");
         })
-        .catch((err) => console.error("Fetch failed:", err));
+        .catch((err) => {
+            console.error("Risk calculation failed:", err);
+            showToast("Unable to calculate project risk.", "error");
+        });
     }
 
     let formalDateTime;

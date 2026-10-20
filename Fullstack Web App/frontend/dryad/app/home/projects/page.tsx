@@ -4,6 +4,7 @@ import HollowCard from "@/components/HollowCard";
 import ProjectCard from "@/components/ProjectCard";
 import ProjectCreator from "@/components/ProjectCreator";
 import { apiFetch } from "@/library/api";
+import { useToast } from "@/components/ToastProvider";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
@@ -26,6 +27,7 @@ interface OverviewCard {
 }
 
 export default function Home() {
+  const { showToast } = useToast();
   const [authenticated, setAuthenticated] = useState<boolean>(false)
   const [projectsLoaded, setProjectsLoaded] = useState<boolean>(false)
   const router = useRouter();
@@ -58,22 +60,22 @@ export default function Home() {
     setProjectsLoaded(true);
   }
 
-  const acceptInvitation = (notificationIndex : number, accept : boolean) => {
-    apiFetch(`http://127.0.0.1:8000/api/memberships/${notifications[notificationIndex].id}/accept_invite`, {
-      method : "POST",
-      body : JSON.stringify({
-        accepted : accept
-      })
-    })
-    .then(async (res) => {
-    if (!res.ok) throw new Error(await res.text());
-    })
-    .then(()=>{
+  const acceptInvitation = async (notificationIndex : number, accept : boolean) => {
+    try {
+      const response = await apiFetch(`http://127.0.0.1:8000/api/memberships/${notifications[notificationIndex].id}/accept_invite`, {
+        method: "POST",
+        body: JSON.stringify({ accepted: accept }),
+      });
+      if (!response.ok) throw new Error(await response.text());
+      const data = await response.json();
       const newNotifications = [...notifications]
       newNotifications.splice(notificationIndex, 1)
       setNotifications(newNotifications)
-    })
-    .catch((err) => console.error("Fetch failed:", err));
+      showToast(data.message ?? (accept ? "Invitation accepted." : "Invitation declined."));
+    } catch (err) {
+      console.error("Invitation response failed:", err);
+      showToast("Unable to respond to the invitation.", "error");
+    }
   }
 
   useEffect(()=>{

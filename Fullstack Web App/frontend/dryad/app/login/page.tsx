@@ -123,7 +123,8 @@ export default function Login() {
       return;
     }
 
-    // registration succeeded
+    const responseData = await res.json();
+    showToast(responseData.message ?? "Account created successfully.");
     router.push(`/login/verify?email=${data.email}`)
   };
 

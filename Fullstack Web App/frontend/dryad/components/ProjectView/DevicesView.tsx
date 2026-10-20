@@ -12,6 +12,7 @@ import { apiFetch } from "@/library/api";
 import { copyTextToClipboard } from "@/library/general";
 import { FaCheck } from "react-icons/fa6";
 import { useRouter } from "next/navigation";
+import { useToast } from "../ToastProvider";
 
 interface DevicesViewProps {
     projectID : string | null;
@@ -22,6 +23,7 @@ interface DevicesViewProps {
 
 
 export default function DevicesView(props: DevicesViewProps) {
+    const { showToast } = useToast();
     const [removeDeviceIndex, setRemoveDeviceIndex] = useState(-1);
     const [deviceCode, setDeviceCode] = useState<string>("");
     const [polling, setPolling] = useState<boolean>(false);
@@ -59,8 +61,16 @@ export default function DevicesView(props: DevicesViewProps) {
         if (!res.ok) throw new Error(await res.text());
         return res.json();
         })
-        .then((data)=>setDeviceCode(data.code))
+        .then((data)=>{
+            setDeviceCode(data.code);
+            showToast(data.message ?? "Device connection code created.");
+        })
         .then(()=>setPolling(true))
+        .catch((error) => {
+            console.error("Device connection code creation failed:", error);
+            showToast("Unable to create a device connection code.", "error");
+            closeModal("deviceModal");
+        });
     }
 
     const openRemoveModal = (id : number)=>{
@@ -69,58 +79,60 @@ export default function DevicesView(props: DevicesViewProps) {
         modal.showModal();
     }
 
-    const renameDevice = (id : number, newName : string) => {
-        const newDevices = [...props.devices];
-        const index = newDevices.findIndex(device => device.id===id);
-        newDevices[index].name = newName;
-        props.setDevices(newDevices)
-
-        apiFetch(`http://127.0.0.1:8000/api/projects/${props.projectID}/devices/${id}/`, {
-            method : "PATCH",
-            body : JSON.stringify({
-                name : newName
-            })
-        })
-        .then(async (res) => {
-        if (!res.ok) throw new Error(await res.text());
-        return res.json();
-        })
-        .then(()=>setNewDeviceName(""))
-        .catch((err) => console.error("Fetch failed:", err));
+    const renameDevice = async (id : number, newName : string) => {
+        try {
+            const response = await apiFetch(`http://127.0.0.1:8000/api/projects/${props.projectID}/devices/${id}/`, {
+                method: "PATCH",
+                body: JSON.stringify({ name: newName }),
+            });
+            if (!response.ok) throw new Error(await response.text());
+            const data = await response.json();
+            props.setDevices((devices) => devices.map((device) =>
+                device.id === id ? { ...device, name: newName } : device
+            ));
+            setNewDeviceName("");
+            showToast(data.message ?? "Device renamed successfully.");
+        } catch (error) {
+            console.error("Device rename failed:", error);
+            showToast("Unable to rename this device.", "error");
+        }
     }
 
-    const removeDevice = (id : number) => {
-        props.setDevices(props.devices.filter((device : Device)=>device.id!==id))
-
-        apiFetch(`http://127.0.0.1:8000/api/projects/${props.projectID}/devices/${id}/`, {
-            method : "DELETE",
-        })
-        .then(async (res) => {
-        if (!res.ok) throw new Error(await res.text());
-        })
-        .catch((err) => console.error("Fetch failed:", err));
-
-        closeModal("deleteModal")
+    const removeDevice = async (id : number) => {
+        try {
+            const response = await apiFetch(`http://127.0.0.1:8000/api/projects/${props.projectID}/devices/${id}/`, {
+                method: "DELETE",
+            });
+            if (!response.ok) throw new Error(await response.text());
+            const data = await response.json();
+            props.setDevices((devices) => devices.filter((device) => device.id !== id));
+            showToast(data.message ?? "Device removed successfully.");
+            closeModal("deleteModal");
+        } catch (error) {
+            console.error("Device removal failed:", error);
+            showToast("Unable to remove this device.", "error");
+        }
     }
 
-    const toggleDevice = (id : number) => {
-        const newDevices = [...props.devices];
-        const index = newDevices.findIndex(device => device.id===id);
-        const newStatus =  newDevices[index].status==="online" ? "offline" : "online"
-        newDevices[index].status = newStatus;
-        props.setDevices(newDevices)
-
-        apiFetch(`http://127.0.0.1:8000/api/projects/${props.projectID}/devices/${id}/`, {
-            method : "PATCH",
-            body : JSON.stringify({
-                status : newStatus
-            })
-        })
-        .then(async (res) => {
-        if (!res.ok) throw new Error(await res.text());
-        return res.json();
-        })
-        .catch((err) => console.error("Fetch failed:", err));
+    const toggleDevice = async (id : number) => {
+        const device = props.devices.find((item) => item.id === id);
+        if (!device) return;
+        const newStatus = device.status === "online" ? "offline" : "online";
+        try {
+            const response = await apiFetch(`http://127.0.0.1:8000/api/projects/${props.projectID}/devices/${id}/`, {
+                method: "PATCH",
+                body: JSON.stringify({ status: newStatus }),
+            });
+            if (!response.ok) throw new Error(await response.text());
+            const data = await response.json();
+            props.setDevices((devices) => devices.map((item) =>
+                item.id === id ? { ...item, status: newStatus } : item
+            ));
+            showToast(data.message ?? `Device set ${newStatus}.`);
+        } catch (error) {
+            console.error("Device status update failed:", error);
+            showToast("Unable to update the device status.", "error");
+        }
     }
 
     const changeNewDeviceName = (e : React.SubmitEvent<HTMLFormElement>) => {
@@ -174,6 +186,7 @@ export default function DevicesView(props: DevicesViewProps) {
                         ])
                         setConnectionState(data.status);
                         setNewDeviceID(data.device.id);
+                        showToast("Device connected successfully.");
                     }else if(data.status==="expired"){
                         setConnectionState(data.status);
                     }

@@ -36,6 +36,40 @@ from django.contrib.gis.geos import LineString, Point
 from django.db.models.functions import TruncDate
 from django.contrib.auth.hashers import check_password
 
+
+class CRUDMessageMixin:
+    def _message(self, action):
+        serializer_class = getattr(self, "serializer_class", None)
+        model = serializer_class.Meta.model
+        resource = model._meta.verbose_name.title()
+        return f"{resource} {action} successfully."
+
+    def _with_message(self, response, action):
+        if isinstance(response.data, list):
+            response.data = {
+                "results": response.data,
+                "message": self._message(action),
+            }
+        else:
+            response.data = {**response.data, "message": self._message(action)}
+        return response
+
+    def create(self, request, *args, **kwargs):
+        return self._with_message(super().create(request, *args, **kwargs), "created")
+
+    def update(self, request, *args, **kwargs):
+        response = super().update(request, *args, **kwargs)
+        action = "updated"
+        return self._with_message(response, action)
+
+    def destroy(self, request, *args, **kwargs):
+        super().destroy(request, *args, **kwargs)
+        return Response(
+            {"message": self._message("deleted")},
+            status=status.HTTP_200_OK,
+        )
+
+
 class LoginView(APIView):
     def post(self, request):
         serializer = LoginSerializer(data=request.data)
@@ -50,7 +84,8 @@ class LoginView(APIView):
         return Response({
             "access" : str(refresh.access_token),
             "refresh" : str(refresh),
-            "user" : user_serializer.data
+            "user" : user_serializer.data,
+            "message": "Signed in successfully.",
         })
 
 class DeleteAccountView(APIView):
@@ -62,8 +97,8 @@ class DeleteAccountView(APIView):
         user.save()
 
         return Response(
-            {"details" : "Successfully deleted account"},
-            status=status.HTTP_204_NO_CONTENT
+            {"message": "Account deleted successfully."},
+            status=status.HTTP_200_OK,
         )
 
 class ForgotPasswordView(APIView):
@@ -118,6 +153,7 @@ class RegisterView(APIView):
         return Response(
             {
                 "user": UserSerializer(user).data,
+                "message": "Account created successfully. Verify your email to continue.",
             },
             status=status.HTTP_201_CREATED,
         )
@@ -167,11 +203,14 @@ class VerifyEmailView(APIView):
         )
 
         return Response(
-            {"detail": "Email verified successfully."},
+            {
+                "detail": "Email verified successfully.",
+                "message": "Email verified successfully.",
+            },
             status=status.HTTP_200_OK,
         )
     
-class UserViewSet(ModelViewSet):
+class UserViewSet(CRUDMessageMixin, ModelViewSet):
     queryset = User.objects.all()
     serializer_class = UserSerializer
     permission_classes = [IsAuthenticated]
@@ -188,7 +227,7 @@ class UserViewSet(ModelViewSet):
         return queryset
         
 
-class ProjectViewSet(ModelViewSet):
+class ProjectViewSet(CRUDMessageMixin, ModelViewSet):
     queryset = Project.objects.all()
     serializer_class = ProjectSerializer
     permission_classes = [IsAuthenticated]
@@ -292,7 +331,7 @@ class IncidentFilter(django_filters.FilterSet):
             "threat_classes"
         ]
 
-class IncidentViewSet(ModelViewSet):
+class IncidentViewSet(CRUDMessageMixin, ModelViewSet):
     queryset = Incident.objects.all()
     serializer_class = IncidentSerializer
     permission_classes = [IsAuthenticated]
@@ -360,7 +399,7 @@ class IncidentViewSet(ModelViewSet):
         )
         instance.delete()
 
-class MembershipViewSet(ModelViewSet):
+class MembershipViewSet(CRUDMessageMixin, ModelViewSet):
     queryset = Membership.objects.all()
     serializer_class = MembershipSerializer
     permission_classes = [IsAuthenticated]
@@ -464,7 +503,13 @@ class AcceptInviteView(APIView):
             membership.delete()
 
         return Response(
-            {"details" : "Successful"},
+            {
+                "message": (
+                    "Project invitation accepted successfully."
+                    if accepted_invite
+                    else "Project invitation declined successfully."
+                )
+            },
             status=status.HTTP_200_OK
         )
 
@@ -498,12 +543,15 @@ class InviteMemberView(APIView):
             )
         
         return Response(
-            MembershipSerializer(membership).data,
+            {
+                **MembershipSerializer(membership).data,
+                "message": "Project invitation sent successfully.",
+            },
             status=status.HTTP_201_CREATED
         )
     
 
-class UserPatrolViewSet(ModelViewSet):
+class UserPatrolViewSet(CRUDMessageMixin, ModelViewSet):
     queryset = Patrol.objects.all()
     serializer_class = PatrolSerializer
     permission_classes = [IsAuthenticated]
@@ -580,7 +628,7 @@ class UserRoutinePatrolListView(ListAPIView):
         ).distinct().order_by("-created_at")
 
 
-class GridCellViewSet(ModelViewSet):
+class GridCellViewSet(CRUDMessageMixin, ModelViewSet):
     queryset = GridCell.objects.all()
     serializer_class = GridCellSerializer
     permission_classes = [IsAuthenticated]
@@ -604,7 +652,7 @@ class GridCellViewSet(ModelViewSet):
             project_id=project_id
         )
 
-class DeviceViewSet(ModelViewSet):
+class DeviceViewSet(CRUDMessageMixin, ModelViewSet):
     queryset = Device.objects.all()
     serializer_class = DeviceSerializer
     permission_classes = [IsAuthenticated]
@@ -628,7 +676,7 @@ class DeviceViewSet(ModelViewSet):
             project_id=project_id
         )
 
-class ProjectPatrolViewSet(ModelViewSet):
+class ProjectPatrolViewSet(CRUDMessageMixin, ModelViewSet):
     queryset = Patrol.objects.all()
     serializer_class = PatrolSerializer
     permission_classes = [IsAuthenticated]
@@ -653,7 +701,7 @@ class ProjectPatrolViewSet(ModelViewSet):
         )
 
 
-class ProjectRoutinePatrolView(ListCreateAPIView):
+class ProjectRoutinePatrolView(CRUDMessageMixin, ListCreateAPIView):
     serializer_class = RoutinePatrolSerializer
     permission_classes = [IsAuthenticated]
 
@@ -803,6 +851,7 @@ class GenerateRoutinePatrolPathView(APIView):
             {
                 "path": json.loads(route.geojson),
                 "hotspot_count": len(ordered_points),
+                "message": "Patrol path generated successfully.",
             },
             status=status.HTTP_200_OK,
         )
@@ -836,7 +885,10 @@ class ProjectGetCodeView(APIView):
         )
 
         return Response(
-            {"code" : code},
+            {
+                "code": code,
+                "message": "Device connection code created successfully.",
+            },
             status=status.HTTP_201_CREATED
         )
 
@@ -947,7 +999,8 @@ class DeviceReportView(APIView):
 
         return Response(
             {
-                "details": "Report received successfully."
+                "details": "Report received successfully.",
+                "message": "Incident report received successfully.",
             },
             status=status.HTTP_201_CREATED,
         )
@@ -993,7 +1046,13 @@ class PatrolCompletionView(APIView):
 
         if patrol_status == Patrol.Status.CANCELLED:
             patrol.delete()
-            return Response({"details": "Success!"}, status=status.HTTP_200_OK)
+            return Response(
+                {
+                    "details": "Success!",
+                    "message": "Patrol cancelled successfully.",
+                },
+                status=status.HTTP_200_OK,
+            )
 
         if incident_status not in (
             Incident.Status.CONFIRMED,
@@ -1015,7 +1074,13 @@ class PatrolCompletionView(APIView):
             patrol.incident.coordinates = Point(longitude, latitude, srid=4326)
         patrol.incident.save()
 
-        return Response({"details": "Success!"}, status=status.HTTP_200_OK)
+        return Response(
+            {
+                "details": "Success!",
+                "message": "Patrol completed and incident status updated successfully.",
+            },
+            status=status.HTTP_200_OK,
+        )
 
 class PatrolAssignView(APIView):
     permission_classes = [IsAuthenticated]
@@ -1085,7 +1150,10 @@ class PatrolAssignView(APIView):
         patrol.members.add(*assignees)
 
         return Response(
-            PatrolSerializer(patrol).data,
+            {
+                **PatrolSerializer(patrol).data,
+                "message": "Patrol assigned successfully.",
+            },
             status=status.HTTP_200_OK
         )
 
@@ -1163,7 +1231,7 @@ class UserSettingsView(APIView):
         settings_serializer.save()
 
         return Response(
-            {"details" : "Successfully saved settings"},
+            {"message": "Settings saved successfully."},
             status=status.HTTP_200_OK
         )
 

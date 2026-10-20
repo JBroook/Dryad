@@ -6,6 +6,7 @@ import { FiShield } from "react-icons/fi";
 import { BsTree } from "react-icons/bs";
 import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useToast } from "@/components/ToastProvider";
 
 export default function ForgotPassword() {
   const [submitted, setSubmitted] = useState<boolean>(false);
@@ -17,6 +18,7 @@ export default function ForgotPassword() {
   const searchParams = useSearchParams();
 
   const router = useRouter();
+  const { showToast } = useToast();
 
   const handlePasswordReset = async (e : React.SubmitEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -33,11 +35,13 @@ export default function ForgotPassword() {
     });
 
     if (!res.ok) {
-      alert("Verification failed")
+      showToast("Unable to send the password reset email.", "error");
       setSubmitted(false);
       return;
     }
 
+    const data = await res.json();
+    showToast(data.message ?? "If an account exists, a reset link has been sent.");
     setSubmitted(false)
   }
 

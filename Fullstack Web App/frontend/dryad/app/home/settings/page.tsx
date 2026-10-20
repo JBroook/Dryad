@@ -8,41 +8,47 @@ import { useEffect, useState } from "react";
 import { BsFillLightningChargeFill } from "react-icons/bs";
 import { FaPlus } from "react-icons/fa6";
 import { MdEmail, MdOutlineDarkMode, MdOutlineLightMode } from "react-icons/md";
+import { useToast } from "@/components/ToastProvider";
 
 export default function Settings() {
+  const { showToast } = useToast();
   const {theme, setTheme} = useTheme();
   const [mode, setMode] = useState<boolean>(false);
   const [emailAlerts, setEmailAlerts] = useState<boolean | null>(null);
   const [criticalIncidentsOnly, setCriticalIncidentsOnly] = useState<boolean | null>(null);
 
-  const handleEmailSetting = (e : React.ChangeEvent<HTMLInputElement>) => {
-    setEmailAlerts(e.target.checked)
-    apiFetch(`http://127.0.0.1:8000/api/users/settings`, {
-      method : "PATCH",
-      body : JSON.stringify({
-        receive_emails : e.target.checked
-      })
-    })
-    .then(async (res) => {
-      if (!res.ok) throw new Error(await res.text());
-      return res.json();
-    })
-    .catch((err) => console.error("Fetch failed:", err));
+  const handleEmailSetting = async (e : React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.checked;
+    try {
+      const response = await apiFetch(`http://127.0.0.1:8000/api/users/settings`, {
+        method: "PATCH",
+        body: JSON.stringify({ receive_emails: value }),
+      });
+      if (!response.ok) throw new Error(await response.text());
+      setEmailAlerts(value);
+      const data = await response.json();
+      showToast(data.message ?? "Email alert settings saved.");
+    } catch (err) {
+      console.error("Email alert settings update failed:", err);
+      showToast("Unable to save email alert settings.", "error");
+    }
   }
 
-  const handleCriticalIncidentsSetting = (e : React.ChangeEvent<HTMLInputElement>) => {
-    setCriticalIncidentsOnly(e.target.checked)
-    apiFetch(`http://127.0.0.1:8000/api/users/settings`, {
-      method : "PATCH",
-      body : JSON.stringify({
-        critical_incidents_only : e.target.checked
-      })
-    })
-    .then(async (res) => {
-      if (!res.ok) throw new Error(await res.text());
-      return res.json();
-    })
-    .catch((err) => console.error("Fetch failed:", err));
+  const handleCriticalIncidentsSetting = async (e : React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.checked;
+    try {
+      const response = await apiFetch(`http://127.0.0.1:8000/api/users/settings`, {
+        method: "PATCH",
+        body: JSON.stringify({ critical_incidents_only: value }),
+      });
+      if (!response.ok) throw new Error(await response.text());
+      setCriticalIncidentsOnly(value);
+      const data = await response.json();
+      showToast(data.message ?? "Incident alert settings saved.");
+    } catch (err) {
+      console.error("Incident alert settings update failed:", err);
+      showToast("Unable to save incident alert settings.", "error");
+    }
   }
 
   useEffect(()=>{

@@ -5,8 +5,10 @@ import { apiFetch } from "@/library/api"
 import { useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
 import { FaRegTrashAlt } from "react-icons/fa"
+import { useToast } from "@/components/ToastProvider";
 
 export default function Account() {
+  const { showToast } = useToast();
   const [firstName, setFirstName] = useState<string>("")
   const [lastName, setLastName] = useState<string>("")
   const [firstNameInput, setFirstNameInput] = useState<string>("")
@@ -33,39 +35,47 @@ export default function Account() {
     localStorage.removeItem("refresh");
 
     router.push("/login");
+    showToast("Signed out");
   }
 
-  const saveProfile = (e : React.SubmitEvent<HTMLFormElement>) => {
+  const saveProfile = async (e : React.SubmitEvent<HTMLFormElement>) => {
     e.preventDefault();
     const userID = localStorage.getItem("userID")
-    apiFetch(`http://127.0.0.1:8000/api/users/${userID}/`,{
-      method : "PATCH",
-      body : JSON.stringify({
-        first_name : firstNameInput,
-        last_name : lastNameInput
-      })
-    })
-    .then(async (res) => {
-      if (!res.ok) throw new Error(await res.text());
-      return res.json();
-    })
-    .then(()=>{
+    try {
+      const response = await apiFetch(`http://127.0.0.1:8000/api/users/${userID}/`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          first_name: firstNameInput,
+          last_name: lastNameInput,
+        }),
+      });
+      if (!response.ok) throw new Error(await response.text());
+      const data = await response.json();
       setFirstName(firstNameInput);
       setLastName(lastNameInput);
-    })
-    .catch((err) => console.error("Fetch failed:", err));
+      showToast(data.message ?? "Profile updated successfully.");
+    } catch (err) {
+      console.error("Profile update failed:", err);
+      showToast("Unable to update your profile.", "error");
+    }
   }
 
-  const deleteAccount = (e : React.SubmitEvent<HTMLFormElement>) => {
+  const deleteAccount = async (e : React.SubmitEvent<HTMLFormElement>) => {
     e.preventDefault();
-    apiFetch(`http://127.0.0.1:8000/api/delete_account/`,{
-      method : "POST"
-    })
-    .then(async (res) => {
-      if (!res.ok) throw new Error(await res.text());
-    })
-    .then(logout)
-    .catch((err) => console.error("Fetch failed:", err));
+    try {
+      const response = await apiFetch(`http://127.0.0.1:8000/api/delete_account/`, {
+        method: "POST",
+      });
+      if (!response.ok) throw new Error(await response.text());
+      const data = await response.json();
+      localStorage.removeItem("access");
+      localStorage.removeItem("refresh");
+      showToast(data.message ?? "Account deleted successfully.");
+      router.push("/login");
+    } catch (err) {
+      console.error("Account deletion failed:", err);
+      showToast("Unable to delete your account.", "error");
+    }
   }
 
   const openModal = (id : string)=>{

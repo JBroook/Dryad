@@ -9,6 +9,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { useToast } from "@/components/ToastProvider";
 
 const resetPasswordSchema = z
   .object({
@@ -37,6 +38,7 @@ export default function ForgotPassword() {
   const searchParams = useSearchParams();
 
   const router = useRouter();
+  const { showToast } = useToast();
 
   const {
     register,
@@ -78,7 +80,8 @@ export default function ForgotPassword() {
       return;
     }
 
-    // registration succeeded
+    const responseData = await res.json();
+    showToast(responseData.message ?? "Password reset successfully.");
     router.push(`/login`)
   };
 
