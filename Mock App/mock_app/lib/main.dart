@@ -396,16 +396,6 @@ class _CodeRequestScreenState extends State<CodeRequestScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    ElevatedButton(
-                      onPressed: _isBusy ? null : _runModelDemo,
-                      child: _isRunningModel
-                          ? const SizedBox(
-                              width: 18,
-                              height: 18,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Text('Run ONNX model demo'),
-                    ),
                     const SizedBox(height: 20),
                     ValueListenableBuilder<int?>(
                       valueListenable: _deviceId,

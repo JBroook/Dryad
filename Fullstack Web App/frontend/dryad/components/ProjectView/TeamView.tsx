@@ -9,18 +9,24 @@ import { IoSearch } from "react-icons/io5";
 import { apiFetch } from "@/library/api";
 import { AiOutlineTeam } from "react-icons/ai";
 import MemberCard from "../MemberCard";
+import { useToast } from "../ToastProvider";
 
 interface TeamViewProps {
     projectID : string | null;
     members : Member[];
     setMembers : (members : Member[])=>void;
+    canManageMembers: boolean;
+    canInviteMembers: boolean;
+    canManageOwner: boolean;
 }
 
 
 export default function TeamView(props: TeamViewProps) {
+    const { showToast } = useToast();
     const [openInviteTab, setOpenInviteTab] = useState<boolean>(false);
     const [searchMember, setSearchMember] = useState<string | null>(null);
     const [memberIndex, setMemberIndex] = useState(-1);
+    const [currentUserID, setCurrentUserID] = useState<number | null>(null);
 
     const apiSearchMember = async (nameEmail : string) => {
         await apiFetch(`http://127.0.0.1:8000/api/projects/${props.projectID}/members?search=${nameEmail}`)
@@ -40,23 +46,22 @@ export default function TeamView(props: TeamViewProps) {
     }
 
     const changeMemberRole = async (id : number, newRole : string) => {
-        apiFetch(`http://127.0.0.1:8000/api/projects/${props.projectID}/members/${id}/`, {
-            method : "PATCH",
-            body : JSON.stringify({
-                role : newRole
-            })
-        })
-        .then(async (res) => {
-        if (!res.ok) throw new Error(await res.text());
-        return res.json();
-        })
-        .then(()=>{
+        try {
+            const response = await apiFetch(`http://127.0.0.1:8000/api/projects/${props.projectID}/members/${id}/`, {
+                method: "PATCH",
+                body: JSON.stringify({ role: newRole }),
+            });
+            if (!response.ok) throw new Error(await response.text());
+            const data = await response.json();
             const newMembers = [...props.members];
             const editedMemberIndex = newMembers.findIndex(member=>member.id===id);
             newMembers[editedMemberIndex].role = newRole;
             props.setMembers(newMembers);
-        })
-        .catch((err) => console.error("Fetch failed:", err));
+            showToast(data.message ?? "Member role updated successfully.");
+        } catch (err) {
+            console.error("Member role update failed:", err);
+            showToast("Unable to update the member role.", "error");
+        }
     }
 
     const closeModal = (id : string) => {
@@ -103,13 +108,14 @@ export default function TeamView(props: TeamViewProps) {
                     };
 
                     props.setMembers([...props.members, newMember]);
+                    showToast(data.message ?? "Invitation sent successfully.");
                 })
                 .catch((err) => {
                     console.error("Fetch failed:", err);
-                    alert(err.message);
+                    showToast("Unable to send the project invitation.", "error");
                 });
         } else {
-            alert("Please enter a valid email address");
+            showToast("Please enter a valid email address.", "warning");
         }
     };
 
@@ -118,18 +124,28 @@ export default function TeamView(props: TeamViewProps) {
         e.preventDefault();
 
         apiFetch(`http://127.0.0.1:8000/api/projects/${props.projectID}/members/${props.members[memberIndex].id}/`, {
-            method : "DELETE"
+            method: "DELETE",
         })
         .then(async (res) => {
             if (!res.ok) throw new Error(await res.text());
+            return res.json();
         })
-        .then(()=>{
+        .then((data) => {
             props.setMembers(props.members.filter((_, i) => i !== memberIndex));
+            showToast(data.message ?? "Member removed successfully.");
         })
-        .catch((err) => console.error("Fetch failed:", err));
+        .catch((err) => {
+            console.error("Member removal failed:", err);
+            showToast("Unable to remove this member.", "error");
+        });
 
         closeModal("removeModal")
     }
+
+    useEffect(() => {
+        const userID = Number(localStorage.getItem("userID"));
+        setCurrentUserID(Number.isNaN(userID) ? null : userID);
+    }, []);
 
     useEffect(() => {
         if(searchMember===null){
@@ -170,15 +186,15 @@ export default function TeamView(props: TeamViewProps) {
                 Team Members ({props.members.length})
             </h1>
 
-            <div className="flex flex-row items-center">
+            {props.canInviteMembers && <div className="flex flex-row items-center">
                 <GlowButton className="btn btn-accent" color="#4ADE80" onClick={()=>setOpenInviteTab(!openInviteTab)}>
                     <FaPlus />
                     Invite Member
                 </GlowButton>
-            </div>
+            </div>}
         </div>
 
-        {openInviteTab && 
+        {props.canInviteMembers && openInviteTab &&
             <div className="flex flex-row items-center justify-between mx-6 mt-3 p-4 rounded-xl bg-primary/10 border border-primary/25">
                 <IoSearch className="mr-3 text-secondary-content"/>
 
@@ -218,6 +234,9 @@ export default function TeamView(props: TeamViewProps) {
                         key={index} 
                         changeMemberRole={changeMemberRole}
                         removeModal={()=>openModal(index)}
+                        canManage={props.canManageMembers}
+                        canManageOwner={props.canManageOwner}
+                        isCurrentUser={member.user?.id === currentUserID}
                         />;
                     })}
                     </div>

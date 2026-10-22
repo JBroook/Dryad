@@ -20,6 +20,7 @@ interface IncidentProps {
     status : string;
     projectID : number;
     mini? : boolean;
+    canManage?: boolean;
 }
 
 export type Coordinate = {
@@ -50,6 +51,7 @@ export default function Incident(props : IncidentProps) {
     };
 
     const color = getSeverityColor(props.confidence);
+    const canManage = props.canManage ?? true;
 
     const getStatusBadege = (status : string) => {
         if (status==="new") return <div className="badge badge-soft badge-warning font-semibold">{capitalizeFirstLetter (props.status)}</div>;
@@ -138,7 +140,7 @@ export default function Incident(props : IncidentProps) {
             <progress className="progress progress-primary w-full mt-2" value={props.confidence} max="100"></progress>
 
             <div className="mt-2 flex flex-wrap gap-2">
-                {(props.status=="new" && !props.mini) &&
+                {(props.status=="new" && !props.mini && canManage) &&
                     <>
                     <GlowButton color="#4ADE80" className="btn btn-primary" onClick={props.confirmIncident}>
                         Confirm

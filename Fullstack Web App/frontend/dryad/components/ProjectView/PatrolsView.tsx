@@ -16,6 +16,7 @@ import type { GeoJSON } from 'geojson';
 import type { FeatureGroup as LeafletFeatureGroup } from "leaflet";
 import Waypoint from "../Waypoint";
 import { length as turfLength, lineString } from "@turf/turf";
+import { useToast } from "../ToastProvider";
 
 export type RoutinePatrol = {
     id: number;
@@ -50,9 +51,11 @@ interface DevicesViewProps {
     projectID : string | null;
     geoJSON : GeoJSON | null | undefined;
     gridCells : any;
+    canManage: boolean;
 }
 
 export default function DevicesView(props: DevicesViewProps) {
+    const { showToast } = useToast();
     const [patrols, setPatrols] = useState<Patrol[]>([]);
     const [routinePatrols, setRoutinePatrols] = useState<RoutinePatrol[]>([]);
     const [routineFetchError, setRoutineFetchError] = useState("");
@@ -65,7 +68,6 @@ export default function DevicesView(props: DevicesViewProps) {
     const [isSavingPatrol, setIsSavingPatrol] = useState(false);
     const [isGeneratingPath, setIsGeneratingPath] = useState(false);
     const [creationError, setCreationError] = useState("");
-    const [creationMessage, setCreationMessage] = useState("");
     const routeDistanceKm = pathCoordinates.length >= 2
         ? turfLength(
             lineString(pathCoordinates.map(([latitude, longitude]) => [longitude, latitude])),
@@ -182,11 +184,12 @@ export default function DevicesView(props: DevicesViewProps) {
                 throw new Error(await response.text());
             }
 
-            const createdPatrol: RoutinePatrol = await response.json();
+            const createdData = await response.json();
+            const createdPatrol: RoutinePatrol = createdData;
             setRoutinePatrols((current) => [createdPatrol, ...current]);
             setFilterIndex(filterOptions.findIndex((option) => option.key === "routine"));
 
-            setCreationMessage("Routine patrol created.");
+            showToast(createdData.message ?? "Routine patrol created successfully.");
             setIsCreatingPatrol(false);
 
             setPatrolName("");
@@ -195,6 +198,7 @@ export default function DevicesView(props: DevicesViewProps) {
 
             setPathCoordinates([]);
         } catch (error) {
+            showToast("Unable to create the routine patrol.", "error");
             setCreationError(
                 error instanceof Error ? error.message : "Unable to create the routine patrol."
             );
@@ -224,11 +228,14 @@ export default function DevicesView(props: DevicesViewProps) {
             const data: {
                 path: { type: "LineString"; coordinates: [number, number][] };
                 hotspot_count: number;
+                message?: string;
             } = await response.json();
             setPathCoordinates(
                 data.path.coordinates.map(([longitude, latitude]) => [latitude, longitude])
             );
+            showToast(data.message ?? "Patrol path generated successfully.", "success");
         } catch (error) {
+            showToast("Unable to generate a patrol path.", "error");
             setCreationError(
                 error instanceof Error ? error.message : "Unable to generate a patrol path."
             );
@@ -249,11 +256,6 @@ export default function DevicesView(props: DevicesViewProps) {
     return (<>
     {!isCreatingPatrol ?
         <>
-        {creationMessage && (
-            <div role="status" className="alert alert-success mx-6 mt-3 hover:cursor-pointer" onClick={()=>setCreationMessage("")}>
-                {creationMessage}
-            </div>
-        )}
         <div className="flex gap-2 mx-6 mt-4 items-center">
             {filterOptions.map((option, index)=>{
                 return <ToggleGlowButton
@@ -269,9 +271,9 @@ export default function DevicesView(props: DevicesViewProps) {
             <p className="text-secondary-content ml-auto">
                 {patrols.length + routinePatrols.length} patrols
             </p>
-            <button className="btn btn-primary ml-2" onClick={()=>setIsCreatingPatrol(true)}>
+            {props.canManage && <button className="btn btn-primary ml-2" onClick={()=>setIsCreatingPatrol(true)}>
                 <FaPlus/> New Patrol    
-            </button>
+            </button>}
         </div>
 
         <div className="mx-6 mt-5">
@@ -285,7 +287,6 @@ export default function DevicesView(props: DevicesViewProps) {
                 key={`patrol-${patrol.id}`}
                 color="#F97316"
                 patrol={patrol}
-                cancelPatrol={()=>{}}
             />
             ))}
             {matchingRoutinePatrols.map((patrol) => (
@@ -301,7 +302,7 @@ export default function DevicesView(props: DevicesViewProps) {
             :
             <h1>This project has no patrols</h1>
             }
-            <p className="text-sm">Assign a patrol or create one to get started</p>
+            {props.canManage && <p className="text-sm">Assign a patrol or create one to get started</p>}
         </div>
         }
         </div>

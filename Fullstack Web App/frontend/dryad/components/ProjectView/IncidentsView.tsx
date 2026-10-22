@@ -16,6 +16,7 @@ import ToggleGlowButton from "../ToggleGlowButton";
 import getThreatIcon from "@/library/threatIcons";
 import { RxCross2 } from "react-icons/rx";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useToast } from "../ToastProvider";
 
 interface IncidentsViewProps {
     projectID : string | null;
@@ -26,10 +27,12 @@ interface IncidentsViewProps {
     threatClasses : ThreatClass[];
     setThreatClasses : (newThreatClasses : ThreatClass[]) => void;
     setIncidents : (incidents : IncidentType[]) => void;
+    canManage: boolean;
 }
 
 
 export default function IncidentsView(props: IncidentsViewProps) {
+    const { showToast } = useToast();
     const [incidentIndex, setIncidentIndex] = useState<number>(-1);
     const [members, setMembers] = useState<Member[]>([]);
     const [selectedMembers, setSelectedMembers] = useState<Member[]>([]);
@@ -84,12 +87,16 @@ export default function IncidentsView(props: IncidentsViewProps) {
             if (!res.ok) throw new Error(await res.text());
             return res.json();
         })
-        .then(()=>{
+        .then((data)=>{
             const newIncidents = [...props.incidents]
             newIncidents[incidentIndex].status = "confirmed"
             props.setIncidents(newIncidents)
+            showToast(data.message ?? "Incident confirmed successfully.");
         })
-        .catch((err) => console.error("Fetch failed:", err));
+        .catch((err) => {
+            console.error("Incident confirmation failed:", err);
+            showToast("Unable to confirm this incident.", "error");
+        });
 
         const modal = document.getElementById('confirmModal') as HTMLDialogElement;
         modal.close();
@@ -111,12 +118,16 @@ export default function IncidentsView(props: IncidentsViewProps) {
             if (!res.ok) throw new Error(await res.text());
             return res.json();
         })
-        .then(()=>{
+        .then((data)=>{
             const newIncidents = [...props.incidents]
             newIncidents[incidentIndex].status = "dismissed"
             props.setIncidents(newIncidents)
+            showToast(data.message ?? "Incident dismissed successfully.");
         })
-        .catch((err) => console.error("Fetch failed:", err));
+        .catch((err) => {
+            console.error("Incident dismissal failed:", err);
+            showToast("Unable to dismiss this incident.", "error");
+        });
 
         const modal = document.getElementById('dismissModal') as HTMLDialogElement;
         modal.close();
@@ -145,8 +156,11 @@ export default function IncidentsView(props: IncidentsViewProps) {
             if (!res.ok) {
                 throw new Error(await res.text());
             }
+            const data = await res.json();
+            showToast(data.message ?? "Patrol assigned successfully.");
         } catch (err) {
             console.error("Fetch failed:", err);
+            showToast("Unable to assign a patrol to this incident.", "error");
             return;
         }
 
@@ -488,9 +502,9 @@ export default function IncidentsView(props: IncidentsViewProps) {
             Confidence
         </SortButton>
 
-        <button className="btn btn-primary ml-2">
+        {props.canManage && <button className="btn btn-primary ml-2">
             <FaPlus/> New Incident
-        </button>
+        </button>}
     </div>
     
 
@@ -608,6 +622,7 @@ export default function IncidentsView(props: IncidentsViewProps) {
                     assignPatrol={()=>assignPatrolModal(index)}
                     status={incident.status}
                     projectID={parseInt(props.projectID!)}
+                    canManage={props.canManage}
                 />
             })
             :

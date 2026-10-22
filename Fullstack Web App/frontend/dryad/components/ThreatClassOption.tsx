@@ -8,16 +8,17 @@ interface ThreatClassOptionProps {
   active : boolean;
   setActive : ()=>void;
   icon? : IconType;
+  disabled?: boolean;
 }
 
 export default function ThreatClassOption(props : ThreatClassOptionProps) {
   const Icon = getThreatIcon(props.name)
   return (
-  <div className={props.active ? "bg-primary/15 rounded-xl p-4 flex flex-row justify-between items-center border border-width-[2px] border-accent/40 mb-2 cursor-pointer"
+  <div className={props.active ? `bg-primary/15 rounded-xl p-4 flex flex-row justify-between items-center border border-width-[2px] border-accent/40 mb-2 ${props.disabled ? "" : "cursor-pointer"}`
     :
-    "bg-secondary rounded-xl p-4 flex flex-row justify-between items-center border border-width-[2px] border-white/8 mb-2 cursor-pointer"
+    `bg-secondary rounded-xl p-4 flex flex-row justify-between items-center border border-width-[2px] border-white/8 mb-2 ${props.disabled ? "" : "cursor-pointer"}`
   }
-    onClick={props.setActive}>
+    onClick={props.disabled ? undefined : props.setActive}>
 
     <div className="flex flex-row items-center">
       <Icon className={`text-xl ml-1 mr-4 ${props.active ? "text-accent" : "text-secondary-content"}`}/>

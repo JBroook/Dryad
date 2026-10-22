@@ -30,6 +30,7 @@ class PatrolAssignmentTests(TestCase):
             user=self.assigner_user,
             invited_by=self.assigner_user,
             role=Membership.Role.OWNER,
+            accepted=True,
         )
         self.assignees = [
             Membership.objects.create(
@@ -40,6 +41,7 @@ class PatrolAssignmentTests(TestCase):
                 ),
                 invited_by=self.assigner_user,
                 role=Membership.Role.VIEWER,
+                accepted=True,
             )
             for index in range(1, 4)
         ]
@@ -59,6 +61,7 @@ class PatrolAssignmentTests(TestCase):
             confidence=90,
             grid_cell=grid_cell,
         )
+        self.client.force_authenticate(user=self.assigner_user)
 
     def test_members_share_one_patrol_and_completion_resolves_it_for_all(self):
         assign_url = reverse("assign_patrol", args=[self.incident.id])
@@ -72,6 +75,7 @@ class PatrolAssignmentTests(TestCase):
         )
 
         self.assertEqual(first_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(first_response.data["message"], "Patrol assigned successfully.")
         self.assertEqual(
             {member["id"] for member in first_response.data["members"]},
             {self.assignees[0].id, self.assignees[1].id},
@@ -105,6 +109,10 @@ class PatrolAssignmentTests(TestCase):
         )
 
         self.assertEqual(completion_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(
+            completion_response.data["message"],
+            "Patrol completed and incident status updated successfully.",
+        )
         for member in self.assignees:
             self.assertEqual(
                 Patrol.objects.get(members=member).status,
@@ -128,6 +136,10 @@ class PatrolAssignmentTests(TestCase):
         )
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(
+            response.data["message"],
+            "Routine patrol created successfully.",
+        )
         routine_patrol = RoutinePatrol.objects.get()
         self.assertEqual(routine_patrol.project, self.project)
         self.assertEqual(routine_patrol.created_by, self.assigner)
@@ -285,3 +297,194 @@ class PatrolAssignmentTests(TestCase):
         )
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_viewer_cannot_assign_patrol_or_edit_incident_directly(self):
+        viewer = self.assignees[0]
+        self.client.force_authenticate(user=viewer.user)
+
+        assign_response = self.client.post(
+            reverse("assign_patrol", args=[self.incident.id]),
+            {
+                "assigner_id": viewer.id,
+                "assignee_ids": [self.assignees[1].id],
+            },
+            format="json",
+        )
+        incident_response = self.client.patch(
+            reverse("incident-detail", args=[self.incident.id]),
+            {"status": Incident.Status.CONFIRMED},
+            format="json",
+        )
+
+        self.assertEqual(assign_response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(incident_response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertFalse(Patrol.objects.exists())
+
+    def test_manager_can_assign_patrols_but_viewer_cannot_manage_devices(self):
+        manager_user = User.objects.create_user(
+            email="patrol-manager@example.com",
+            password="test-password",
+        )
+        Membership.objects.create(
+            project=self.project,
+            user=manager_user,
+            invited_by=self.assigner_user,
+            role=Membership.Role.MANAGER,
+            accepted=True,
+        )
+        self.client.force_authenticate(user=manager_user)
+        assign_response = self.client.post(
+            reverse("assign_patrol", args=[self.incident.id]),
+            {
+                "assignee_ids": [self.assignees[0].id],
+                "assigner_id": self.assigner.id,
+            },
+            format="json",
+        )
+
+        self.client.force_authenticate(user=self.assignees[0].user)
+        device_response = self.client.post(
+            reverse("project_devices-list", args=[self.project.id]),
+            {},
+            format="json",
+        )
+
+        self.assertEqual(assign_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(device_response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_viewer_can_only_complete_a_patrol_assigned_to_them(self):
+        patrol = Patrol.objects.create(
+            project=self.project,
+            incident=self.incident,
+            target=self.incident.coordinates,
+            assigned_by=self.assigner,
+        )
+        patrol.members.add(self.assignees[0])
+        other_patrol = Patrol.objects.create(
+            project=self.project,
+            incident=self.incident,
+            target=self.incident.coordinates,
+            assigned_by=self.assigner,
+        )
+        other_patrol.members.add(self.assignees[1])
+        cancelled_patrol = Patrol.objects.create(
+            project=self.project,
+            incident=self.incident,
+            target=self.incident.coordinates,
+            assigned_by=self.assigner,
+        )
+        cancelled_patrol.members.add(self.assignees[0])
+
+        self.client.force_authenticate(user=self.assignees[0].user)
+        response = self.client.post(
+            reverse("complete_patrol", args=[patrol.id]),
+            {
+                "patrol_status": Patrol.Status.COMPLETED,
+                "incident_status": Incident.Status.CONFIRMED,
+            },
+            format="json",
+        )
+        forbidden_response = self.client.post(
+            reverse("complete_patrol", args=[other_patrol.id]),
+            {
+                "patrol_status": Patrol.Status.COMPLETED,
+                "incident_status": Incident.Status.DISMISSED,
+            },
+            format="json",
+        )
+        cancel_response = self.client.post(
+            reverse("complete_patrol", args=[cancelled_patrol.id]),
+            {"patrol_status": Patrol.Status.CANCELLED},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(forbidden_response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(cancel_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(
+            Patrol.objects.get(pk=patrol.pk).status,
+            Patrol.Status.COMPLETED,
+        )
+        self.assertEqual(
+            Patrol.objects.get(pk=other_patrol.pk).status,
+            Patrol.Status.PENDING,
+        )
+        self.assertFalse(Patrol.objects.filter(pk=cancelled_patrol.pk).exists())
+
+    def test_manager_cannot_invite_or_change_project_settings(self):
+        manager_user = User.objects.create_user(
+            email="manager@example.com",
+            password="test-password",
+        )
+        Membership.objects.create(
+            project=self.project,
+            user=manager_user,
+            invited_by=self.assigner_user,
+            role=Membership.Role.MANAGER,
+            accepted=True,
+        )
+        self.client.force_authenticate(user=manager_user)
+
+        settings_response = self.client.patch(
+            reverse("project-detail", args=[self.project.id]),
+            {"name": "Changed by manager"},
+            format="json",
+        )
+        role_response = self.client.patch(
+            reverse("member-detail", args=[self.project.id, self.assignees[2].id]),
+            {"role": Membership.Role.ADMIN},
+            format="json",
+        )
+        invite_response = self.client.post(
+            reverse("invite", args=[self.project.id]),
+            {"email": "new-member@example.com"},
+        )
+
+        self.assertEqual(settings_response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(role_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(invite_response.status_code, status.HTTP_403_FORBIDDEN)
+        self.project.refresh_from_db()
+        self.assertEqual(self.project.name, "Patrol Test Project")
+
+    def test_admin_can_edit_settings_but_cannot_disable_project(self):
+        admin_user = User.objects.create_user(
+            email="admin@example.com",
+            password="test-password",
+        )
+        Membership.objects.create(
+            project=self.project,
+            user=admin_user,
+            invited_by=self.assigner_user,
+            role=Membership.Role.ADMIN,
+            accepted=True,
+        )
+        self.client.force_authenticate(user=admin_user)
+
+        update_response = self.client.patch(
+            reverse("project-detail", args=[self.project.id]),
+            {"name": "Changed by admin"},
+            format="json",
+        )
+        User.objects.create_user(
+            email="invited-by-admin@example.com",
+            password="test-password",
+        )
+        invite_response = self.client.post(
+            f"{reverse('invite', args=[self.project.id])}?email=invited-by-admin@example.com"
+        )
+        disable_response = self.client.patch(
+            reverse("project-detail", args=[self.project.id]),
+            {"status": False},
+            format="json",
+        )
+        delete_response = self.client.delete(
+            reverse("project-detail", args=[self.project.id])
+        )
+
+        self.assertEqual(update_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(invite_response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(disable_response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(delete_response.status_code, status.HTTP_403_FORBIDDEN)
+        self.project.refresh_from_db()
+        self.assertEqual(self.project.name, "Changed by admin")
+        self.assertTrue(self.project.status)

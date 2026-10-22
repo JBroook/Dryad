@@ -15,6 +15,8 @@ import ToggleGlowButton from "./ToggleGlowButton";
 import SortButton from "./SortButton";
 import Incident from "./Incident";
 import GlowButton from "./GlowButton";
+import { hasProjectRole, type ProjectRole } from "@/library/projectPermissions";
+import { useToast } from "./ToastProvider";
 
 interface FullIncidentsViewProps {
     filterOptions : string[];
@@ -25,10 +27,12 @@ interface FullIncidentsViewProps {
     setThreatClasses : (newThreatClasses : ThreatClass[]) => void;
     setIncidents : (incidents : IncidentType[]) => void;
     userID : string | null;
+    projectRoles: Record<number, ProjectRole>;
 }
 
 
 export default function FullIncidentsView(props: FullIncidentsViewProps) {
+    const { showToast } = useToast();
     const [incidentIndex, setIncidentIndex] = useState<number>(-1);
     const [members, setMembers] = useState<Member[]>([]);
     const [selectedMembers, setSelectedMembers] = useState<Member[]>([]);
@@ -80,12 +84,16 @@ export default function FullIncidentsView(props: FullIncidentsViewProps) {
             if (!res.ok) throw new Error(await res.text());
             return res.json();
         })
-        .then(()=>{
+        .then((data)=>{
             const newIncidents = [...props.incidents]
             newIncidents[incidentIndex].status = "confirmed"
             props.setIncidents(newIncidents)
+            showToast(data.message ?? "Incident confirmed successfully.");
         })
-        .catch((err) => console.error("Fetch failed:", err));
+        .catch((err) => {
+            console.error("Incident confirmation failed:", err);
+            showToast("Unable to confirm this incident.", "error");
+        });
 
         const modal = document.getElementById('confirmModal') as HTMLDialogElement;
         modal.close();
@@ -107,12 +115,16 @@ export default function FullIncidentsView(props: FullIncidentsViewProps) {
             if (!res.ok) throw new Error(await res.text());
             return res.json();
         })
-        .then(()=>{
+        .then((data)=>{
             const newIncidents = [...props.incidents]
             newIncidents[incidentIndex].status = "dismissed"
             props.setIncidents(newIncidents)
+            showToast(data.message ?? "Incident dismissed successfully.");
         })
-        .catch((err) => console.error("Fetch failed:", err));
+        .catch((err) => {
+            console.error("Incident dismissal failed:", err);
+            showToast("Unable to dismiss this incident.", "error");
+        });
 
         const modal = document.getElementById('dismissModal') as HTMLDialogElement;
         modal.close();
@@ -141,8 +153,11 @@ export default function FullIncidentsView(props: FullIncidentsViewProps) {
             if (!res.ok) {
                 throw new Error(await res.text());
             }
+            const data = await res.json();
+            showToast(data.message ?? "Patrol assigned successfully.");
         } catch (err) {
             console.error("Fetch failed:", err);
+            showToast("Unable to assign a patrol to this incident.", "error");
             return;
         }
 
@@ -489,9 +504,11 @@ export default function FullIncidentsView(props: FullIncidentsViewProps) {
             Confidence
         </SortButton>
 
-        <button className="btn btn-primary ml-auto md:ml-2">
+        {Object.values(props.projectRoles).some((role) =>
+            hasProjectRole(role, "manager")
+        ) && <button className="btn btn-primary ml-auto md:ml-2">
             <FaPlus/> New Incident
-        </button>
+        </button>}
     </div>
     
 
@@ -621,6 +638,10 @@ export default function FullIncidentsView(props: FullIncidentsViewProps) {
                     assignPatrol={()=>assignPatrolModal(index)}
                     status={incident.status}
                     projectID={incident.project.id}
+                    canManage={hasProjectRole(
+                        props.projectRoles[incident.project.id] ?? null,
+                        "manager"
+                    )}
                 />
                 </Fragment>)
             })

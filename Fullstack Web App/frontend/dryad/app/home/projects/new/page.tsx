@@ -11,6 +11,7 @@ import StepFourPage from "@/components/StepPages/StepFourPage";
 import StepFivePage from "@/components/StepPages/StepFivePage";
 import { LatLng } from "leaflet";
 import { apiFetch } from "@/library/api";
+import { useToast } from "@/components/ToastProvider";
 
 export type Member = {
   id : number;
@@ -57,6 +58,7 @@ export type Project = {
 }
 
 export default function New() {
+  const { showToast } = useToast();
   const [step, setStep] = useState<number>(0);
   const [project, setProject] = useState<Project>({
     id : -1,
@@ -142,9 +144,11 @@ export default function New() {
       }
 
       const data = await res.json();
+      showToast(data.message ?? "Project created successfully.");
       return Number(data.id);
     } catch (err) {
       console.error("Fetch failed:", err);
+      showToast("Unable to create project.", "error");
       return null;
     }
   }

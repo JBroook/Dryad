@@ -11,6 +11,8 @@ import type { LatLng, FeatureGroup as LeafletFeatureGroup } from "leaflet";
 import { IoMdCheckmark } from "react-icons/io";
 import { RxCross2 } from "react-icons/rx";
 import dynamic from "next/dynamic";
+import { useToast } from "../ToastProvider";
+import { useRouter } from "next/navigation";
 
 const ForestMap = dynamic(() => import("../ForestMap"), {
     ssr: false,
@@ -18,10 +20,14 @@ const ForestMap = dynamic(() => import("../ForestMap"), {
 
 interface SettingsViewProps {
     projectID : string | null;
+    canEdit: boolean;
+    isOwner: boolean;
 }
 
 
 export default function SettingsView(props: SettingsViewProps) {
+    const { showToast } = useToast();
+    const router = useRouter();
     const [project, setProject] = useState<Project | null>();
     const [threatClasses, setThreatClasses] = useState<ThreatClass[]>([]);
     const [search, setSearch] = useState<string>("");
@@ -30,7 +36,6 @@ export default function SettingsView(props: SettingsViewProps) {
     const [searchSpinner, setSearchSpinner] = useState<boolean>(false);
     const [saveSpinner, setSaveSpinner] = useState<boolean>(false);
     const [saveError, setSaveError] = useState<string | null>(null);
-    const [saveSuccess, setSaveSuccess] = useState<boolean>(false);
 
     const extractProjectFeatures = (data : any) => {
         setProject({
@@ -108,11 +113,10 @@ export default function SettingsView(props: SettingsViewProps) {
     }
 
     const saveChanges = async () => {
-        if (!project || !props.projectID || saveSpinner) return;
+        if (!props.canEdit || !project || !props.projectID || saveSpinner) return;
 
         if (!project.geoJSON || project.area == null) {
             setSaveError("Select a monitoring area before saving project changes.");
-            setSaveSuccess(false);
             return;
         }
 
@@ -123,7 +127,6 @@ export default function SettingsView(props: SettingsViewProps) {
 
         setSaveSpinner(true);
         setSaveError(null);
-        setSaveSuccess(false);
 
         try {
             const response = await apiFetch(
@@ -162,8 +165,10 @@ export default function SettingsView(props: SettingsViewProps) {
                 throw new Error(errorText || "Unable to save project changes.");
             }
 
-            setSaveSuccess(true);
+            const data = await response.json();
+            showToast(data.message ?? "Project changes saved successfully.");
         } catch (error) {
+            showToast("Unable to save project changes.", "error");
             setSaveError(
                 error instanceof Error
                     ? error.message
@@ -171,6 +176,49 @@ export default function SettingsView(props: SettingsViewProps) {
             );
         } finally {
             setSaveSpinner(false);
+        }
+    };
+
+    const disableProject = async (event: React.SubmitEvent<HTMLFormElement>) => {
+        event.preventDefault();
+        if (!props.projectID) return;
+
+        try {
+            const response = await apiFetch(
+                `http://127.0.0.1:8000/api/projects/${props.projectID}/`,
+                {
+                    method: "PATCH",
+                    body: JSON.stringify({ status: false }),
+                }
+            );
+            if (!response.ok) throw new Error(await response.text());
+            const data = await response.json();
+            showToast(data.message ?? "Project disabled successfully.");
+            closeModal("disableModal");
+            router.push("/home/projects");
+        } catch (error) {
+            console.error("Project disable failed:", error);
+            showToast("Unable to disable this project.", "error");
+        }
+    };
+
+    const deleteProject = async (event: React.SubmitEvent<HTMLFormElement>) => {
+        event.preventDefault();
+        if (!props.projectID) return;
+
+        try {
+            const response = await apiFetch(
+                `http://127.0.0.1:8000/api/projects/${props.projectID}/`,
+                { method: "DELETE" }
+            );
+            if (!response.ok) throw new Error(await response.text());
+            const data = await response.json();
+            showToast(data.message ?? "Project deleted successfully.");
+            closeModal("deleteModal");
+            router.push("/home/projects");
+        } catch (error) {
+            console.error("Project deletion failed:", error);
+            showToast("Unable to delete this project.", "error");
         }
     };
 
@@ -225,6 +273,12 @@ export default function SettingsView(props: SettingsViewProps) {
     if (project!=null){
         return (
         <>
+        {!props.canEdit && (
+            <p className="alert mx-6 mt-4" role="status">
+                Project settings are read-only for your role.
+            </p>
+        )}
+        <fieldset disabled={!props.canEdit} className="contents">
         <dialog id="disableModal" className="modal">
             <div className="modal-box bg-base-200 border border-white/8">
                 <h3 className="font-bold text-lg">Disable Project</h3>
@@ -232,7 +286,7 @@ export default function SettingsView(props: SettingsViewProps) {
                 Disabling this project means that all members will no longer receive alerts from this project. However, the project will not be deleted and can be re-activated.
                 </p>
                 <div className="modal-action">
-                <form onSubmit={()=>{}}>
+                <form onSubmit={disableProject}>
                     <button type="submit" className="btn btn-warning mr-2">Disable</button>
                     <button 
                     type="button"
@@ -251,7 +305,7 @@ export default function SettingsView(props: SettingsViewProps) {
                     Did you mean to <strong>disable</strong> the project instead?
                 </p>
                 <div className="modal-action">
-                <form onSubmit={()=>{}}>
+                <form onSubmit={deleteProject}>
                     <button type="submit" className="btn btn-error mr-2">Delete</button>
                     <button 
                     type="button"
@@ -344,6 +398,7 @@ export default function SettingsView(props: SettingsViewProps) {
                                     return <ThreatClassOption 
                                         key={index}
                                         setActive={()=>toggleThreatClass(index)}
+                                        disabled={!props.canEdit}
                                         name={threatClass.name}
                                         description={threatClass.description}
                                         active={threatClass.active}
@@ -382,14 +437,15 @@ export default function SettingsView(props: SettingsViewProps) {
                     latitude={latitude}
                     longitude={longitude}
                     handleArea={handleArea}
-                    drawingEnabled={project.area==null}
+                    drawingEnabled={props.canEdit && project.area==null}
+                    editingEnabled={props.canEdit}
                     drawnItemsReference={drawnItemsReference}
                     geoJSON={project.geoJSON}
                 />
 
-                <p className="text-secondary-content text-md mt-1">
+                {props.canEdit && <p className="text-secondary-content text-md mt-1">
                     *Use the buttons on the top right of the map to draw the area you want to monitor
-                </p>
+                </p>}
 
                 {project.area!=null ?
                 <div className="mt-5 w-full flex flex-row items-center bg-base-300 p-4 rounded-xl border border-white/8">
@@ -401,16 +457,16 @@ export default function SettingsView(props: SettingsViewProps) {
                         <p className="text-sm text-secondary-content">You can proceed to the next step, or clear and choose a different area.</p>
                     </div>
 
-                    <button className="btn btn-error/10 ml-auto text-error border border-error/25"
+                    {props.canEdit && <button className="btn btn-error/10 ml-auto text-error border border-error/25"
                         onClick={resetForestArea}>
                         <RxCross2 className="text-error"/>
                         Clear Selection
-                    </button>
+                    </button>}
                 </div>:<></>}
             </div>
 
             <div className="flex gap-2 items-center mt-4 mb-20">
-                <button
+                {props.canEdit && <button
                     type="button"
                     className="btn btn-primary"
                     onClick={saveChanges}
@@ -422,27 +478,23 @@ export default function SettingsView(props: SettingsViewProps) {
                         <FaSave />
                     )}
                     {saveSpinner ? "Saving..." : "Save Changes"}
-                </button>
+                </button>}
 
-                <button className="btn btn-warning" onClick={()=>openModal("disableModal")}>
+                {props.isOwner && <button className="btn btn-warning" onClick={()=>openModal("disableModal")}>
                     <IoPower/> Disable Project
-                </button>
+                </button>}
 
-                <button className="btn btn-error" onClick={()=>openModal("deleteModal")}>
+                {props.isOwner && <button className="btn btn-error" onClick={()=>openModal("deleteModal")}>
                     <FaRegTrashAlt/> Delete Project
-                </button>
+                </button>}
             </div>
             {saveError && (
                 <p role="alert" className="text-error -mt-16 mb-20">
                     {saveError}
                 </p>
             )}
-            {saveSuccess && (
-                <p role="status" className="text-success -mt-16 mb-20">
-                    Project changes saved.
-                </p>
-            )}
         </div>
+        </fieldset>
     </>);
     }else{
         return (<div className="w-full h-screen flex justify-center items-center">
