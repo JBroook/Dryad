@@ -1,11 +1,35 @@
+import os
+import tempfile
+from datetime import timedelta
+from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import MagicMock, patch
 from django.contrib.gis.geos import LineString, Point, Polygon
+from django.contrib.auth.hashers import check_password, make_password
 from django.test import TestCase
 from django.urls import reverse
+from django.utils import timezone
 from xml.etree import ElementTree
 from rest_framework import status
 from rest_framework.test import APIClient
+import numpy as np
+import rasterio
+from rasterio.transform import from_origin
+from projects.terrain import generate_slope_raster
+from projects.terrain import download_dem
 
-from projects.models import GridCell, Incident, Membership, Patrol, Project, RoutinePatrol, ThreatClass
+from projects.models import (
+    ConnectionCode,
+    Device,
+    GridCell,
+    Incident,
+    Membership,
+    Patrol,
+    Project,
+    ProjectThreatClass,
+    RoutinePatrol,
+    ThreatClass,
+)
 from users.models import User
 
 
@@ -138,7 +162,7 @@ class PatrolAssignmentTests(TestCase):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(
             response.data["message"],
-            "Routine patrol created successfully.",
+            "Routine Patrol created successfully.",
         )
         routine_patrol = RoutinePatrol.objects.get()
         self.assertEqual(routine_patrol.project, self.project)
@@ -488,3 +512,863 @@ class PatrolAssignmentTests(TestCase):
         self.project.refresh_from_db()
         self.assertEqual(self.project.name, "Changed by admin")
         self.assertTrue(self.project.status)
+
+
+class AuthenticationAPITests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.register_data = {
+            "email": "new-user@example.com",
+            "password": "Testpass123!",
+            "first_name": "New",
+            "last_name": "User",
+        }
+
+    @patch("users.models.User.send_verification_email")
+    def test_registration_creates_user_with_hashed_verification_code(self, send_email):
+        response = self.client.post(
+            reverse("register"),
+            self.register_data,
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        user = User.objects.get(email=self.register_data["email"])
+        self.assertTrue(user.check_password(self.register_data["password"]))
+        self.assertIsNotNone(user.verification_code_hash)
+        self.assertFalse(user.verified)
+        code = send_email.call_args.args[0]
+        self.assertTrue(check_password(code, user.verification_code_hash))
+
+    def test_registration_rejects_an_existing_email_case_insensitively(self):
+        User.objects.create_user(
+            email=self.register_data["email"],
+            password="Testpass123!",
+        )
+        data = {**self.register_data, "email": self.register_data["email"].upper()}
+
+        response = self.client.post(reverse("register"), data, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(User.objects.filter(email__iexact=data["email"]).count(), 1)
+
+    def test_login_returns_tokens_and_user_for_valid_credentials(self):
+        user = User.objects.create_user(
+            email="login@example.com",
+            password="Testpass123!",
+        )
+
+        response = self.client.post(
+            reverse("login"),
+            {"email": user.email, "password": "Testpass123!"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn("access", response.data)
+        self.assertIn("refresh", response.data)
+        self.assertEqual(response.data["user"]["email"], user.email)
+
+    def test_login_rejects_an_incorrect_password(self):
+        user = User.objects.create_user(
+            email="login@example.com",
+            password="Testpass123!",
+        )
+
+        response = self.client.post(
+            reverse("login"),
+            {"email": user.email, "password": "Wrongpass123!"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_email_verification_accepts_the_matching_code_and_clears_hash(self):
+        user = User.objects.create_user(
+            email="verify@example.com",
+            password="Testpass123!",
+            verification_code_hash=make_password("004321"),
+        )
+
+        response = self.client.post(
+            reverse("verify_email"),
+            {"email": user.email, "code": "004321"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        user.refresh_from_db()
+        self.assertTrue(user.verified)
+        self.assertIsNone(user.verification_code_hash)
+
+    def test_email_verification_rejects_a_nonmatching_code(self):
+        user = User.objects.create_user(
+            email="verify@example.com",
+            password="Testpass123!",
+            verification_code_hash=make_password("004321"),
+        )
+
+        response = self.client.post(
+            reverse("verify_email"),
+            {"email": user.email, "code": "999999"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        user.refresh_from_db()
+        self.assertFalse(user.verified)
+
+    def test_registration_rejects_a_weak_password(self):
+        data = {**self.register_data, "password": "123"}
+
+        response = self.client.post(
+            reverse("register"),
+            data,
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertFalse(
+            User.objects.filter(email=data["email"]).exists()
+        )
+
+
+class ProjectAPITestCase(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.owner = User.objects.create_user(
+            email="project-owner@example.com",  password="Testpass123!",
+        )
+        self.project = Project.objects.create(
+            name="API Test Project", region="Test region", color="#0055ff",
+            owner=self.owner, coordinates="0,0", surface_area=1200,
+            monitoring_area=Polygon.from_bbox((0, 0, 10, 10)),
+        )
+        self.owner_membership = Membership.objects.create(
+            project=self.project, user=self.owner, invited_by=self.owner,
+            role=Membership.Role.OWNER, accepted=True,
+        )
+        self.cell = GridCell.objects.create(
+            project=self.project, geometry=Polygon.from_bbox((0, 0, 5, 5)),
+            identifier="test-cell", elevation=100,
+            slope=5, distance_to_road=10,
+        )
+        self.threat_class = ThreatClass.objects.create(
+            name="Test fire",
+            description="Fire threat used in tests",
+        )
+        self.client.force_authenticate(user=self.owner)
+
+
+class ProjectManagementTests(ProjectAPITestCase):
+    def test_project_list_only_contains_projects_the_user_owns_or_joined(self):
+        outsider = User.objects.create_user(
+            email="unrelated-owner@example.com",
+            password="Testpass123!",
+        )
+        Project.objects.create(
+            name="Unrelated project",
+            region="Elsewhere",
+            color="#0055ff",
+            owner=outsider,
+            coordinates="1,1",
+            surface_area=100,
+            monitoring_area=Polygon.from_bbox((1, 1, 2, 2)),
+        )
+
+        response = self.client.get(reverse("project-list"))
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["type"], "FeatureCollection")
+        self.assertEqual(
+            [feature["id"] for feature in response.data["features"]],
+            [self.project.id],
+        )
+
+    def test_project_creation_assigns_owner_and_creates_owner_membership(self):
+        data = {
+            "name": "New project",
+            "region": "North",
+            "color": "#123456",
+            "coordinates": "2,2",
+            "surface_area": 500,
+            "monitoring_area": {
+                "type": "Polygon",
+                "coordinates": [[[0, 0], [0, 2], [2, 2], [2, 0], [0, 0]]],
+            },
+        }
+
+        with patch("projects.serializers.generate_grid") as generate_grid:
+            response = self.client.post(
+                reverse("project-list"),
+                data,
+                format="json",
+            )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        project = Project.objects.get(name="New project")
+        self.assertEqual(project.owner, self.owner)
+        self.assertTrue(
+            Membership.objects.filter(
+                project=project,
+                user=self.owner,
+                accepted=True,
+                role=Membership.Role.OWNER,
+            ).exists()
+        )
+        generate_grid.assert_called_once()
+
+    def test_project_owner_can_update_project_preferences(self):
+        response = self.client.patch(
+            reverse("project-detail", args=[self.project.id]),
+            {
+                "name": "Updated project",
+                "alert_recipients": Project.AlertPreference.OWNER_ONLY,
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.project.refresh_from_db()
+        self.assertEqual(self.project.name, "Updated project")
+        self.assertEqual(
+            self.project.alert_recipients,
+            Project.AlertPreference.OWNER_ONLY,
+        )
+
+    def test_project_settings_are_not_visible_to_an_unrelated_user(self):
+        outsider = User.objects.create_user(
+            email="project-outsider@example.com",
+            password="Testpass123!",
+        )
+        self.client.force_authenticate(user=outsider)
+
+        response = self.client.get(
+            reverse("project-detail", args=[self.project.id])
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_project_admin_can_invite_an_existing_user(self):
+        admin_user = User.objects.create_user(
+            email="project-admin@example.com",
+            password="Testpass123!",
+        )
+        Membership.objects.create(
+            project=self.project,
+            user=admin_user,
+            invited_by=self.owner,
+            role=Membership.Role.ADMIN,
+            accepted=True,
+        )
+        invited_user = User.objects.create_user(
+            email="invited@example.com",
+            password="Testpass123!",
+        )
+        self.client.force_authenticate(user=admin_user)
+
+        response = self.client.post(
+            f"{reverse('invite', args=[self.project.id])}?email={invited_user.email}"
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        invitation = Membership.objects.get(
+            project=self.project,
+            user=invited_user,
+        )
+        self.assertFalse(invitation.accepted)
+        self.assertEqual(invitation.role, Membership.Role.VIEWER)
+
+    def test_project_invitation_requires_an_email_address(self):
+        response = self.client.post(reverse("invite", args=[self.project.id]))
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data["details"], "Email address is required")
+
+
+class GridGenerationTests(ProjectAPITestCase):
+    def generate_grid_with_mocked_integrations(self, rows, cell_size=100):
+        from projects.serializers import generate_grid
+
+        cursor = MagicMock()
+        cursor.fetchall.return_value = rows
+        cursor_context = MagicMock()
+        cursor_context.__enter__.return_value = cursor
+        bulk_create = MagicMock()
+        with (
+            patch(
+                "projects.serializers.connection",
+                SimpleNamespace(cursor=MagicMock(return_value=cursor_context)),
+            ),
+            patch("projects.serializers.GridCell.objects.bulk_create", bulk_create),
+            patch("projects.serializers.download_dem") as download_dem,
+            patch("projects.serializers.generate_slope_raster") as generate_slope,
+            patch("projects.serializers.populate_terrain_data") as populate_terrain,
+            patch("projects.serializers.download_osm_roads", return_value={"elements": []}) as download_roads,
+            patch("projects.serializers.save_osm_roads") as save_roads,
+            patch("projects.serializers.populate_road_distances") as populate_distances,
+        ):
+            generate_grid(self.project, cell_size=cell_size)
+
+        return {
+            "cursor": cursor,
+            "bulk_create": bulk_create,
+            "download_dem": download_dem,
+            "generate_slope": generate_slope,
+            "populate_terrain": populate_terrain,
+            "download_roads": download_roads,
+            "save_roads": save_roads,
+            "populate_distances": populate_distances,
+        }
+
+    @staticmethod
+    def ewkt_polygon(x):
+        return (
+            "SRID=4326;POLYGON (("
+            f"{x} 0, {x + 1} 0, {x + 1} 1, {x} 1, {x} 0))"
+        )
+
+    def test_grid_generation_builds_cells_with_stable_identifiers(self):
+        result = self.generate_grid_with_mocked_integrations(
+            [(self.ewkt_polygon(0),), (self.ewkt_polygon(2),)]
+        )
+
+        cells = result["bulk_create"].call_args.args[0]
+        self.assertEqual([cell.identifier for cell in cells], ["cell-0", "cell-1"])
+        self.assertTrue(all(cell.project == self.project for cell in cells))
+        self.assertTrue(all(cell.geometry.geom_type == "Polygon" for cell in cells))
+        self.assertTrue(all(0 <= cell.risk_score <= 1 for cell in cells))
+
+    def test_grid_generation_uses_the_requested_cell_size_and_project_id(self):
+        result = self.generate_grid_with_mocked_integrations(
+            [(self.ewkt_polygon(0),)],
+            cell_size=250,
+        )
+
+        self.assertEqual(
+            result["cursor"].execute.call_args.args[1],
+            [250, self.project.id],
+        )
+
+    def test_grid_generation_removes_existing_cells_before_replacement(self):
+        GridCell.objects.create(
+            project=self.project,
+            geometry=Polygon.from_bbox((0, 0, 1, 1)),
+            identifier="old-cell",
+        )
+
+        self.generate_grid_with_mocked_integrations(
+            [(self.ewkt_polygon(3),)]
+        )
+
+        self.assertFalse(
+            GridCell.objects.filter(project=self.project, identifier="old-cell").exists()
+        )
+
+    def test_grid_generation_runs_terrain_and_road_enrichment(self):
+        result = self.generate_grid_with_mocked_integrations(
+            [(self.ewkt_polygon(0),)]
+        )
+
+        result["download_dem"].assert_called_once()
+        result["generate_slope"].assert_called_once()
+        result["populate_terrain"].assert_called_once()
+        result["download_roads"].assert_called_once_with(self.project)
+        result["save_roads"].assert_called_once_with({"elements": []})
+        result["populate_distances"].assert_called_once_with(self.project)
+
+    def test_grid_generation_handles_an_empty_grid_query(self):
+        result = self.generate_grid_with_mocked_integrations([])
+
+        result["bulk_create"].assert_called_once_with([], ignore_conflicts=True)
+        self.assertFalse(GridCell.objects.filter(project=self.project).exists())
+        result["download_dem"].assert_called_once()
+
+
+class DeviceManagementTests(ProjectAPITestCase):
+    def create_connection_code(self, code="ABC123"):
+        return ConnectionCode.objects.create(
+            code=code,
+            project=self.project,
+            expires_at=timezone.now() + timedelta(minutes=5),
+        )
+
+    def connect_device(self, code, coordinate=None):
+        return self.client.post(
+            reverse("connect_device"),
+            {
+                "code": code,
+                "coordinate": {
+                    "type": "Point",
+                    "coordinates": coordinate or [1, 1],
+                },
+                "battery": 85,
+            },
+            format="json",
+        )
+
+    def test_valid_connection_code_registers_device_and_claims_code(self):
+        connection_code = self.create_connection_code()
+        ProjectThreatClass.objects.create(
+            project=self.project,
+            threat_class=self.threat_class,
+        )
+
+        response = self.connect_device(connection_code.code)
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        device = Device.objects.get(pk=response.data["device_id"])
+        connection_code.refresh_from_db()
+        self.assertEqual(device.project, self.project)
+        self.assertEqual(device.grid_cell, self.cell)
+        self.assertEqual(device.battery, 85)
+        self.assertEqual(device.status, Device.Status.ONLINE)
+        self.assertEqual(connection_code.device, device)
+        self.assertIsNotNone(connection_code.used_at)
+        self.assertEqual(response.data["threat_classes"], [self.threat_class.id])
+
+    def test_unknown_connection_code_is_rejected(self):
+        response = self.connect_device("NOPE00")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data["detail"], "Invalid Connection Code")
+        self.assertFalse(Device.objects.exists())
+
+    def test_expired_connection_code_cannot_register_a_device(self):
+        connection_code = self.create_connection_code("OLD123")
+        ConnectionCode.objects.filter(pk=connection_code.pk).update(
+            expires_at=timezone.now() - timedelta(seconds=1)
+        )
+
+        response = self.connect_device(connection_code.code)
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertFalse(Device.objects.exists())
+
+    def test_already_used_connection_code_cannot_register_another_device(self):
+        connection_code = self.create_connection_code("USED12")
+        ConnectionCode.objects.filter(pk=connection_code.pk).update(
+            used_at=timezone.now()
+        )
+
+        response = self.connect_device(connection_code.code)
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertFalse(Device.objects.exists())
+
+    def test_device_location_must_be_covered_by_a_project_grid_cell(self):
+        connection_code = self.create_connection_code("OUT123")
+
+        response = self.connect_device(connection_code.code, [20, 20])
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(
+            response.data["detail"],
+            "No grid cell matches this device location.",
+        )
+        self.assertFalse(Device.objects.exists())
+
+    def test_viewer_cannot_create_devices_through_project_management_api(self):
+        viewer = User.objects.create_user(
+            email="device-viewer@example.com",
+            password="Testpass123!",
+        )
+        Membership.objects.create(
+            project=self.project,
+            user=viewer,
+            invited_by=self.owner,
+            role=Membership.Role.VIEWER,
+            accepted=True,
+        )
+        self.client.force_authenticate(user=viewer)
+
+        response = self.client.post(
+            reverse("project_devices-list", args=[self.project.id]),
+            {},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertFalse(Device.objects.exists())
+
+
+class RiskModelTests(ProjectAPITestCase):
+    def test_cyclical_features_repeat_at_their_period(self):
+        from projects.BNN import cyclical
+
+        self.assertAlmostEqual(cyclical(0, 24)[0], cyclical(24, 24)[0])
+        self.assertAlmostEqual(cyclical(0, 24)[1], cyclical(24, 24)[1])
+        self.assertAlmostEqual(cyclical(6, 24)[0], 1.0)
+
+    def test_attack_history_counts_only_the_defined_lookback_windows(self):
+        from projects.BNN import get_attack_history_from_memory
+
+        observed_at = timezone.now()
+        timestamps = [
+            observed_at - timedelta(days=31),
+            observed_at - timedelta(days=6),
+            observed_at - timedelta(hours=12),
+            observed_at + timedelta(hours=1),
+        ]
+
+        history = get_attack_history_from_memory(timestamps, observed_at)
+
+        self.assertEqual(history["attacks_last_24h"], 1)
+        self.assertEqual(history["attacks_last_7d"], 2)
+        self.assertEqual(history["attacks_last_30d"], 2)
+        self.assertAlmostEqual(history["days_since_last_attack"], 0.5, places=3)
+
+    def test_future_attack_target_includes_the_seven_day_boundary(self):
+        from projects.BNN import get_future_attack_target_from_memory
+
+        observed_at = timezone.now()
+
+        self.assertEqual(
+            get_future_attack_target_from_memory(
+                [observed_at + timedelta(days=7)],
+                observed_at,
+            ),
+            1,
+        )
+        self.assertEqual(
+            get_future_attack_target_from_memory(
+                [observed_at + timedelta(days=7, seconds=1)],
+                observed_at,
+            ),
+            0,
+        )
+
+    def test_training_sample_combines_cell_features_and_incident_history(self):
+        from projects.BNN import build_training_sample
+
+        observed_at = timezone.now().replace(hour=8)
+        sample = build_training_sample(
+            self.cell,
+            observed_at,
+            [observed_at - timedelta(hours=2), observed_at + timedelta(days=1)],
+        )
+
+        self.assertEqual(sample["elevation"], 100)
+        self.assertEqual(sample["slope"], 5)
+        self.assertEqual(sample["distance_to_road"], 10)
+        self.assertEqual(sample["attacks_last_24h"], 1)
+        self.assertEqual(sample["target"], 1)
+        self.assertEqual(sample["grid_cell_id"], self.cell.id)
+
+    def test_undersampling_keeps_positive_samples_and_caps_negative_samples(self):
+        from projects.BNN import undersample
+
+        samples = [
+            {"target": 1, "id": "positive-1"},
+            {"target": 1, "id": "positive-2"},
+            *[{"target": 0, "id": f"negative-{i}"} for i in range(10)],
+        ]
+
+        selected = undersample(samples, negative_ratio=2, seed=7)
+
+        self.assertEqual(sum(sample["target"] == 1 for sample in selected), 2)
+        self.assertEqual(sum(sample["target"] == 0 for sample in selected), 4)
+        self.assertEqual(
+            {sample["id"] for sample in selected if sample["target"] == 1},
+            {"positive-1", "positive-2"},
+        )
+
+    def test_tensor_conversion_uses_only_model_features_and_targets(self):
+        from projects.BNN import FEATURES, samples_to_tensors
+
+        sample = {
+            "elevation": 1.0,
+            "slope": 2.0,
+            "distance_to_road": 3.0,
+            "target": 1,
+            "timestamp": timezone.now(),
+            "grid_cell_id": self.cell.id,
+        }
+
+        features, targets = samples_to_tensors([sample])
+
+        self.assertEqual(tuple(features.shape), (1, len(FEATURES)))
+        self.assertEqual(tuple(targets.shape), (1,))
+        self.assertEqual(features.tolist(), [[1.0, 2.0, 3.0]])
+        self.assertEqual(targets.tolist(), [1.0])
+
+    def test_risk_calculation_stores_model_probabilities_on_each_cell(self):
+        import torch
+        from projects.BNN import calculate_project_risk
+
+        second_cell = GridCell.objects.create(
+            project=self.project,
+            geometry=Polygon.from_bbox((5, 5, 10, 10)),
+            identifier="cell-2",
+            elevation=120,
+            slope=8,
+            distance_to_road=20,
+        )
+        model = MagicMock()
+        model.return_value = torch.tensor([0.0, 2.0])
+        scaler = MagicMock()
+        scaler.transform.side_effect = lambda values: values
+
+        with (
+            patch("projects.BNN.joblib.load", return_value=scaler),
+            patch("projects.BNN.RiskMLP", return_value=model),
+            patch("projects.BNN.torch.load", return_value={"weights": "test"}),
+        ):
+            calculated_cells = calculate_project_risk(self.project)
+
+        self.cell.refresh_from_db()
+        second_cell.refresh_from_db()
+        self.assertEqual(len(calculated_cells), 2)
+        self.assertAlmostEqual(self.cell.risk_score, 0.5, places=5)
+        self.assertAlmostEqual(second_cell.risk_score, 0.880797, places=5)
+        model.load_state_dict.assert_called_once_with({"weights": "test"})
+
+
+class TerrainDataTests(ProjectAPITestCase):
+    def test_project_bbox_uses_monitoring_area_extent(self):
+        from projects.terrain import get_project_bbox
+
+        self.assertEqual(
+            get_project_bbox(self.project),
+            {"west": 0.0, "south": 0.0, "east": 10.0, "north": 10.0},
+        )
+
+    def test_dem_download_sends_bbox_and_writes_the_response_body(self):
+        response = MagicMock(content=b"raster bytes")
+        with tempfile.TemporaryDirectory() as temp_dir:
+            output_path = Path(temp_dir) / "dem.tif"
+            with (
+                patch("projects.terrain.requests.get", return_value=response) as get,
+                patch.dict(os.environ, {"OPENTOPOGRAPHY_KEY": "test-key"}),
+            ):
+                download_dem(self.project, output_path)
+
+            self.assertEqual(output_path.read_bytes(), b"raster bytes")
+
+        response.raise_for_status.assert_called_once()
+        self.assertEqual(get.call_args.args[0], "https://portal.opentopography.org/API/globaldem")
+        self.assertEqual(
+            get.call_args.kwargs["params"],
+            {
+                "demtype": "COP30",
+                "south": 0.0,
+                "north": 10.0,
+                "west": 0.0,
+                "east": 10.0,
+                "outputFormat": "GTiff",
+                "API_Key": "test-key",
+            },
+        )
+
+    def test_dem_download_propagates_http_errors_without_writing_a_file(self):
+        response = MagicMock()
+        response.raise_for_status.side_effect = RuntimeError("HTTP failure")
+        with tempfile.TemporaryDirectory() as temp_dir:
+            output_path = Path(temp_dir) / "dem.tif"
+            with patch("projects.terrain.requests.get", return_value=response):
+                with self.assertRaisesRegex(RuntimeError, "HTTP failure"):
+                    download_dem(self.project, output_path)
+            self.assertFalse(output_path.exists())
+
+    def test_slope_raster_contains_expected_gradient_in_degrees(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            dem_path = Path(temp_dir) / "dem.tif"
+            slope_path = Path(temp_dir) / "slope.tif"
+            profile = {
+                "driver": "GTiff",
+                "height": 3,
+                "width": 3,
+                "count": 1,
+                "dtype": "float32",
+                "crs": "EPSG:4326",
+                "transform": from_origin(0, 3, 1, 1),
+            }
+            with rasterio.open(dem_path, "w", **profile) as dataset:
+                dataset.write(
+                    np.array(
+                        [[0, 1, 2], [0, 1, 2], [0, 1, 2]],
+                        dtype=np.float32,
+                    ),
+                    1,
+                )
+
+            generate_slope_raster(dem_path, slope_path)
+
+            with rasterio.open(slope_path) as dataset:
+                slope = dataset.read(1)
+                self.assertEqual(dataset.dtypes[0], "float32")
+                self.assertTrue(np.allclose(slope, 45.0))
+
+    def test_terrain_population_samples_elevation_and_slope_at_cell_centroid(self):
+        import numpy as np
+        from projects.terrain import populate_terrain_data
+
+        dem = MagicMock()
+        dem.sample.return_value = iter([np.array([123.5])])
+        slope = MagicMock()
+        slope.sample.return_value = iter([np.array([12.25])])
+        dem_context = MagicMock()
+        dem_context.__enter__.return_value = dem
+        slope_context = MagicMock()
+        slope_context.__enter__.return_value = slope
+        cell = MagicMock()
+        cell.geometry.centroid.x = 1.5
+        cell.geometry.centroid.y = 2.5
+        project = MagicMock()
+        project.grid_cells.all.return_value = [cell]
+
+        with patch(
+            "projects.terrain.rasterio.open",
+            side_effect=[dem_context, slope_context],
+        ):
+            populate_terrain_data(project, "dem.tif", "slope.tif")
+
+        self.assertEqual(cell.elevation, 123.5)
+        self.assertEqual(cell.slope, 12.25)
+        cell.save.assert_called_once_with(update_fields=["elevation", "slope"])
+        dem.sample.assert_called_once_with([(1.5, 2.5)])
+        slope.sample.assert_called_once_with([(1.5, 2.5)])
+
+    def test_road_import_skips_non_way_and_incomplete_elements(self):
+        from projects.terrain import save_osm_roads
+
+        with patch("projects.terrain.OSMRoad.objects.bulk_create") as bulk_create:
+            save_osm_roads(
+                {
+                    "elements": [
+                        {
+                            "type": "way",
+                            "id": 101,
+                            "geometry": [
+                                {"lon": 1, "lat": 2},
+                                {"lon": 3, "lat": 4},
+                            ],
+                        },
+                        {"type": "way", "id": 102, "geometry": [{"lon": 1, "lat": 2}]},
+                        {"type": "node", "id": 103, "geometry": []},
+                    ]
+                }
+            )
+
+        roads = bulk_create.call_args.args[0]
+        self.assertEqual(len(roads), 1)
+        self.assertEqual(roads[0].osm_id, 101)
+        self.assertEqual(roads[0].geometry.coords, ((1.0, 2.0), (3.0, 4.0)))
+        bulk_create.assert_called_once_with(roads, ignore_conflicts=True)
+
+    def test_osm_download_retries_a_timeout_before_returning_data(self):
+        import requests
+        from projects.terrain import download_osm_roads
+
+        successful_response = MagicMock()
+        successful_response.status_code = 200
+        successful_response.json.return_value = {"elements": []}
+        with (
+            patch(
+                "projects.terrain.requests.post",
+                side_effect=[requests.exceptions.Timeout(), successful_response],
+            ) as post,
+            patch("projects.terrain.time.sleep"),
+        ):
+            result = download_osm_roads(self.project)
+
+        self.assertEqual(result, {"elements": []})
+        self.assertEqual(post.call_count, 2)
+
+
+class NotificationAndAlertTests(ProjectAPITestCase):
+    def test_user_can_read_own_notification_preferences(self):
+        response = self.client.get(reverse("user_settings"))
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(
+            response.data,
+            {"receive_emails": True, "critical_incidents_only": False},
+        )
+
+    def test_user_can_update_and_persist_notification_preferences(self):
+        response = self.client.patch(
+            reverse("user_settings"),
+            {"receive_emails": False, "critical_incidents_only": True},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.owner.refresh_from_db()
+        self.assertFalse(self.owner.receive_emails)
+        self.assertTrue(self.owner.critical_incidents_only)
+
+    def test_user_cannot_read_another_users_overview(self):
+        other_user = User.objects.create_user(
+            email="alerts-other@example.com",
+            password="Testpass123!",
+        )
+
+        response = self.client.get(
+            reverse("user_overview", args=[other_user.id])
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_project_overview_counts_new_incidents_as_alerts(self):
+        Incident.objects.create(
+            project=self.project,
+            threat_class=self.threat_class,
+            coordinates=Point(1, 1, srid=4326),
+            confidence=90,
+            grid_cell=self.cell,
+            status=Incident.Status.NEW,
+        )
+        Device.objects.create(
+            name="Overview sensor",
+            location=Point(1, 1, srid=4326),
+            project=self.project,
+            grid_cell=self.cell,
+            battery=90,
+            status=Device.Status.ONLINE,
+        )
+
+        response = self.client.get(reverse("project_overview"))
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        project_data = next(item for item in response.data if item["id"] == self.project.id)
+        self.assertEqual(project_data["new_alerts"], 1)
+        self.assertEqual(project_data["total_incidents"], 1)
+        self.assertEqual(project_data["device_count"], 1)
+        self.assertEqual(project_data["online_devices"], 1)
+
+    def test_device_report_creates_incident_and_sends_notification(self):
+        device = Device.objects.create(
+            name="Notification sensor",
+            location=Point(1, 1, srid=4326),
+            project=self.project,
+            grid_cell=self.cell,
+            battery=80,
+            status=Device.Status.ONLINE,
+        )
+        timestamp = timezone.now()
+
+        with (
+            patch.dict(os.environ, {"REAL_EMAIL": self.owner.email}),
+            patch("projects.models.render_to_string", return_value="<p>Incident</p>"),
+            patch("projects.models.resend.Batch.send") as send_email,
+        ):
+            response = self.client.post(
+                reverse("report_incident", args=[device.id]),
+                {
+                    "threat_class": self.threat_class.id,
+                    "timestamp": timestamp.isoformat(),
+                    "confidence": 95,
+                },
+                format="json",
+            )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        incident = Incident.objects.get(device=device)
+        self.assertEqual(incident.project, self.project)
+        self.assertEqual(incident.threat_class, self.threat_class)
+        self.assertEqual(incident.confidence, 95)
+        self.assertEqual(incident.status, Incident.Status.NEW)
+        send_email.assert_called_once()
+        sent_params = send_email.call_args.args[0]
+        self.assertEqual(len(sent_params), 1)
+        self.assertEqual(sent_params[0]["to"], [self.owner.email])
