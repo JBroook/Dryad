@@ -443,7 +443,7 @@ class MembershipViewSet(CRUDMessageMixin, ModelViewSet):
         caller = require_project_role(
             self.request,
             membership.project_id,
-            Membership.Role.MANAGER,
+            Membership.Role.ADMIN,
         )
         if (
             membership.user_id == self.request.user.pk
@@ -464,7 +464,7 @@ class MembershipViewSet(CRUDMessageMixin, ModelViewSet):
         caller = require_project_role(
             self.request,
             instance.project_id,
-            Membership.Role.MANAGER,
+            Membership.Role.ADMIN,
         )
         if instance.role == Membership.Role.OWNER and (
             caller is None or caller.role != Membership.Role.OWNER
@@ -517,7 +517,7 @@ class InviteMemberView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request, project_id):
-        require_project_role(request, project_id, Membership.Role.ADMIN)
+        require_project_role(request, project_id, Membership.Role.MANAGER)
         email = request.query_params.get("email")
 
         if not email:

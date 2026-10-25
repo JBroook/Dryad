@@ -14,7 +14,8 @@ interface MemberCardProps {
     member : Member;
     changeMemberRole : (id : number, newRole : string) => void;
     removeModal : () => void;
-    canManage: boolean;
+    canRemoveMembers: boolean;
+    canChangeRole: boolean;
     canManageOwner: boolean;
     isCurrentUser: boolean;
 }
@@ -46,7 +47,7 @@ export default function MemberCard(props : MemberCardProps) {
         style={{opacity : props.member.accepted ? 1 : 0.5}}>
             <div className="flex items-center">
                 <h1 className="font-semibold text-md">{props.member.firstName} {props.member.lastName}</h1>
-                {!isEditing ?
+                {!isEditing || !props.canChangeRole ?
                 roleBadge[props.member.role]
                 :
                 <details className="dropdown">
@@ -84,23 +85,23 @@ export default function MemberCard(props : MemberCardProps) {
                     Invite pending...
                 </p>
             }
-            {props.canManage && !props.isCurrentUser &&
+            {(props.canRemoveMembers || props.canChangeRole) && !props.isCurrentUser &&
                 (props.canManageOwner || props.member.role !== "owner") &&
                 <details className="dropdown dropdown-left">
                     <summary className="btn mx-2">
                         <BsThreeDots />
                     </summary>
                     <ul className="menu dropdown-content bg-secondary rounded-box z-1 w-52 p-2 mr-2 font-semibold">
-                        <li><a onClick={()=>setIsEditing(!isEditing)}>
-                            {isEditing?
+                        {props.canChangeRole && <li><a onClick={()=>setIsEditing(!isEditing)}>
+                            {isEditing ?
                                 <><RxCross2 className="text-xl"/> Cancel Edit</>
                                 :
                                 <><MdOutlineEdit className="text-[#60A5FA] text-xl"/> Change Role</>
                             }
-                        </a></li>
-                        <li><a onClick={props.removeModal}>
+                        </a></li>}
+                        {props.canRemoveMembers && <li><a onClick={props.removeModal}>
                             <MdDeleteOutline className="text-error text-lg"/> Remove
-                        </a></li>
+                        </a></li>}
                     </ul>
                 </details>}
         </div>

@@ -15,8 +15,9 @@ interface TeamViewProps {
     projectID : string | null;
     members : Member[];
     setMembers : (members : Member[])=>void;
-    canManageMembers: boolean;
+    canRemoveMembers: boolean;
     canInviteMembers: boolean;
+    canChangeMemberRoles: boolean;
     canManageOwner: boolean;
 }
 
@@ -234,7 +235,8 @@ export default function TeamView(props: TeamViewProps) {
                         key={index} 
                         changeMemberRole={changeMemberRole}
                         removeModal={()=>openModal(index)}
-                        canManage={props.canManageMembers}
+                        canRemoveMembers={props.canRemoveMembers}
+                        canChangeRole={props.canChangeMemberRoles}
                         canManageOwner={props.canManageOwner}
                         isCurrentUser={member.user?.id === currentUserID}
                         />;

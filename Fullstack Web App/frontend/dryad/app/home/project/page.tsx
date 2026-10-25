@@ -151,8 +151,9 @@ export default function Project() {
       projectID={projectID}
       members={members}
       setMembers={setMembers}
-      canManageMembers={hasProjectRole(projectRole, "manager")}
-      canInviteMembers={hasProjectRole(projectRole, "admin")}
+      canRemoveMembers={hasProjectRole(projectRole, "admin")}
+      canInviteMembers={hasProjectRole(projectRole, "manager")}
+      canChangeMemberRoles={hasProjectRole(projectRole, "admin")}
       canManageOwner={projectRole === "owner"}
     />,
     settings : <SettingsView 
