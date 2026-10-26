@@ -17,6 +17,7 @@ torch = "*"
 scikit-learn = "*"
 pandas = "*"
 resend = "*"
+dj-database-url = "*"
 
 [dev-packages]
 

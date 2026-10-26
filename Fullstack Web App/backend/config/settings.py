@@ -14,6 +14,7 @@ from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+import dj_database_url
 
 
 # Quick-start development settings - unsuitable for production
@@ -98,16 +99,25 @@ load_dotenv(os.path.join(BASE_DIR, '.env'))
 SECRET_KEY = os.getenv('SECRET_KEY')
 DEBUG = os.getenv('DEBUG') == 'True'
 
-DATABASES = {
-    'default': {
-        'ENGINE': "django.contrib.gis.db.backends.postgis",
-        'NAME': os.getenv('NAME', "test_db"),                      
-        'USER': os.getenv('USER', "postgres"),
-        'PASSWORD': os.getenv('PASSWORD', "postgres"),
-        'HOST': os.getenv('HOST', "localhost"),
-        'PORT': os.getenv('PORT', "5432"),
+if os.environ.get("DATABASE_URL"):
+    DATABASES = {
+        "default": dj_database_url.config(
+            default=os.environ["DATABASE_URL"],
+            conn_max_age=600,
+            engine="django.contrib.gis.db.backends.postgis",
+        )
     }
-}
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': "django.contrib.gis.db.backends.postgis",
+            'NAME': os.getenv('NAME', "test_db"),                      
+            'USER': os.getenv('USER', "postgres"),
+            'PASSWORD': os.getenv('PASSWORD', "postgres"),
+            'HOST': os.getenv('HOST', "localhost"),
+            'PORT': os.getenv('PORT', "5432"),
+        }
+    }
 
 OSGEO4W_BIN = os.getenv('OSGEO4W_BIN_PATH')
 
