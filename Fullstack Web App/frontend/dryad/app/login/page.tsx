@@ -65,7 +65,7 @@ export default function Login() {
     e.preventDefault();
     setSubmitted(true);
     
-    const res = await fetch(`${API_URL}/login/`, {
+    const res = await fetch(`https://dryad-backend.onrender.com/api/login/`, {
       method: "POST",
       headers: {
         "Content-Type" : "application/json"
