@@ -1,9 +1,10 @@
 "use client";
 
+import { Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect } from "react";
 
-export default function ProjectAliasPage() {
+function ProjectAliasPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const projectId = searchParams.get("pid");
@@ -18,4 +19,12 @@ export default function ProjectAliasPage() {
   }, [projectId, router]);
 
   return null;
+}
+
+export default function ProjectAliasPage() {
+  return (
+    <Suspense fallback={<span className="loading loading-spinner" />}>
+      <ProjectAliasPageContent />
+    </Suspense>
+  );
 }

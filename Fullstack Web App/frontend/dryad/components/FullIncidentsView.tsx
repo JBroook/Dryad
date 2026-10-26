@@ -9,7 +9,7 @@ import { Member, ThreatClass } from "@/app/home/projects/new/page";
 import { IoIosOptions, IoIosWarning, IoMdCheckmark } from "react-icons/io";
 import getThreatIcon from "@/library/threatIcons";
 import { RxCross2 } from "react-icons/rx";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import MemberOption from "./MemberOption";
 import ToggleGlowButton from "./ToggleGlowButton";
 import SortButton from "./SortButton";

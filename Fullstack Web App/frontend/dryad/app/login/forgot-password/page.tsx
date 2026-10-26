@@ -5,7 +5,6 @@ import { IoMdWifi } from "react-icons/io";
 import { FiShield } from "react-icons/fi";
 import { BsTree } from "react-icons/bs";
 import { useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
 import { useToast } from "@/components/ToastProvider";
 
 export default function ForgotPassword() {

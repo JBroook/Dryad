@@ -1,5 +1,6 @@
 "use client"
 
+import { Suspense } from "react";
 import { apiFetch } from "@/library/api";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -55,7 +56,7 @@ export type IncidentType = {
   device : Device;
 }
 
-export default function Project() {
+function ProjectContent() {
   const searchParams = useSearchParams();
   const projectID = searchParams.get("pid");
   const tab = searchParams.get("tab");
@@ -296,4 +297,12 @@ export default function Project() {
         <span className="loading loading-spinner"></span>
       </div>}
     </div>);
+}
+
+export default function Project() {
+  return (
+    <Suspense fallback={<span className="loading loading-spinner" />}>
+      <ProjectContent />
+    </Suspense>
+  );
 }

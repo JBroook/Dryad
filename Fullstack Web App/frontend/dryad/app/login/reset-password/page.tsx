@@ -4,7 +4,7 @@ import HollowCard from "@/components/HollowCard";
 import { IoMdWifi } from "react-icons/io";
 import { FiShield } from "react-icons/fi";
 import { BsTree } from "react-icons/bs";
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -28,7 +28,7 @@ const resetPasswordSchema = z
 
 type ResetPasswordForm = z.infer<typeof resetPasswordSchema>;
 
-export default function ForgotPassword() {
+function ResetPasswordContent() {
   const [submitted, setSubmitted] = useState<boolean>(false);
   const [email, setEmail] = useState<string>("");
 
@@ -199,5 +199,13 @@ export default function ForgotPassword() {
       </HollowCard>
     </div>
   </div>
+  );
+}
+
+export default function ResetPasswordPage() {
+  return (
+    <Suspense fallback={<span className="loading loading-spinner" />}>
+      <ResetPasswordContent />
+    </Suspense>
   );
 }

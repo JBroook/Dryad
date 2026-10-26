@@ -4,11 +4,11 @@ import HollowCard from "@/components/HollowCard";
 import { IoMdWifi } from "react-icons/io";
 import { FiShield } from "react-icons/fi";
 import { BsTree } from "react-icons/bs";
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useToast } from "@/components/ToastProvider";
 
-export default function Verify() {
+function VerifyContent() {
   const [submitted, setSubmitted] = useState<boolean>(false);
   const [code, setCode] = useState<string>("");
 
@@ -141,5 +141,13 @@ export default function Verify() {
       </HollowCard>
     </div>
   </div>
+  );
+}
+
+export default function Verify() {
+  return (
+    <Suspense fallback={<span className="loading loading-spinner" />}>
+      <VerifyContent />
+    </Suspense>
   );
 }
