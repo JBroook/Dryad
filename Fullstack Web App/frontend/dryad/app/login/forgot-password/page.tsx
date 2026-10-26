@@ -15,9 +15,6 @@ export default function ForgotPassword() {
   const APIBase = "http://127.0.0.1:8000/api";
   // const APIBase = "http://192.168.100.7:8000/api";
 
-  const searchParams = useSearchParams();
-
-  const router = useRouter();
   const { showToast } = useToast();
 
   const handlePasswordReset = async (e : React.SubmitEvent<HTMLFormElement>) => {
