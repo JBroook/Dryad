@@ -36,7 +36,7 @@ export default function StepFourPage(props: StepPageProps) {
         const email = formData.get("email")
 
         if(email && email.toString().length>0){
-            apiFetch(`http://127.0.0.1:8000/api/users/?email=${email}`)
+            apiFetch(`users/?email=${email}`)
             .then(async (res) => {
                 if (!res.ok) throw new Error(await res.text());
                 return res.json();

@@ -130,7 +130,7 @@ export default function New() {
       }
       console.log(proj)
 
-      const res = await apiFetch(`http://127.0.0.1:8000/api/projects/`, {
+      const res = await apiFetch(`projects/`, {
         method : "POST",
         headers : {
           "Content-Type" : "application/json",
@@ -207,7 +207,7 @@ export default function New() {
   ]
 
   useEffect(()=>{
-    apiFetch(`http://127.0.0.1:8000/api/threat_classes/`)
+    apiFetch(`threat_classes/`)
     .then(async (res) => {
       if (!res.ok) throw new Error(await res.text());
       return res.json();

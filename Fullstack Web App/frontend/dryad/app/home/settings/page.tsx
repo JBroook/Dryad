@@ -20,7 +20,7 @@ export default function Settings() {
   const handleEmailSetting = async (e : React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.checked;
     try {
-      const response = await apiFetch(`http://127.0.0.1:8000/api/users/settings`, {
+      const response = await apiFetch(`users/settings`, {
         method: "PATCH",
         body: JSON.stringify({ receive_emails: value }),
       });
@@ -37,7 +37,7 @@ export default function Settings() {
   const handleCriticalIncidentsSetting = async (e : React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.checked;
     try {
-      const response = await apiFetch(`http://127.0.0.1:8000/api/users/settings`, {
+      const response = await apiFetch(`users/settings`, {
         method: "PATCH",
         body: JSON.stringify({ critical_incidents_only: value }),
       });
@@ -55,7 +55,7 @@ export default function Settings() {
     setMode(theme==="mytheme-light")
 
     // fetch user's settings
-    apiFetch(`http://127.0.0.1:8000/api/users/settings`)
+    apiFetch(`users/settings`)
     .then(async (res) => {
       if (!res.ok) throw new Error(await res.text());
       return res.json();

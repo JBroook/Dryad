@@ -152,7 +152,7 @@ export default function Patrols() {
       const longitude = Number(confirmationCoordinates.longitude);
       const patrolIndexInFullList = patrols.findIndex((patrol) => patrol.id === selectedPatrol.id);
 
-      await apiFetch(`http://127.0.0.1:8000/api/patrols/${selectedPatrol.id}/complete_patrol`, {
+      await apiFetch(`patrols/${selectedPatrol.id}/complete_patrol`, {
           method : "POST",
           body : JSON.stringify({
             patrol_status : "completed",
@@ -195,7 +195,7 @@ export default function Patrols() {
 
     const patrolIndexInFullList = patrols.findIndex((patrol) => patrol.id === selectedPatrol.id);
 
-    await apiFetch(`http://127.0.0.1:8000/api/patrols/${selectedPatrol.id}/complete_patrol`, {
+    await apiFetch(`patrols/${selectedPatrol.id}/complete_patrol`, {
       method : "POST",
       body : JSON.stringify({
         patrol_status : "completed",
@@ -235,7 +235,7 @@ export default function Patrols() {
 
     const patrolIndexInFullList = patrols.findIndex((patrol) => patrol.id === selectedPatrol.id);
 
-    await apiFetch(`http://127.0.0.1:8000/api/patrols/${selectedPatrol.id}/complete_patrol`, {
+    await apiFetch(`patrols/${selectedPatrol.id}/complete_patrol`, {
       method : "POST",
       body : JSON.stringify({
         patrol_status : "cancelled"
@@ -287,7 +287,7 @@ export default function Patrols() {
       return;
     }
 
-    apiFetch(`http://127.0.0.1:8000/api/users/${userID}/patrols/`)
+    apiFetch(`users/${userID}/patrols/`)
       .then(async (res) => {
         if (!res.ok) throw new Error(await res.text());
         return res.json();
@@ -295,7 +295,7 @@ export default function Patrols() {
       .then((data)=>extractPatrols(data))
       .catch((err) => console.error("Fetch failed:", err));
 
-    apiFetch(`http://127.0.0.1:8000/api/users/${userID}/routine_patrols/`)
+    apiFetch(`users/${userID}/routine_patrols/`)
       .then(async (res) => {
         if (!res.ok) throw new Error(await res.text());
         return res.json();

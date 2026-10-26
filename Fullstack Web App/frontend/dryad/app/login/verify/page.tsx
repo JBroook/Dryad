@@ -12,8 +12,7 @@ function VerifyContent() {
   const [submitted, setSubmitted] = useState<boolean>(false);
   const [code, setCode] = useState<string>("");
 
-  const APIBase = "http://127.0.0.1:8000/api";
-  // const APIBase = "http://192.168.100.7:8000/api";
+  const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
   const searchParams = useSearchParams();
 
@@ -24,7 +23,7 @@ function VerifyContent() {
     e.preventDefault();
 
     setSubmitted(true);
-    const res = await fetch(`${APIBase}/verify_email/`, {
+    const res = await fetch(`${API_URL}/verify_email/`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

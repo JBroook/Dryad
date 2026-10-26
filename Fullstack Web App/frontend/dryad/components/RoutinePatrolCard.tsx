@@ -25,7 +25,7 @@ export default function RoutinePatrolCard({ patrol }: RoutinePatrolCardProps) {
         setExportError("");
         try {
             const response = await apiFetch(
-                `http://127.0.0.1:8000/api/projects/${patrol.project.id}/routine_patrols/${patrol.id}/export/`
+                `projects/${patrol.project.id}/routine_patrols/${patrol.id}/export/`
             );
             if (!response.ok) {
                 throw new Error(await response.text());

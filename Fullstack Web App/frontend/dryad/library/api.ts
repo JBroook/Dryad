@@ -5,7 +5,7 @@ async function refreshAccessToken(): Promise<string | null> {
     return null;
   }
 
-  const response = await fetch("http://127.0.0.1:8000/api/token/refresh/", {
+  const response = await fetch("token/refresh/", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -29,9 +29,10 @@ export async function apiFetch(
   options: RequestInit = {}
 ): Promise<Response> {
   let access = localStorage.getItem("access");
+  const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
   // First attempt
-  const response = await fetch(url, {
+  const response = await fetch(`${API_URL}/${url}`, {
     ...options,
     headers: {
       ...options.headers,
@@ -59,7 +60,7 @@ export async function apiFetch(
   }
 
   // Retry original request with the new access token
-  return fetch(url, {
+  return fetch(`${API_URL}/${url}`, {
     ...options,
     headers: {
       ...options.headers,

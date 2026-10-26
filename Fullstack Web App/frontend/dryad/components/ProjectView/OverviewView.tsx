@@ -48,7 +48,7 @@ export default function OverviewView(props: OverviewViewProps) {
 
     useEffect(()=>{
         // fetch activity chart data
-        apiFetch(`http://127.0.0.1:8000/api/projects/${props.project.id}/incident_activity`)
+        apiFetch(`projects/${props.project.id}/incident_activity`)
         .then(async (res) => {
             if (!res.ok) throw new Error(await res.text());
             return res.json();
@@ -57,7 +57,7 @@ export default function OverviewView(props: OverviewViewProps) {
         .catch((err) => console.error("Fetch failed:", err));
 
         // fetch project incidents
-        apiFetch(`http://127.0.0.1:8000/api/incidents?project=${props.project.id}`)
+        apiFetch(`incidents?project=${props.project.id}`)
         .then(async (res) => {
             if (!res.ok) throw new Error(await res.text());
             return res.json();
@@ -66,7 +66,7 @@ export default function OverviewView(props: OverviewViewProps) {
         .catch((err) => console.error("Fetch failed:", err));
 
         // fetch overview info
-        apiFetch(`http://127.0.0.1:8000/api/projects/overview?project_id=${props.project.id}`)
+        apiFetch(`projects/overview?project_id=${props.project.id}`)
         .then(async (res) => {
             if (!res.ok) throw new Error(await res.text());
             return res.json();

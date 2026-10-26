@@ -11,8 +11,7 @@ export default function ForgotPassword() {
   const [submitted, setSubmitted] = useState<boolean>(false);
   const [email, setEmail] = useState<string>("");
 
-  const APIBase = "http://127.0.0.1:8000/api";
-  // const APIBase = "http://192.168.100.7:8000/api";
+  const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
   const { showToast } = useToast();
 
@@ -20,7 +19,7 @@ export default function ForgotPassword() {
     e.preventDefault();
 
     setSubmitted(true);
-    const res = await fetch(`${APIBase}/forgot_password/`, {
+    const res = await fetch(`${API_URL}/forgot_password/`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

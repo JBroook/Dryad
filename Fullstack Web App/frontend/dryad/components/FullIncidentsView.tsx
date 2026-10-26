@@ -71,7 +71,7 @@ export default function FullIncidentsView(props: FullIncidentsViewProps) {
     const confirmIncident = async (e : React.SubmitEvent<HTMLFormElement>) => {
         e.preventDefault();
 
-        await apiFetch(`http://127.0.0.1:8000/api/incidents/${props.incidents[incidentIndex].id}/`, {
+        await apiFetch(`incidents/${props.incidents[incidentIndex].id}/`, {
             method : "PATCH",
             headers : {
                 "Content-Type" : "application/json"
@@ -102,7 +102,7 @@ export default function FullIncidentsView(props: FullIncidentsViewProps) {
     const dismissIncident = async (e : React.SubmitEvent<HTMLFormElement>) => {
         e.preventDefault();
 
-        await apiFetch(`http://127.0.0.1:8000/api/incidents/${props.incidents[incidentIndex].id}/`, {
+        await apiFetch(`incidents/${props.incidents[incidentIndex].id}/`, {
             method : "PATCH",
             headers : {
                 "Content-Type" : "application/json"
@@ -142,7 +142,7 @@ export default function FullIncidentsView(props: FullIncidentsViewProps) {
         }
 
         try {
-            const res = await apiFetch(`http://127.0.0.1:8000/api/incidents/${props.incidents[incidentIndex].id}/assign_patrol`, {
+            const res = await apiFetch(`incidents/${props.incidents[incidentIndex].id}/assign_patrol`, {
                 method : "POST",
                 body : JSON.stringify({
                     assignee_ids : selectedMembers.map((member) => member.id),
@@ -230,7 +230,7 @@ export default function FullIncidentsView(props: FullIncidentsViewProps) {
         params.set("ordering", `${sortToggles[sortKey as "date" | "confidence"] ? "-" : ""}${sortKeyMapping[sortKey as "date" | "confidence"]}`)
 
         await apiFetch(
-            `http://127.0.0.1:8000/api/incidents/?user_id=${props.userID}&${params}`)
+            `incidents/?user_id=${props.userID}&${params}`)
         .then(async (res) => {
         if (!res.ok) throw new Error(await res.text());
         return res.json();
@@ -295,7 +295,7 @@ export default function FullIncidentsView(props: FullIncidentsViewProps) {
     const apiSearchMember = async (nameEmail : string) => {
         if(props.incidents.length===0) return;
 
-        await apiFetch(`http://127.0.0.1:8000/api/projects/${props.incidents[incidentIndex].project.id}/members?search=${nameEmail}`)
+        await apiFetch(`projects/${props.incidents[incidentIndex].project.id}/members?search=${nameEmail}`)
         .then(async (res) => {
         if (!res.ok) throw new Error(await res.text());
         return res.json();
@@ -326,7 +326,7 @@ export default function FullIncidentsView(props: FullIncidentsViewProps) {
     const apiSearchIncident = async (incidentName : string) => {
         if (props.userID == null) return;
 
-        await apiFetch(`http://127.0.0.1:8000/api/incidents?user_id=${props.userID}&search=${incidentName}`)
+        await apiFetch(`incidents?user_id=${props.userID}&search=${incidentName}`)
         .then(async (res) => {
         if (!res.ok) throw new Error(await res.text());
         return res.json();

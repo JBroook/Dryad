@@ -42,7 +42,7 @@ export default function Account() {
     e.preventDefault();
     const userID = localStorage.getItem("userID")
     try {
-      const response = await apiFetch(`http://127.0.0.1:8000/api/users/${userID}/`, {
+      const response = await apiFetch(`users/${userID}/`, {
         method: "PATCH",
         body: JSON.stringify({
           first_name: firstNameInput,
@@ -63,7 +63,7 @@ export default function Account() {
   const deleteAccount = async (e : React.SubmitEvent<HTMLFormElement>) => {
     e.preventDefault();
     try {
-      const response = await apiFetch(`http://127.0.0.1:8000/api/delete_account/`, {
+      const response = await apiFetch(`delete_account/`, {
         method: "POST",
       });
       if (!response.ok) throw new Error(await response.text());
@@ -90,7 +90,7 @@ export default function Account() {
 
   useEffect(()=>{
     const userID = localStorage.getItem("userID")
-    apiFetch(`http://127.0.0.1:8000/api/users/${userID}`)
+    apiFetch(`users/${userID}`)
       .then(async (res) => {
         if (!res.ok) throw new Error(await res.text());
         return res.json();

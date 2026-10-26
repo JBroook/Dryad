@@ -57,7 +57,7 @@ export default function ForestMapView(props: ForestMapViewProps) {
     }
 
     const calculateRisk = () => {
-        apiFetch(`http://127.0.0.1:8000/api/projects/${props.projectID}/calculate_risk`,
+        apiFetch(`projects/${props.projectID}/calculate_risk`,
             {
                 method : "POST"
             }

@@ -130,7 +130,7 @@ export default function SettingsView(props: SettingsViewProps) {
 
         try {
             const response = await apiFetch(
-                `http://127.0.0.1:8000/api/projects/${props.projectID}/`,
+                `projects/${props.projectID}/`,
                 {
                     method: "PATCH",
                     headers: {
@@ -185,7 +185,7 @@ export default function SettingsView(props: SettingsViewProps) {
 
         try {
             const response = await apiFetch(
-                `http://127.0.0.1:8000/api/projects/${props.projectID}/`,
+                `projects/${props.projectID}/`,
                 {
                     method: "PATCH",
                     body: JSON.stringify({ status: false }),
@@ -208,7 +208,7 @@ export default function SettingsView(props: SettingsViewProps) {
 
         try {
             const response = await apiFetch(
-                `http://127.0.0.1:8000/api/projects/${props.projectID}/`,
+                `projects/${props.projectID}/`,
                 { method: "DELETE" }
             );
             if (!response.ok) throw new Error(await response.text());
@@ -230,8 +230,8 @@ export default function SettingsView(props: SettingsViewProps) {
         async function load() {
             try {
                 const [projectRes, threatClassesRes] = await Promise.all([
-                    apiFetch(`http://127.0.0.1:8000/api/projects/${props.projectID}`),
-                    apiFetch("http://127.0.0.1:8000/api/threat_classes/"),
+                    apiFetch(`projects/${props.projectID}`),
+                    apiFetch("threat_classes/"),
                 ]);
 
                 if (!projectRes.ok) throw new Error(await projectRes.text());

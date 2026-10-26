@@ -172,7 +172,7 @@ function ProjectContent() {
     setProjectRole(null);
 
     // fetch project info
-    apiFetch(`http://127.0.0.1:8000/api/projects/${projectID}`)
+    apiFetch(`projects/${projectID}`)
       .then(async (res) => {
         if (!res.ok) throw new Error(await res.text());
         return res.json();
@@ -182,7 +182,7 @@ function ProjectContent() {
       .catch((err) => console.error("Fetch failed:", err));
 
     // fetch project incidents
-    apiFetch(`http://127.0.0.1:8000/api/incidents?project=${projectID}`)
+    apiFetch(`incidents?project=${projectID}`)
       .then(async (res) => {
         if (!res.ok) throw new Error(await res.text());
         return res.json();
@@ -192,7 +192,7 @@ function ProjectContent() {
       .catch((err) => console.error("Fetch failed:", err));
 
     // fetch project members
-    apiFetch(`http://127.0.0.1:8000/api/projects/${projectID}/members`)
+    apiFetch(`projects/${projectID}/members`)
       .then(async (res) => {
         if (!res.ok) throw new Error(await res.text());
         return res.json();
@@ -214,7 +214,7 @@ function ProjectContent() {
       .catch((err) => console.error("Fetch failed:", err));
 
     // fetch threat classes for incidents filter
-    apiFetch(`http://127.0.0.1:8000/api/threat_classes/`)
+    apiFetch(`threat_classes/`)
     .then(async (res) => {
       if (!res.ok) throw new Error(await res.text());
       return res.json();
@@ -223,7 +223,7 @@ function ProjectContent() {
     .catch((err) => console.error("Fetch failed:", err));
 
     // fetch project grid cells
-    apiFetch(`http://127.0.0.1:8000/api/projects/${projectID}/grid_cells`)
+    apiFetch(`projects/${projectID}/grid_cells`)
     .then(async (res) => {
       if (!res.ok) throw new Error(await res.text());
       return res.json();
@@ -233,7 +233,7 @@ function ProjectContent() {
     .catch((err) => console.error("Fetch failed:", err));
 
     // fetch project devices
-    apiFetch(`http://127.0.0.1:8000/api/projects/${projectID}/devices`)
+    apiFetch(`projects/${projectID}/devices`)
     .then(async (res) => {
       if (!res.ok) throw new Error(await res.text());
       return res.json();

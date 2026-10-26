@@ -129,7 +129,7 @@ export default function DevicesView(props: DevicesViewProps) {
             return;
         }
 
-        apiFetch(`http://127.0.0.1:8000/api/projects/${props.projectID}/patrols/`)
+        apiFetch(`projects/${props.projectID}/patrols/`)
         .then(async (res) => {
         if (!res.ok) throw new Error(await res.text());
         return res.json();
@@ -137,7 +137,7 @@ export default function DevicesView(props: DevicesViewProps) {
         .then((data)=>extractPatrols(data))
         .catch((err) => console.error("Fetch failed:", err));
 
-        apiFetch(`http://127.0.0.1:8000/api/projects/${props.projectID}/routine_patrols/`)
+        apiFetch(`projects/${props.projectID}/routine_patrols/`)
         .then(async (res) => {
             if (!res.ok) throw new Error(await res.text());
             return res.json();
@@ -163,7 +163,7 @@ export default function DevicesView(props: DevicesViewProps) {
         setIsSavingPatrol(true);
         try {
             const response = await apiFetch(
-                `http://127.0.0.1:8000/api/projects/${props.projectID}/routine_patrols/`,
+                `projects/${props.projectID}/routine_patrols/`,
                 {
                     method: "POST",
                     body: JSON.stringify({
@@ -217,7 +217,7 @@ export default function DevicesView(props: DevicesViewProps) {
         setIsGeneratingPath(true);
         try {
             const response = await apiFetch(
-                `http://127.0.0.1:8000/api/projects/${props.projectID}/generate_routine_patrol_path/`,
+                `projects/${props.projectID}/generate_routine_patrol_path/`,
                 { method: "POST" }
             );
             if (!response.ok) {

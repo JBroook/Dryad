@@ -39,7 +39,7 @@ export default function Incidents() {
     const tempUserID = localStorage.getItem("userID")
     setUserID(tempUserID)
     // fetch all user's incidents
-    apiFetch(`http://127.0.0.1:8000/api/incidents?user_id=${tempUserID}`)
+    apiFetch(`incidents?user_id=${tempUserID}`)
       .then(async (res) => {
         if (!res.ok) throw new Error(await res.text());
         return res.json();
@@ -47,7 +47,7 @@ export default function Incidents() {
       .then((data)=>{console.log(data); return data})
       .then((data)=>extractIncidents(data))
       .catch((err) => console.error("Fetch failed:", err));
-    apiFetch(`http://127.0.0.1:8000/api/users/${tempUserID}/memberships`)
+    apiFetch(`users/${tempUserID}/memberships`)
       .then(async (res) => {
         if (!res.ok) throw new Error(await res.text());
         return res.json();
