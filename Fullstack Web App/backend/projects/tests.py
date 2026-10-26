@@ -13,7 +13,6 @@ from xml.etree import ElementTree
 from rest_framework import status
 from rest_framework.test import APIClient
 import numpy as np
-import rasterio
 from rasterio.transform import from_origin
 from projects.terrain import generate_slope_raster
 from projects.terrain import download_dem
@@ -1170,6 +1169,8 @@ class TerrainDataTests(ProjectAPITestCase):
             self.assertFalse(output_path.exists())
 
     def test_slope_raster_contains_expected_gradient_in_degrees(self):
+        import rasterio
+        
         with tempfile.TemporaryDirectory() as temp_dir:
             dem_path = Path(temp_dir) / "dem.tif"
             slope_path = Path(temp_dir) / "slope.tif"
