@@ -12,6 +12,7 @@ services:
     runtime: docker
     plan: free
     region: singapore
+    rootDir : FullStack Web App
     dockerfilePath: ./backend/dockerfile
     dockerContext: ./backend
     envVars:
@@ -29,6 +30,7 @@ services:
     runtime: docker
     plan: free
     region: singapore
+    rootDir : FullStack Web App
     dockerfilePath: ./frontend/dryad/dockerfile
     dockerContext: ./frontend/dryad
     envVars:
