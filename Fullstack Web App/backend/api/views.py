@@ -7,7 +7,6 @@ from django.http import HttpResponse
 from django.utils import timezone
 import secrets
 import string
-from projects.BNN import calculate_project_risk
 from rest_framework import status
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.permissions import IsAuthenticated, SAFE_METHODS
@@ -1161,6 +1160,8 @@ class CalculateProjectRiskView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request, project_id):
+        from projects.BNN import calculate_project_risk
+        
         require_project_role(request, project_id, Membership.Role.MANAGER)
         project = get_object_or_404(
             Project,
