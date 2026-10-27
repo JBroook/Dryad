@@ -785,7 +785,12 @@ class ProjectManagementTests(ProjectAPITestCase):
 
 
 class GridGenerationTests(ProjectAPITestCase):
-    def generate_grid_with_mocked_integrations(self, rows, cell_size=100):
+    def generate_grid_with_mocked_integrations(
+        self,
+        rows,
+        cell_size=100,
+        download_roads_side_effect=None,
+    ):
         from projects.serializers import generate_grid
 
         cursor = MagicMock()
@@ -802,7 +807,11 @@ class GridGenerationTests(ProjectAPITestCase):
             patch("projects.serializers.download_dem") as download_dem,
             patch("projects.serializers.generate_slope_raster") as generate_slope,
             patch("projects.serializers.populate_terrain_data") as populate_terrain,
-            patch("projects.serializers.download_osm_roads", return_value={"elements": []}) as download_roads,
+            patch(
+                "projects.serializers.download_osm_roads",
+                return_value={"elements": []},
+                side_effect=download_roads_side_effect,
+            ) as download_roads,
             patch("projects.serializers.save_osm_roads") as save_roads,
             patch("projects.serializers.populate_road_distances") as populate_distances,
         ):
@@ -874,6 +883,22 @@ class GridGenerationTests(ProjectAPITestCase):
         result["download_roads"].assert_called_once_with(self.project)
         result["save_roads"].assert_called_once_with({"elements": []})
         result["populate_distances"].assert_called_once_with(self.project)
+
+    def test_grid_generation_continues_when_road_download_fails(self):
+        import requests
+
+        result = self.generate_grid_with_mocked_integrations(
+            [(self.ewkt_polygon(0),)],
+            download_roads_side_effect=requests.exceptions.ConnectionError(
+                "Network is unreachable"
+            ),
+        )
+
+        result["bulk_create"].assert_called_once()
+        result["populate_terrain"].assert_called_once()
+        result["download_roads"].assert_called_once_with(self.project)
+        result["save_roads"].assert_not_called()
+        result["populate_distances"].assert_not_called()
 
     def test_grid_generation_handles_an_empty_grid_query(self):
         result = self.generate_grid_with_mocked_integrations([])

@@ -1,4 +1,5 @@
 import random
+import logging
 
 from .terrain import download_dem, download_osm_roads, generate_slope_raster, populate_road_distances, populate_terrain_data, save_osm_roads
 from rest_framework import serializers
@@ -13,6 +14,9 @@ from django.db import connection, transaction
 from rest_framework_gis.fields import GeometryField
 from django.conf import settings
 from django.utils import timezone
+import requests
+
+logger = logging.getLogger(__name__)
 
 class ProjectOverviewSerializer(serializers.ModelSerializer):
     member_count = serializers.IntegerField(read_only=True)
@@ -139,10 +143,18 @@ def generate_grid(project, cell_size=100):
 
     populate_terrain_data(project, dem_path, slope_path)
 
-    # get distance to roads from Overpass
-    data = download_osm_roads(project)
-    save_osm_roads(data)
-    populate_road_distances(project)
+    # Road data is optional; Overpass availability must not block grid creation.
+    try:
+        data = download_osm_roads(project)
+    except requests.exceptions.RequestException:
+        logger.exception(
+            "Could not download OSM roads for project %s; "
+            "grid generation will continue without road data.",
+            project.id,
+        )
+    else:
+        save_osm_roads(data)
+        populate_road_distances(project)
 
 class GridCellSerializer(GeoFeatureModelSerializer):
     class Meta:
