@@ -121,8 +121,12 @@ def generate_grid(project, cell_size=100):
     )
 
     # get slope and elevation data from OpenTopography
-    dem_path = settings.BASE_DIR / "data" / "dem" / f"project_{project.id}_dem.tif"
-    slope_path = settings.BASE_DIR / "data" / "dem" / f"project_{project.id}_slope.tif"
+    dem_dir = settings.BASE_DIR / "data" / "dem"
+    dem_dir.mkdir(parents=True, exist_ok=True)
+
+    dem_path = dem_dir / f"project_{project.id}_dem.tif"
+    slope_path = dem_dir / f"project_{project.id}_slope.tif"
+
     download_dem(
         project,
         dem_path
