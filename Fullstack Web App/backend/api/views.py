@@ -69,23 +69,38 @@ class CRUDMessageMixin:
         )
 
 
+import logging
+logger = logging.getLogger(__name__)
+
+
 class LoginView(APIView):
     def post(self, request):
-        serializer = LoginSerializer(data=request.data)
+        logger.info("LOGIN DEBUG: Request received")
 
-        serializer.is_valid(raise_exception=True)
+        try:
+            serializer = LoginSerializer(data=request.data)
+            serializer.is_valid(raise_exception=True)
+            logger.info("LOGIN DEBUG: Serializer validated")
 
-        user = serializer.validated_data["user"]
-        user_serializer = UserSerializer(user)
+            user = serializer.validated_data["user"]
+            logger.info("LOGIN DEBUG: User retrieved")
 
-        refresh = RefreshToken.for_user(user)
+            user_serializer = UserSerializer(user)
+            logger.info("LOGIN DEBUG: User serialized")
 
-        return Response({
-            "access" : str(refresh.access_token),
-            "refresh" : str(refresh),
-            "user" : user_serializer.data,
-            "message": "Signed in successfully.",
-        })
+            refresh = RefreshToken.for_user(user)
+            logger.info("LOGIN DEBUG: JWT tokens generated")
+
+            return Response({
+                "access": str(refresh.access_token),
+                "refresh": str(refresh),
+                "user": user_serializer.data,
+                "message": "Signed in successfully.",
+            })
+
+        except Exception:
+            logger.exception("LOGIN DEBUG: Login failed")
+            raise
 
 class DeleteAccountView(APIView):
     permission_classes = [IsAuthenticated]
@@ -1161,7 +1176,7 @@ class CalculateProjectRiskView(APIView):
 
     def post(self, request, project_id):
         from projects.BNN import calculate_project_risk
-        
+
         require_project_role(request, project_id, Membership.Role.MANAGER)
         project = get_object_or_404(
             Project,
