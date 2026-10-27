@@ -45,8 +45,6 @@ export default function Login() {
   const [password, setPassword] = useState<string>("");
   const [isLogin, setIsLogin] = useState<boolean>(true);
 
-  const API_URL = process.env.NEXT_PUBLIC_API_URL;
-  // const APIBase = "http://192.168.100.7:8000/api";
 
   const {
     register,
@@ -65,7 +63,8 @@ export default function Login() {
     e.preventDefault();
     setSubmitted(true);
     
-    const res = await fetch(`https://dryad-backend.onrender.com/api/login/`, {
+    const API_URL = process.env.NEXT_PUBLIC_API_URL;
+    const res = await fetch(`${API_URL}/login/`, {
       method: "POST",
       headers: {
         "Content-Type" : "application/json"
@@ -94,6 +93,7 @@ export default function Login() {
 
   const handleRegister = async (data: RegisterForm) => {
     setSubmitted(true);
+    const API_URL = process.env.NEXT_PUBLIC_API_URL;
     const res = await fetch(`${API_URL}/register/`, {
       method: "POST",
       headers: {
