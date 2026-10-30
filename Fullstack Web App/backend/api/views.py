@@ -1177,7 +1177,7 @@ class CalculateProjectRiskView(APIView):
     def post(self, request, project_id):
         from projects.BNN import calculate_project_risk
 
-        require_project_role(request, project_id, Membership.Role.MANAGER)
+        require_project_role(request, project_id, Membership.Role.ADMIN)
         project = get_object_or_404(
             Project,
             id=project_id

@@ -4,8 +4,9 @@ async function refreshAccessToken(): Promise<string | null> {
   if (!refresh) {
     return null;
   }
+  const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
-  const response = await fetch("token/refresh/", {
+  const response = await fetch(`${API_URL}/token/refresh/`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

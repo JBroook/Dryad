@@ -172,3 +172,10 @@ class ProjectMembershipPermissionTests(TestCase):
         )
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertFalse(Membership.objects.filter(pk=self.member.id).exists())
+
+    def test_manager_cannot_request_project_risk_calculation(self):
+        self.client.force_authenticate(user=self.manager)
+        response = self.client.post(
+            reverse("calculate_risk", args=[self.project.id]),
+        )
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)

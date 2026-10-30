@@ -29,7 +29,7 @@ interface ForestMapViewProps {
     incidents : IncidentType[];
     devices : Device[];
     project : Project;
-    canManage: boolean;
+    canCalculateRisk: boolean;
 }
 
 export default function ForestMapView(props: ForestMapViewProps) {
@@ -57,6 +57,8 @@ export default function ForestMapView(props: ForestMapViewProps) {
     }
 
     const calculateRisk = () => {
+        if (!props.canCalculateRisk) return;
+
         apiFetch(`projects/${props.projectID}/calculate_risk`,
             {
                 method : "POST"
@@ -190,7 +192,7 @@ export default function ForestMapView(props: ForestMapViewProps) {
             />
         </div>
 
-        {props.canManage && (
+        {props.canCalculateRisk && (
         <div className="mx-6 mt-4 border border-white/8 flex justify-between bg-base-200 py-4 px-6 rounded-xl">
             <div>
                 <h1 className="font-semibold">

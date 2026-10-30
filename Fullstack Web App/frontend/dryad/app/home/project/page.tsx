@@ -135,7 +135,7 @@ function ProjectContent() {
       incidents={incidents}
       devices={devices}
       project={project!}
-      canManage={hasProjectRole(projectRole, "manager")}
+      canCalculateRisk={hasProjectRole(projectRole, "admin")}
     />,
     devices : <DevicesView 
       projectID={projectID}
