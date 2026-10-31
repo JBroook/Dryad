@@ -1,4 +1,3 @@
-
 import json
 import os
 import glob
@@ -285,12 +284,12 @@ def summarize_cross_validation(base_dir, class_names=None):
         'accuracy': 'Training Accuracy',
         'test_loss': 'Test Loss',
         'test_accuracy': 'Test Accuracy',
-        'test_precision_macro': 'Precision (Macro)',
-        'test_precision_weighted': 'Precision (Weighted)',
-        'test_recall_macro': 'Recall (Macro)',
-        'test_recall_weighted': 'Recall (Weighted)',
-        'test_f1_macro': 'F1-Score (Macro)',
-        'test_f1_weighted': 'F1-Score (Weighted)',
+        # 'test_precision_macro': 'Precision (Macro)',
+        'test_precision_weighted': 'Precision',
+        # 'test_recall_macro': 'Recall (Macro)',
+        'test_recall_weighted': 'Recall',
+        # 'test_f1_macro': 'F1-Score (Macro)',
+        'test_f1_weighted': 'F1-Score',
         'test_roc_auc_macro': 'ROC AUC (Macro)'
     }
 
@@ -347,7 +346,7 @@ def summarize_cross_validation(base_dir, class_names=None):
 
 if __name__ == '__main__':
 
-    training_output_dir = "trainedModels/final_pure_AC_v2"
+    training_output_dir = "trainedModels/26_class_ac"
 
     class_names = [
         f"Class_{i}"
