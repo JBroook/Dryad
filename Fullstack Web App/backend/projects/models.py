@@ -158,7 +158,14 @@ class Device(models.Model):
         )
 
         for member in members:
-            if member.user.email!=real_email:
+            if (
+                member.user.email != real_email
+                or not member.user.receive_emails
+                or (
+                    member.user.critical_incidents_only
+                    and confidence <= 85
+                )
+            ):
                 continue
 
             params.append(
@@ -169,7 +176,8 @@ class Device(models.Model):
                 "html": html,
             })
 
-        resend.Batch.send(params)
+        if params:
+            resend.Batch.send(params)
 
 class Incident(models.Model):
     project = models.ForeignKey(to=Project, on_delete=models.CASCADE, related_name="incidents")

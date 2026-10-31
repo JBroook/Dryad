@@ -80,7 +80,26 @@ class UserSerializer(serializers.ModelSerializer):
 class UserSettingsSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ['receive_emails', 'critical_incidents_only']
+        fields = [
+            'receive_emails',
+            'receive_invite_emails',
+            'critical_incidents_only',
+        ]
+
+    def validate(self, attrs):
+        if attrs.get("critical_incidents_only") is True:
+            attrs["receive_emails"] = True
+            attrs["receive_invite_emails"] = False
+        elif (
+            attrs.get("receive_emails") is False
+            or attrs.get("receive_invite_emails") is True
+        ):
+            attrs["critical_incidents_only"] = False
+        elif self.instance.critical_incidents_only:
+            attrs["receive_emails"] = True
+            attrs["receive_invite_emails"] = False
+
+        return attrs
 
 class ForgotPasswordSerializer(serializers.Serializer):
     email = serializers.EmailField()

@@ -467,9 +467,10 @@ class PatrolAssignmentTests(TestCase):
             format="json",
         )
 
-        invite_response = self.client.post(
-            reverse("invite", args=[self.project.id]) + "?email=new-member@example.com",
-        )
+        with patch("api.views.resend.Emails.send"):
+            invite_response = self.client.post(
+                reverse("invite", args=[self.project.id]) + "?email=new-member@example.com",
+            )
 
         self.assertEqual(
             settings_response.status_code,
@@ -761,6 +762,56 @@ class ProjectManagementTests(ProjectAPITestCase):
             Project.AlertPreference.OWNER_ONLY,
         )
 
+    def test_project_owner_can_disable_and_activate_project(self):
+        project_url = reverse("project-detail", args=[self.project.id])
+
+        disable_response = self.client.patch(
+            project_url,
+            {"status": False},
+            format="json",
+        )
+
+        self.assertEqual(disable_response.status_code, status.HTTP_200_OK)
+        self.project.refresh_from_db()
+        self.assertFalse(self.project.status)
+
+        overview_response = self.client.get(reverse("project_overview"))
+        self.assertEqual(overview_response.status_code, status.HTTP_200_OK)
+        project_data = next(
+            project for project in overview_response.data if project["id"] == self.project.id
+        )
+        self.assertFalse(project_data["status"])
+
+        activate_response = self.client.patch(
+            project_url,
+            {"status": True},
+            format="json",
+        )
+
+        self.assertEqual(activate_response.status_code, status.HTTP_200_OK)
+        self.project.refresh_from_db()
+        self.assertTrue(self.project.status)
+
+    def test_project_owner_can_delete_project_and_related_data(self):
+        connection_code = ConnectionCode.objects.create(
+            code="ABC123",
+            project=self.project,
+            expires_at=timezone.now() + timedelta(minutes=5),
+        )
+
+        response = self.client.delete(
+            reverse("project-detail", args=[self.project.id])
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["message"], "Project deleted successfully.")
+        self.assertFalse(Project.objects.filter(pk=self.project.id).exists())
+        self.assertFalse(
+            Membership.objects.filter(pk=self.owner_membership.id).exists()
+        )
+        self.assertFalse(GridCell.objects.filter(pk=self.cell.id).exists())
+        self.assertFalse(ConnectionCode.objects.filter(pk=connection_code.id).exists())
+
     def test_project_settings_are_not_visible_to_an_unrelated_user(self):
         outsider = User.objects.create_user(
             email="project-outsider@example.com",
@@ -792,9 +843,20 @@ class ProjectManagementTests(ProjectAPITestCase):
         )
         self.client.force_authenticate(user=admin_user)
 
-        response = self.client.post(
-            f"{reverse('invite', args=[self.project.id])}?email={invited_user.email}"
-        )
+        with (
+            patch.dict(
+                os.environ,
+                {
+                    "REAL_EMAIL": "test-inbox@example.com",
+                    "RESEND_API_KEY": "test-api-key",
+                    "FRONTEND_URL": "https://dryad.example.com/",
+                },
+            ),
+            patch("api.views.resend.Emails.send") as send_email,
+        ):
+            response = self.client.post(
+                f"{reverse('invite', args=[self.project.id])}?email={invited_user.email}"
+            )
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         invitation = Membership.objects.get(
@@ -803,6 +865,35 @@ class ProjectManagementTests(ProjectAPITestCase):
         )
         self.assertFalse(invitation.accepted)
         self.assertEqual(invitation.role, Membership.Role.VIEWER)
+        send_email.assert_called_once()
+        email_params = send_email.call_args.args[0]
+        self.assertEqual(email_params["to"], ["test-inbox@example.com"])
+        self.assertEqual(email_params["subject"], f"{self.project.name}: Project Invitation")
+        self.assertIn(f"You're Invited to {self.project.name}!", email_params["html"])
+        self.assertIn("project-admin@example.com", email_params["html"])
+        self.assertIn("https://dryad.example.com/home/projects", email_params["html"])
+
+    def test_project_invitation_respects_member_email_preference(self):
+        invited_user = User.objects.create_user(
+            email="no-invite-email@example.com",
+            password="test-password",
+            receive_invite_emails=False,
+        )
+
+        with patch("api.views.resend.Emails.send") as send_email:
+            response = self.client.post(
+                f"{reverse('invite', args=[self.project.id])}?email={invited_user.email}"
+            )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertTrue(
+            Membership.objects.filter(
+                project=self.project,
+                user=invited_user,
+                accepted=False,
+            ).exists()
+        )
+        send_email.assert_not_called()
 
     def test_project_invitation_requires_an_email_address(self):
         response = self.client.post(reverse("invite", args=[self.project.id]))
@@ -1333,20 +1424,49 @@ class NotificationAndAlertTests(ProjectAPITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(
             response.data,
-            {"receive_emails": True, "critical_incidents_only": False},
+            {
+                "receive_emails": True,
+                "receive_invite_emails": True,
+                "critical_incidents_only": False,
+            },
         )
 
     def test_user_can_update_and_persist_notification_preferences(self):
-        response = self.client.patch(
+        invite_alert_response = self.client.patch(
             reverse("user_settings"),
-            {"receive_emails": False, "critical_incidents_only": True},
+            {"receive_invite_emails": False},
             format="json",
         )
 
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(invite_alert_response.status_code, status.HTTP_200_OK)
+        self.owner.refresh_from_db()
+        self.assertTrue(self.owner.receive_emails)
+        self.assertFalse(self.owner.receive_invite_emails)
+        self.assertFalse(self.owner.critical_incidents_only)
+
+        critical_alert_response = self.client.patch(
+            reverse("user_settings"),
+            {"critical_incidents_only": True},
+            format="json",
+        )
+
+        self.assertEqual(critical_alert_response.status_code, status.HTTP_200_OK)
+        self.owner.refresh_from_db()
+        self.assertTrue(self.owner.receive_emails)
+        self.assertFalse(self.owner.receive_invite_emails)
+        self.assertTrue(self.owner.critical_incidents_only)
+
+        disable_email_response = self.client.patch(
+            reverse("user_settings"),
+            {"receive_emails": False},
+            format="json",
+        )
+
+        self.assertEqual(disable_email_response.status_code, status.HTTP_200_OK)
         self.owner.refresh_from_db()
         self.assertFalse(self.owner.receive_emails)
-        self.assertTrue(self.owner.critical_incidents_only)
+        self.assertFalse(self.owner.critical_incidents_only)
+        self.assertFalse(self.owner.receive_invite_emails)
 
     def test_user_cannot_read_another_users_overview(self):
         other_user = User.objects.create_user(
@@ -1419,6 +1539,69 @@ class NotificationAndAlertTests(ProjectAPITestCase):
         self.assertEqual(incident.threat_class, self.threat_class)
         self.assertEqual(incident.confidence, 95)
         self.assertEqual(incident.status, Incident.Status.NEW)
+        send_email.assert_called_once()
+        sent_params = send_email.call_args.args[0]
+        self.assertEqual(len(sent_params), 1)
+        self.assertEqual(sent_params[0]["to"], [self.owner.email])
+
+    def test_device_report_respects_email_alert_preference(self):
+        self.owner.receive_emails = False
+        self.owner.save(update_fields=["receive_emails"])
+        device = Device.objects.create(
+            name="Muted notification sensor",
+            location=Point(1, 1, srid=4326),
+            project=self.project,
+            grid_cell=self.cell,
+            battery=80,
+            status=Device.Status.ONLINE,
+        )
+
+        with (
+            patch.dict(os.environ, {"REAL_EMAIL": self.owner.email}),
+            patch("projects.models.resend.Batch.send") as send_email,
+        ):
+            response = self.client.post(
+                reverse("report_incident", args=[device.id]),
+                {
+                    "threat_class": self.threat_class.id,
+                    "timestamp": timezone.now().isoformat(),
+                    "confidence": 95,
+                },
+                format="json",
+            )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        send_email.assert_not_called()
+
+    def test_critical_incidents_only_emails_only_confidence_above_85(self):
+        self.owner.critical_incidents_only = True
+        self.owner.save(update_fields=["critical_incidents_only"])
+        device = Device.objects.create(
+            name="Critical-only notification sensor",
+            location=Point(1, 1, srid=4326),
+            project=self.project,
+            grid_cell=self.cell,
+            battery=80,
+            status=Device.Status.ONLINE,
+        )
+
+        with (
+            patch.dict(os.environ, {"REAL_EMAIL": self.owner.email}),
+            patch("projects.models.render_to_string", return_value="<p>Incident</p>"),
+            patch("projects.models.resend.Batch.send") as send_email,
+        ):
+            for confidence in (85, 86):
+                response = self.client.post(
+                    reverse("report_incident", args=[device.id]),
+                    {
+                        "threat_class": self.threat_class.id,
+                        "timestamp": timezone.now().isoformat(),
+                        "confidence": confidence,
+                    },
+                    format="json",
+                )
+                self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
         send_email.assert_called_once()
         sent_params = send_email.call_args.args[0]
         self.assertEqual(len(sent_params), 1)

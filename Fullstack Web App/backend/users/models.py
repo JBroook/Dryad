@@ -54,6 +54,7 @@ class User(AbstractUser):
     )
 
     receive_emails = models.BooleanField(default=True)
+    receive_invite_emails = models.BooleanField(default=True)
     critical_incidents_only = models.BooleanField(default=False)
 
     USERNAME_FIELD = "email"

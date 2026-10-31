@@ -179,26 +179,30 @@ export default function SettingsView(props: SettingsViewProps) {
         }
     };
 
-    const disableProject = async (event: React.SubmitEvent<HTMLFormElement>) => {
+    const updateProjectStatus = async (event: React.SubmitEvent<HTMLFormElement>) => {
         event.preventDefault();
-        if (!props.projectID) return;
+        if (!props.projectID || !project) return;
+
+        const status = !project.status;
 
         try {
             const response = await apiFetch(
                 `projects/${props.projectID}/`,
                 {
                     method: "PATCH",
-                    body: JSON.stringify({ status: false }),
+                    body: JSON.stringify({ status }),
                 }
             );
             if (!response.ok) throw new Error(await response.text());
             const data = await response.json();
-            showToast(data.message ?? "Project disabled successfully.");
-            closeModal("disableModal");
-            router.push("/home/projects");
+            setProject((currentProject) =>
+                currentProject ? { ...currentProject, status } : currentProject
+            );
+            showToast(data.message ?? `Project ${status ? "activated" : "disabled"} successfully.`);
+            closeModal("statusModal");
         } catch (error) {
-            console.error("Project disable failed:", error);
-            showToast("Unable to disable this project.", "error");
+            console.error("Project status update failed:", error);
+            showToast(`Unable to ${status ? "activate" : "disable"} this project.`, "error");
         }
     };
 
@@ -279,18 +283,24 @@ export default function SettingsView(props: SettingsViewProps) {
             </p>
         )}
         <fieldset disabled={!props.canEdit} className="contents">
-        <dialog id="disableModal" className="modal">
+        <dialog id="statusModal" className="modal">
             <div className="modal-box bg-base-200 border border-white/8">
-                <h3 className="font-bold text-lg">Disable Project</h3>
+                <h3 className="font-bold text-lg">
+                    {project.status ? "Disable Project" : "Activate Project"}
+                </h3>
                 <p className="py-4 text-sm text-secondary-content">
-                Disabling this project means that all members will no longer receive alerts from this project. However, the project will not be deleted and can be re-activated.
+                    {project.status
+                        ? "This will mark the project as inactive. You can activate it again later."
+                        : "This will mark the project as active again."}
                 </p>
                 <div className="modal-action">
-                <form onSubmit={disableProject}>
-                    <button type="submit" className="btn btn-warning mr-2">Disable</button>
+                <form onSubmit={updateProjectStatus}>
+                    <button type="submit" className={`btn ${project.status ? "btn-warning" : "btn-primary"} mr-2`}>
+                        {project.status ? "Disable" : "Activate"}
+                    </button>
                     <button 
                     type="button"
-                    onClick={() => closeModal("disableModal")} className="btn btn-secondary">Close</button>
+                    onClick={() => closeModal("statusModal")} className="btn btn-secondary">Close</button>
                 </form>
                 </div>
             </div>
@@ -480,8 +490,12 @@ export default function SettingsView(props: SettingsViewProps) {
                     {saveSpinner ? "Saving..." : "Save Changes"}
                 </button>}
 
-                {props.isOwner && <button className="btn btn-warning" onClick={()=>openModal("disableModal")}>
-                    <IoPower/> Disable Project
+                {props.isOwner && <button
+                    type="button"
+                    className={project.status ? "btn btn-warning" : "btn btn-primary"}
+                    onClick={()=>openModal("statusModal")}
+                >
+                    <IoPower/> {project.status ? "Disable Project" : "Activate Project"}
                 </button>}
 
                 {props.isOwner && <button className="btn btn-error" onClick={()=>openModal("deleteModal")}>

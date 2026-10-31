@@ -1,12 +1,15 @@
 import hashlib
 import json
 import math
+import os
 from datetime import timedelta
 from xml.sax.saxutils import escape
 from django.http import HttpResponse
+from django.template.loader import render_to_string
 from django.utils import timezone
 import secrets
 import string
+import resend
 from rest_framework import status
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.permissions import IsAuthenticated, SAFE_METHODS
@@ -559,7 +562,34 @@ class InviteMemberView(APIView):
                 {"details": "This user is already a member of this project"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        
+
+        if user.receive_invite_emails:
+            resend.api_key = os.getenv("RESEND_API_KEY")
+            sender_name = (
+                f"{request.user.first_name} {request.user.last_name}".strip()
+                or request.user.email
+            )
+            frontend_url = os.getenv("FRONTEND_URL", "http://localhost:3000").rstrip("/")
+            html = render_to_string(
+                "emails/project_invitation.html",
+                {
+                    "project_name": project.name,
+                    "sender_name": sender_name,
+                    "invite_date": timezone.localtime(membership.invited_on).strftime(
+                        "%B %d, %Y"
+                    ),
+                    "website_url": f"{frontend_url}/home/projects",
+                },
+            )
+            params: resend.Emails.SendParams = {
+                "from": "Dryad <onboarding@resend.dev>",
+                "to": [os.getenv("REAL_EMAIL")],
+                # "to": [user.email],  # Send directly to the invited member outside testing.
+                "subject": f"{project.name}: Project Invitation",
+                "html": html,
+            }
+            resend.Emails.send(params)
+
         return Response(
             {
                 **MembershipSerializer(membership).data,

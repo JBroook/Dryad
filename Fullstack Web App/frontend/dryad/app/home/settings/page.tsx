@@ -15,6 +15,7 @@ export default function Settings() {
   const {theme, setTheme} = useTheme();
   const [mode, setMode] = useState<boolean>(false);
   const [emailAlerts, setEmailAlerts] = useState<boolean | null>(null);
+  const [inviteEmails, setInviteEmails] = useState<boolean | null>(null);
   const [criticalIncidentsOnly, setCriticalIncidentsOnly] = useState<boolean | null>(null);
 
   const handleEmailSetting = async (e : React.ChangeEvent<HTMLInputElement>) => {
@@ -26,6 +27,7 @@ export default function Settings() {
       });
       if (!response.ok) throw new Error(await response.text());
       setEmailAlerts(value);
+      if (!value) setCriticalIncidentsOnly(false);
       const data = await response.json();
       showToast(data.message ?? "Email alert settings saved.");
     } catch (err) {
@@ -34,15 +36,42 @@ export default function Settings() {
     }
   }
 
+  const handleInviteEmailSetting = async (e : React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.checked;
+    try {
+      const response = await apiFetch(`users/settings`, {
+        method: "PATCH",
+        body: JSON.stringify({ receive_invite_emails: value }),
+      });
+      if (!response.ok) throw new Error(await response.text());
+      setInviteEmails(value);
+      if (value) setCriticalIncidentsOnly(false);
+      const data = await response.json();
+      showToast(data.message ?? "Invite email settings saved.");
+    } catch (err) {
+      console.error("Invite email settings update failed:", err);
+      showToast("Unable to save invite email settings.", "error");
+    }
+  }
+
   const handleCriticalIncidentsSetting = async (e : React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.checked;
     try {
       const response = await apiFetch(`users/settings`, {
         method: "PATCH",
-        body: JSON.stringify({ critical_incidents_only: value }),
+        body: JSON.stringify({
+          critical_incidents_only: value,
+          ...(value
+            ? { receive_emails: true, receive_invite_emails: false }
+            : {}),
+        }),
       });
       if (!response.ok) throw new Error(await response.text());
       setCriticalIncidentsOnly(value);
+      if (value) {
+        setEmailAlerts(true);
+        setInviteEmails(false);
+      }
       const data = await response.json();
       showToast(data.message ?? "Incident alert settings saved.");
     } catch (err) {
@@ -63,6 +92,7 @@ export default function Settings() {
     .then((data)=>{console.log(data); return data})
     .then((data)=>{
       setEmailAlerts(data.receive_emails)
+      setInviteEmails(data.receive_invite_emails)
       setCriticalIncidentsOnly(data.critical_incidents_only)
     })
     .catch((err) => console.error("Fetch failed:", err));
@@ -112,7 +142,7 @@ export default function Settings() {
       </div>
 
       <h1 className="font-semibold text-lg mt-6">Notifications</h1>
-      <p className="text-secondary-content text-sm">Control how and when you receive incident alerts</p>
+      <p className="text-secondary-content text-sm">Control incident and project invitation emails</p>
 
       <div className="card bg-base-200 rounded-2xl border border-white/8 mt-4">
         <div className="card-body">
@@ -123,6 +153,7 @@ export default function Settings() {
             state={true}
             onChange={handleEmailSetting}
             active={emailAlerts}
+            disabled={criticalIncidentsOnly === true}
           />
           <div className="divider"></div>
           <NotificationOption 
@@ -130,13 +161,14 @@ export default function Settings() {
             description="Receive notifications about invites to new projects"
             icon={FaPlus}
             state={true}
-            onChange={handleEmailSetting}
-            active={emailAlerts}
+            onChange={handleInviteEmailSetting}
+            active={inviteEmails}
+            disabled={criticalIncidentsOnly === true}
           />
           <div className="divider"></div>
           <NotificationOption 
             title="Critical Incidents Only"
-            description="Only get notified for high confidence incidents"
+            description="Only receive incident emails above 85% confidence"
             icon={BsFillLightningChargeFill}
             state={true}
             onChange={handleCriticalIncidentsSetting}

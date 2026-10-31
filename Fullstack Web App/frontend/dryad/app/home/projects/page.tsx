@@ -247,7 +247,7 @@ export default function Home() {
                 totalDevices ={project.deviceCount!}
                 members ={project.memberCount!}
                 accentColor={project.color}
-                tagColor="#4ADE80"
+                tagColor={project.status ? "#4ADE80" : "#9CA3AF"}
                 openProject={()=>{router.push(`/home/project?pid=${project.id}&tab=overview`)}}
               />
             })}
