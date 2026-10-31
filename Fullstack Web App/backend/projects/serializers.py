@@ -1,4 +1,3 @@
-import random
 import logging
 
 from .terrain import download_dem, download_osm_roads, generate_slope_raster, populate_road_distances, populate_terrain_data, save_osm_roads
@@ -116,7 +115,6 @@ def generate_grid(project, cell_size=100):
         grid_cells.append(GridCell(
             project=project,
             geometry=geometry,
-            risk_score=random.random(),
             identifier=f"cell-{index}"
         ))
 
@@ -187,6 +185,8 @@ class ProjectSerializer(GeoFeatureModelSerializer):
         geo_field = "monitoring_area"
 
     def create(self, validated_data):
+        from .BNN import calculate_project_risk, initialize_project_model
+
         members = validated_data.pop("members", [])
         threat_classes = validated_data.pop("threat_classes", [])
 
@@ -194,6 +194,8 @@ class ProjectSerializer(GeoFeatureModelSerializer):
 
         # generate grid
         generate_grid(project=project, cell_size=100)
+        initialize_project_model(project)
+        calculate_project_risk(project)
 
         # generate memberships
         for member in members:

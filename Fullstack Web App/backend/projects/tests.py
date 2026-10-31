@@ -804,7 +804,11 @@ class ProjectManagementTests(ProjectAPITestCase):
             },
         }
 
-        with patch("projects.serializers.generate_grid") as generate_grid:
+        with (
+            patch("projects.serializers.generate_grid") as generate_grid,
+            patch("projects.BNN.initialize_project_model") as initialize_model,
+            patch("projects.BNN.calculate_project_risk") as calculate_risk,
+        ):
             response = self.client.post(
                 reverse("project-list"),
                 data,
@@ -823,6 +827,8 @@ class ProjectManagementTests(ProjectAPITestCase):
             ).exists()
         )
         generate_grid.assert_called_once()
+        initialize_model.assert_called_once_with(project)
+        calculate_risk.assert_called_once_with(project)
 
     def test_project_owner_can_update_project_preferences(self):
         response = self.client.patch(
@@ -1329,10 +1335,9 @@ class RiskModelTests(ProjectAPITestCase):
         scaler = MagicMock()
         scaler.transform.side_effect = lambda values: values
 
-        with (
-            patch("projects.BNN.joblib.load", return_value=scaler),
-            patch("projects.BNN.RiskMLP", return_value=model),
-            patch("projects.BNN.torch.load", return_value={"weights": "test"}),
+        with patch(
+            "projects.BNN.load_project_model",
+            return_value=(model, scaler),
         ):
             calculated_cells = calculate_project_risk(self.project)
 
@@ -1341,7 +1346,6 @@ class RiskModelTests(ProjectAPITestCase):
         self.assertEqual(len(calculated_cells), 2)
         self.assertAlmostEqual(self.cell.risk_score, 0.5, places=5)
         self.assertAlmostEqual(second_cell.risk_score, 0.880797, places=5)
-        model.load_state_dict.assert_called_once_with({"weights": "test"})
 
     def test_risk_calculation_stores_average_variance_from_repeated_inference(self):
         import torch
@@ -1365,9 +1369,10 @@ class RiskModelTests(ProjectAPITestCase):
 
         with (
             patch("projects.BNN.RISK_INFERENCE_PASSES", 2),
-            patch("projects.BNN.joblib.load", return_value=scaler),
-            patch("projects.BNN.RiskMLP", return_value=model),
-            patch("projects.BNN.torch.load", return_value={"weights": "test"}),
+            patch(
+                "projects.BNN.load_project_model",
+                return_value=(model, scaler),
+            ),
         ):
             calculate_project_risk(self.project)
 
@@ -1375,7 +1380,10 @@ class RiskModelTests(ProjectAPITestCase):
         second_cell.refresh_from_db()
         self.project.refresh_from_db()
 
-        expected_mean = (torch.sigmoid(torch.tensor(0.0)) + torch.sigmoid(torch.tensor(2.0))).item() / 2
+        expected_mean = (
+            torch.sigmoid(torch.tensor(0.0))
+            + torch.sigmoid(torch.tensor(2.0))
+        ).item() / 2
         expected_variance = torch.var(
             torch.sigmoid(torch.tensor([0.0, 2.0])),
             unbiased=False,
@@ -1383,6 +1391,59 @@ class RiskModelTests(ProjectAPITestCase):
         self.assertAlmostEqual(self.cell.risk_score, expected_mean, places=5)
         self.assertAlmostEqual(second_cell.risk_score, expected_mean, places=5)
         self.assertAlmostEqual(self.project.uncertainty, expected_variance, places=5)
+
+    def test_project_models_are_saved_in_distinct_project_paths(self):
+        import torch
+        from sklearn.preprocessing import StandardScaler
+        from projects.BNN import (
+            FEATURES,
+            RiskMLP,
+            initialize_project_model,
+            load_project_model,
+            project_model_paths,
+        )
+
+        model = RiskMLP(input_size=len(FEATURES))
+        scaler = StandardScaler()
+        second_project = SimpleNamespace(pk=self.project.pk + 1)
+        self.assertNotEqual(
+            project_model_paths(self.project),
+            project_model_paths(second_project),
+        )
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            model_path = Path(temp_dir) / "risk_model.pt"
+            scaler_path = Path(temp_dir) / "risk_scaler.pkl"
+            with (
+                patch(
+                    "projects.BNN.project_model_paths",
+                    return_value=(model_path, scaler_path),
+                ),
+                patch(
+                    "projects.BNN.torch.load",
+                    return_value=model.state_dict(),
+                ) as load_checkpoint,
+                patch(
+                    "projects.BNN.joblib.load",
+                    return_value=scaler,
+                ) as load_scaler,
+            ):
+                initialize_project_model(self.project)
+                loaded_model, loaded_scaler = load_project_model(self.project)
+
+            self.assertTrue(model_path.is_file())
+            self.assertTrue(scaler_path.is_file())
+            self.assertEqual(
+                set(torch.load(model_path, map_location="cpu")),
+                set(model.state_dict()),
+            )
+            self.assertEqual(
+                load_checkpoint.call_args_list[-1].args[0],
+                model_path,
+            )
+            self.assertEqual(load_scaler.call_args_list[-1].args[0], scaler_path)
+            self.assertIsNot(loaded_model, model)
+            self.assertIs(loaded_scaler, scaler)
 
     def test_risk_calculation_endpoint_returns_project_uncertainty(self):
         def set_uncertainty(project):
