@@ -12,7 +12,7 @@ import warnings
 warnings.filterwarnings("ignore")
 
 # Separate modified audio into background and foreground
-modified_audio = Path("FSC22/CategorisedAudio")
+modified_audio = Path("../FSC22/CategorisedAudio")
 
 bg_sounds = ["Rain", "Thunderstorm", "Wind", "Silence"]
 fg_sounds = [
@@ -25,9 +25,9 @@ fg_sounds = [
 ]
 
 if not modified_audio.is_dir():
-    Path("FSC22/CategorisedAudio").mkdir(parents=True, exist_ok=True)
-    fsc22_audio_dir = "FSC22/Audio Wise V1.0"
-    fsc22_meta_path = "FSC22/Metadata/Modified_Metadata.csv"
+    Path("../FSC22/CategorisedAudio").mkdir(parents=True, exist_ok=True)
+    fsc22_audio_dir = "../FSC22/Audio Wise V1.0"
+    fsc22_meta_path = "../FSC22/Metadata/Modified_Metadata.csv"
 
     df = pd.read_csv(fsc22_meta_path)
 
@@ -108,8 +108,8 @@ def generate(fold, amount, seed=123, repeat=False):
 
     # Generate 1000 soundscapes using a truncated normal distribution of start times
     keep_index = False
-    if Path("FSC22/Metadata/SED_Metadata.csv").exists():
-        soundscape_df = pd.read_csv("FSC22/Metadata/SED_Metadata.csv")
+    if Path("../FSC22/Metadata/SED_Metadata.csv").exists():
+        soundscape_df = pd.read_csv("../FSC22/Metadata/SED_Metadata.csv")
     else:
         keep_index = True
         soundscape_df = pd.DataFrame(columns=["Audio File Path", "JAMS File Path", "Label File Path", "Fold"])
@@ -141,8 +141,8 @@ def generate(fold, amount, seed=123, repeat=False):
                          time_stretch=(time_stretch_dist, time_stretch_min, time_stretch_max))
 
         # generate
-        if not Path("FSC22/SyntheticSoundscapes").is_dir():
-            Path("FSC22/SyntheticSoundscapes").mkdir(parents=True, exist_ok=True)
+        if not Path("../FSC22/SyntheticSoundscapes").is_dir():
+            Path("../FSC22/SyntheticSoundscapes").mkdir(parents=True, exist_ok=True)
 
         if not Path(outfolder).is_dir():
             Path(outfolder).mkdir(parents=True, exist_ok=True)

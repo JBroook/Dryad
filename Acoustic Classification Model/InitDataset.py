@@ -30,9 +30,14 @@ if __name__=="__main__":
 
     fsc22_df = pd.read_csv(fsc22_meta_path)
     fsc22_df['Fold'] = -1
-    fsc22_df['Threat'] = False
     fsc22_df['Class ID'] -= 1
     fsc22_df['Group'] = fsc22_df['Source File Name'].apply(lambda x: x.split('_')[0])
+    fsc22_df['Threat'] = fsc22_df["Class Name"].isin(threat_classes)
+
+    # remove axe class
+    fsc22_df = fsc22_df[fsc22_df["Class Name"] != "Axe"].reset_index(drop=True)
+    # reset class ID (9 = Axe)
+    fsc22_df.loc[fsc22_df["Class ID"] > 9, "Class ID"] -= 1
 
     x = fsc22_df.index
     y = fsc22_df['Class Name']
@@ -46,7 +51,8 @@ if __name__=="__main__":
     ):
         fsc22_df.loc[test_index, 'Fold'] = fold_index
 
-    fsc22_df['Threat'] = fsc22_df["Class Name"].isin(threat_classes)
+    # simple folding
+    fsc22_df['_Fold'] = fsc22_df.groupby('Class Name').cumcount() % 5
 
     fsc22_df.to_csv("FSC22/Metadata/Modified_Metadata.csv")
 
@@ -59,11 +65,12 @@ if __name__=="__main__":
             resampler = torchaudio.transforms.Resample(sample_rate, 32000)
             waveform = resampler(waveform)
 
-        max_length = 5 * 32000
-        if waveform.size(1) > max_length: # trim
-            waveform = waveform[:, :max_length]
-        else: # pad
-            pad_size = max_length - waveform.size(1)
-            waveform = torch.nn.functional.pad(waveform, (0, pad_size))
+        # not necessary for FSC22
+        # max_length = 5 * 32000
+        # if waveform.size(1) > max_length: # trim
+        #     waveform = waveform[:, :max_length]
+        # else: # pad
+        #     pad_size = max_length - waveform.size(1)
+        #     waveform = torch.nn.functional.pad(waveform, (0, pad_size))
 
         torchaudio.save(os.path.join("FSC22/ModifiedAudio", row['Dataset File Name']), waveform, 32000)

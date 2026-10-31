@@ -16,9 +16,9 @@ from models import Cnn10_SED
 
 # premod_audio_dir = "FSC22/Audio Wise V1.0"
 # fsc22_audio_dir = "FSC22/ModifiedAudio"
-fsc22_meta_path = "FSC22/Metadata/Modified_Metadata.csv"
-soundscape_meta_path = "FSC22/Metadata/SED_Metadata.csv"
-soundscape_audio_dir = "FSC22/SyntheticSoundscapes"
+fsc22_meta_path = "../FSC22/Metadata/Modified_Metadata.csv"
+soundscape_meta_path = "../FSC22/Metadata/SED_Metadata.csv"
+soundscape_audio_dir = "../FSC22/SyntheticSoundscapes"
 device ="cuda" if torch.cuda.is_available() else "cpu"
 
 class FSC22SoundscapeDataset(Dataset):
@@ -105,7 +105,7 @@ if __name__=='__main__':
             fmax=14000,
             classes_num=527
         )
-        checkpoint = torch.load("Cnn10_mAP=0.380.pth", map_location=device)
+        checkpoint = torch.load("../Cnn10_mAP=0.380.pth", map_location=device)
         model.load_state_dict(checkpoint['model'])
         model.fc_audioset = nn.Linear(512, FSC22SoundscapeDataset.class_count, bias=True)
         model.to(device)
