@@ -183,6 +183,40 @@ class ProjectMembershipPermissionTests(TestCase):
         )
         self.client.force_authenticate(user=self.manager)
 
+    def test_forest_map_warning_is_returned_only_on_first_visit(self):
+        url = reverse(
+            "project_forest_map_opened",
+            args=[self.project.pk],
+        )
+
+        first_response = self.client.post(url)
+        second_response = self.client.post(url)
+
+        self.assertEqual(first_response.status_code, status.HTTP_200_OK)
+        self.assertTrue(first_response.data["show_warning"])
+        self.assertEqual(second_response.status_code, status.HTTP_200_OK)
+        self.assertFalse(second_response.data["show_warning"])
+        self.member.refresh_from_db()
+        self.assertTrue(self.member.opened)
+
+    def test_non_member_cannot_mark_forest_map_as_opened(self):
+        outsider = User.objects.create_user(
+            email="outsider@example.com",
+            password="Testpass123!",
+        )
+        self.client.force_authenticate(user=outsider)
+
+        response = self.client.post(
+            reverse(
+                "project_forest_map_opened",
+                args=[self.project.pk],
+            )
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.member.refresh_from_db()
+        self.assertFalse(self.member.opened)
+
     def test_manager_can_invite_a_member_but_cannot_change_roles(self):
         new_invitee = User.objects.create_user(
             email="new-invitee@example.com",

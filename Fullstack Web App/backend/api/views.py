@@ -526,6 +526,34 @@ class MembershipViewSet(CRUDMessageMixin, ModelViewSet):
             raise PermissionDenied("Only the project owner can remove an owner.")
         instance.delete()
 
+class ProjectForestMapOpenedView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @transaction.atomic
+    def post(self, request, project_id):
+        project = get_object_or_404(Project, pk=project_id)
+        require_project_role(request, project.pk)
+        membership = Membership.objects.select_for_update().filter(
+            project=project,
+            user=request.user,
+            accepted=True,
+        ).first()
+
+        if membership is None:
+            raise PermissionDenied(
+                "You must be an accepted project member to view its forest map."
+            )
+
+        show_warning = not membership.opened
+        if show_warning:
+            membership.opened = True
+            membership.save(update_fields=["opened"])
+
+        return Response(
+            {"show_warning": show_warning},
+            status=status.HTTP_200_OK,
+        )
+
 class UserMembershipsView(APIView):
     permission_classes = [IsAuthenticated]
 

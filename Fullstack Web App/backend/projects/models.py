@@ -69,6 +69,7 @@ class Membership(models.Model):
     join_date = models.DateField(null=True, blank=True)
     accepted = models.BooleanField(default=False)
     invited_by = models.ForeignKey(to=User, on_delete=models.PROTECT)
+    opened = models.BooleanField(default=False)
 
     class Role(models.TextChoices):
         VIEWER = "viewer", "Viewer"
