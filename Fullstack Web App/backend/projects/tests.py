@@ -1343,6 +1343,83 @@ class RiskModelTests(ProjectAPITestCase):
         self.assertAlmostEqual(second_cell.risk_score, 0.880797, places=5)
         model.load_state_dict.assert_called_once_with({"weights": "test"})
 
+    def test_risk_calculation_stores_average_variance_from_repeated_inference(self):
+        import torch
+        from projects.BNN import calculate_project_risk
+
+        second_cell = GridCell.objects.create(
+            project=self.project,
+            geometry=Polygon.from_bbox((5, 5, 10, 10)),
+            identifier="cell-2",
+            elevation=120,
+            slope=8,
+            distance_to_road=20,
+        )
+        model = MagicMock()
+        model.side_effect = [
+            torch.tensor([0.0, 2.0]),
+            torch.tensor([2.0, 0.0]),
+        ]
+        scaler = MagicMock()
+        scaler.transform.side_effect = lambda values: values
+
+        with (
+            patch("projects.BNN.RISK_INFERENCE_PASSES", 2),
+            patch("projects.BNN.joblib.load", return_value=scaler),
+            patch("projects.BNN.RiskMLP", return_value=model),
+            patch("projects.BNN.torch.load", return_value={"weights": "test"}),
+        ):
+            calculate_project_risk(self.project)
+
+        self.cell.refresh_from_db()
+        second_cell.refresh_from_db()
+        self.project.refresh_from_db()
+
+        expected_mean = (torch.sigmoid(torch.tensor(0.0)) + torch.sigmoid(torch.tensor(2.0))).item() / 2
+        expected_variance = torch.var(
+            torch.sigmoid(torch.tensor([0.0, 2.0])),
+            unbiased=False,
+        ).item()
+        self.assertAlmostEqual(self.cell.risk_score, expected_mean, places=5)
+        self.assertAlmostEqual(second_cell.risk_score, expected_mean, places=5)
+        self.assertAlmostEqual(self.project.uncertainty, expected_variance, places=5)
+
+    def test_risk_calculation_endpoint_returns_project_uncertainty(self):
+        def set_uncertainty(project):
+            project.uncertainty = 0.125
+
+        with patch(
+            "projects.BNN.calculate_project_risk",
+            side_effect=set_uncertainty,
+        ):
+            response = self.client.post(
+                reverse("calculate_risk", args=[self.project.id]),
+            )
+
+        self.project.refresh_from_db()
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["uncertainty"], 0.125)
+        self.assertEqual(self.project.uncertainty, 0.125)
+
+    def test_risk_model_stochastic_inference_applies_dropout_without_changing_weights(self):
+        import torch
+        from projects.BNN import RiskMLP
+
+        model = RiskMLP(input_size=1)
+        with torch.no_grad():
+            for parameter in model.parameters():
+                parameter.zero_()
+            model.network[0].weight[0, 0] = 1
+            model.network[2].weight[0, 0] = 1
+            model.network[4].weight[0, 0] = 1
+
+        inputs = torch.ones((64, 1))
+        outputs = torch.stack(
+            [model(inputs, stochastic=True) for _ in range(10)]
+        )
+
+        self.assertGreater(torch.unique(outputs).numel(), 1)
+
 
 class TerrainDataTests(ProjectAPITestCase):
     def test_project_bbox_uses_monitoring_area_extent(self):

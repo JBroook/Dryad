@@ -1260,6 +1260,7 @@ class CalculateProjectRiskView(APIView):
         return Response({
             "message": "Risk calculation completed.",
             "project": project.id,
+            "uncertainty": project.uncertainty,
         }, status=status.HTTP_200_OK)
 
 class UserOverviewView(APIView):

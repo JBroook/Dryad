@@ -38,7 +38,8 @@ class ProjectOverviewSerializer(serializers.ModelSerializer):
             'device_count',
             'new_alerts',
             'total_incidents',
-            'online_devices'
+            'online_devices',
+            'uncertainty',
         ]
         read_only_fields = ['owner']
 

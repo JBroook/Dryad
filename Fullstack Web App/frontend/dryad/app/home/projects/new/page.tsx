@@ -55,6 +55,7 @@ export type Project = {
   newAlerts? : number;
   trainCount : number;
   lastTrained : string | null;
+  uncertainty : number;
 }
 
 export default function New() {
@@ -75,7 +76,8 @@ export default function New() {
     threatClasses : [],
     alertPreference : "all",
     trainCount : 0,
-    lastTrained : null
+    lastTrained : null,
+    uncertainty : 0,
   });
 
   const nextPage = () => {

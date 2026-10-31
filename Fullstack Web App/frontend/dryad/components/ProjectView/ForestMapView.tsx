@@ -17,6 +17,7 @@ import { useSearchParams } from "next/navigation";
 import { PiLightning } from "react-icons/pi";
 import { MdLoop } from "react-icons/md";
 import { Project } from "@/app/home/projects/new/page";
+import { FaQuestion } from "react-icons/fa6";
 const ForestMapFull = dynamic(() => import("../ForestMapFull"), {
     ssr: false,
 });
@@ -29,6 +30,7 @@ interface ForestMapViewProps {
     incidents : IncidentType[];
     devices : Device[];
     project : Project;
+    setUncertainty : (uncertainty: number) => void;
     canCalculateRisk: boolean;
     routinePatrolId: string | null;
 }
@@ -103,7 +105,16 @@ export default function ForestMapView(props: ForestMapViewProps) {
             return res.json();
         })
         .then((data)=>{
-            props.setGridCells(data)
+            props.setUncertainty(data.uncertainty);
+            apiFetch(`projects/${props.projectID}/grid_cells`)
+                .then(async (response) => {
+                    if (!response.ok) throw new Error(await response.text());
+                    return response.json();
+                })
+                .then(props.setGridCells)
+                .catch((error) => {
+                    console.error("Risk grid refresh failed:", error);
+                });
             showToast(data.message ?? "Risk calculation completed.");
         })
         .catch((err) => {
@@ -244,13 +255,13 @@ export default function ForestMapView(props: ForestMapViewProps) {
             <button className="btn btn-primary"
             onClick={calculateRisk}>
                 <PiLightning />
-                Calculate Risk
+                Retrain Model
             </button>
         </div>
         )}
 
-        <div className="flex  gap-4 mx-6 mt-4 mb-30">
-            <div className="border border-white/8 bg-base-200 py-4 px-6 rounded-xl flex-3">
+        <div className="flex gap-4 mx-6 mt-4 mb-30">
+            <div className="border border-white/8 bg-base-200 py-4 px-6 rounded-xl flex-2">
                 <div className="p-2 border border-[#60A5FA]/70 w-10 h-10 rounded-full flex items-center justify-center bg-[#60A5FA]/25">
                     <FaBrain className="my-2 text-xl text-[#60A5FA]"/>
                 </div>
@@ -260,6 +271,25 @@ export default function ForestMapView(props: ForestMapViewProps) {
                 <p className="text-secondary-content text-sm">
                     Data obtained from the detection devices is used to train the Risk Prediction Model. The model learns from terrain features (e.g. elevation, slope, proximity to landmarks, etc) and historical attack data.
                     This helps it determine a risk score for each cell of the forest.
+                </p>
+            </div>
+            <div className="border border-white/8 bg-base-200 py-4 px-6 rounded-xl flex-1">
+                <div className="p-2 border border-[#A78BFA]/70 w-10 h-10 rounded-full flex items-center justify-center bg-[#A78BFA]/25">
+                    <FaQuestion className="my-2 text-xl text-[#A78BFA]"/>
+                </div>
+                <h1 className="font-semibold my-2 text-xl">
+                    Uncertainty
+                </h1>
+                <div className="flex items-end">
+                    <h1 className="text-4xl font-bold text-[#A78BFA]">
+                        {props.project.uncertainty.toFixed(4)}
+                    </h1>
+                    <p className="text-secondary-content text-sm ml-2">
+                        avg. variance
+                    </p>
+                </div>
+                <p className="text-secondary-content text-sm mt-2">
+                    Uncertainty represents the model’s confidence in its risk prediction, which may change based on the volume of attack data
                 </p>
             </div>
             <div className="border border-white/8 bg-base-200 py-4 px-6 rounded-xl flex-1">

@@ -32,6 +32,8 @@ FEATURES = [
     # "day_cos",
 ]
 
+RISK_INFERENCE_PASSES = 100
+
 def cyclical(value, period):
     return (
         math.sin(2 * math.pi * value / period),
@@ -299,8 +301,12 @@ class RiskMLP(nn.Module):
             nn.Linear(16, 1),
         )
 
-    def forward(self, x):
-        return self.network(x).squeeze(-1)
+    def forward(self, x, stochastic=False):
+        for layer in self.network:
+            x = layer(x)
+            if stochastic and isinstance(layer, nn.ReLU):
+                x = nn.functional.dropout(x, p=0.2, training=True)
+        return x.squeeze(-1)
 
 def undersample(
     samples,
@@ -526,14 +532,24 @@ def calculate_project_risk(project):
     x = torch.tensor(scaled_values,dtype=torch.float32)
 
     with torch.no_grad():
-        logits = model(x)
-
-        probabilities = torch.sigmoid(logits).squeeze()
+        predictions = torch.stack(
+            [
+                torch.sigmoid(model(x, stochastic=True)).reshape(-1)
+                for _ in range(RISK_INFERENCE_PASSES)
+            ]
+        )
+        probabilities = predictions.mean(dim=0)
+        average_uncertainty = (
+            predictions.var(dim=0, unbiased=False).mean().item()
+        )
 
     for cell, probability in zip(cells, probabilities):
         cell.risk_score = float(
             probability.item()
         )
+
+    project.uncertainty = float(average_uncertainty)
+    project.save(update_fields=["uncertainty"])
 
     GridCell.objects.bulk_update(
         cells,

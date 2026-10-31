@@ -30,6 +30,7 @@ class Project(models.Model):
     created_at = models.DateTimeField(default=timezone.now)
     last_trained = models.DateTimeField(null=True, blank=True)
     train_count = models.IntegerField(default=0)
+    uncertainty = models.FloatField(default=0)
 
     class AlertPreference(models.TextChoices):
         ALL = "all", "All"
