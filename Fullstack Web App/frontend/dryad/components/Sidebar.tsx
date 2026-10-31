@@ -5,7 +5,6 @@ import { usePathname, useRouter } from "next/navigation";
 import { BsTree } from "react-icons/bs";
 import { IoSettingsOutline, IoWarningOutline } from "react-icons/io5";
 import { TbMapRoute } from "react-icons/tb";
-import HollowCard from "./HollowCard";
 import { MdOutlineDarkMode, MdOutlineLightMode } from "react-icons/md";
 import { useEffect, useState } from "react";
 import { useTheme } from "next-themes";
@@ -70,7 +69,7 @@ export default function Sidebar() {
         <aside className="w-64 h-screen fixed left-0 top-0">
             <div className="flex flex-col w-full h-full bg-base-200 border-r border-r-base-300 border-r-[2px]">
                 <div className="py-5 pl-5 border-b border-b-base-300 border-b-[2px]">
-                    <h1 className="text-3xl font-semibold">Dryad</h1>
+                    <Link className="text-3xl font-semibold" href="/home/projects">Dryad</Link>
                 </div>
 
                 <ul className="menu p-4 w-full">
