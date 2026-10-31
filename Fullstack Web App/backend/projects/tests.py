@@ -661,6 +661,7 @@ class AuthenticationAPITests(TestCase):
     def test_login_returns_tokens_and_user_for_valid_credentials(self):
         user = User.objects.create_user(
             email="login@example.com",
+            verified=True,
             password="Testpass123!",
         )
 
@@ -674,6 +675,23 @@ class AuthenticationAPITests(TestCase):
         self.assertIn("access", response.data)
         self.assertIn("refresh", response.data)
         self.assertEqual(response.data["user"]["email"], user.email)
+
+    def test_login_rejects_an_unverified_user(self):
+        user = User.objects.create_user(
+            email="unverified@example.com",
+            password="Testpass123!",
+        )
+
+        response = self.client.post(
+            reverse("login"),
+            {"email": user.email, "password": "Testpass123!"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(response.data["code"], "email_not_verified")
+        self.assertNotIn("access", response.data)
+        self.assertNotIn("refresh", response.data)
 
     def test_login_rejects_an_incorrect_password(self):
         user = User.objects.create_user(
@@ -764,6 +782,98 @@ class ProjectAPITestCase(TestCase):
             description="Fire threat used in tests",
         )
         self.client.force_authenticate(user=self.owner)
+
+
+class ManualIncidentReportTests(ProjectAPITestCase):
+    def setUp(self):
+        super().setUp()
+        ProjectThreatClass.objects.create(
+            project=self.project,
+            threat_class=self.threat_class,
+        )
+
+    def test_project_manager_can_create_a_manual_incident_report(self):
+        timestamp = timezone.now().isoformat()
+        response = self.client.post(
+            reverse("manual_incident_report", args=[self.project.id]),
+            {
+                "threat_class": self.threat_class.id,
+                "timestamp": timestamp,
+                "latitude": 2,
+                "longitude": 3,
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        incident = Incident.objects.get()
+        self.assertEqual(incident.project, self.project)
+        self.assertEqual(incident.threat_class, self.threat_class)
+        self.assertEqual(incident.coordinates.x, 3)
+        self.assertEqual(incident.coordinates.y, 2)
+        self.assertEqual(incident.confidence, 100)
+        self.assertIsNone(incident.device)
+        self.assertTrue(incident.manual_report)
+        self.assertEqual(incident.grid_cell, self.cell)
+        self.assertTrue(response.data["manual_report"])
+        self.assertIsNone(response.data["device"])
+
+    def test_manual_report_requires_a_project_threat_class(self):
+        other_threat = ThreatClass.objects.create(
+            name="Unconfigured threat",
+            description="Not configured for this project",
+        )
+        response = self.client.post(
+            reverse("manual_incident_report", args=[self.project.id]),
+            {
+                "threat_class": other_threat.id,
+                "timestamp": timezone.now().isoformat(),
+                "latitude": 2,
+                "longitude": 3,
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertFalse(Incident.objects.exists())
+
+    def test_manual_report_location_must_match_a_project_grid_cell(self):
+        response = self.client.post(
+            reverse("manual_incident_report", args=[self.project.id]),
+            {
+                "threat_class": self.threat_class.id,
+                "timestamp": timezone.now().isoformat(),
+                "latitude": 8,
+                "longitude": 8,
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertFalse(Incident.objects.exists())
+
+    def test_manual_report_accepts_unambiguously_reversed_coordinates(self):
+        GridCell.objects.create(
+            project=self.project,
+            geometry=Polygon.from_bbox((99, 1, 101, 3)),
+            identifier="reverse",
+        )
+
+        response = self.client.post(
+            reverse("manual_incident_report", args=[self.project.id]),
+            {
+                "threat_class": self.threat_class.id,
+                "timestamp": timezone.now().isoformat(),
+                "latitude": 100,
+                "longitude": 2,
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        incident = Incident.objects.get()
+        self.assertEqual(incident.coordinates.x, 100)
+        self.assertEqual(incident.coordinates.y, 2)
 
 
 class ProjectManagementTests(ProjectAPITestCase):

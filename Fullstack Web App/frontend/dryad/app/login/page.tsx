@@ -94,7 +94,14 @@ export default function Login() {
     })
 
     if(!res.ok){
-      alert("Invalid Credentials");
+      const error = await res.json();
+
+      if (error.code === "email_not_verified") {
+        showToast("Please verify your account before logging in.", "warning");
+      } else {
+        alert("Invalid Credentials");
+      }
+
       setSubmitted(false);
       return;
     }

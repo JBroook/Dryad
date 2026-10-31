@@ -629,6 +629,7 @@ export default function FullIncidentsView(props: FullIncidentsViewProps) {
                 
                 <Incident
                     name={incident.threatClass.name}
+                    manualReport={incident.manual_report}
                     coordinates={incident.coordinates}
                     timestamp={incident.timestamp}
                     device={incident.device?.name ?? "Non-device"}

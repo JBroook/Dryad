@@ -25,7 +25,7 @@ from projects.models import ConnectionCode, Project, Incident, ThreatClass, Memb
 from projects.permissions import require_project_role
 from projects.serializers import (DeviceConnectSerializer, ProjectOverviewSerializer, ProjectSerializer, IncidentSerializer, 
 ThreatClassSerializer, MembershipSerializer, PatrolSerializer,
-GridCellSerializer, DeviceSerializer, RoutinePatrolSerializer)
+GridCellSerializer, DeviceSerializer, RoutinePatrolSerializer, ManualIncidentReportSerializer)
 from django.db.models import Q
 from django_filters.rest_framework import DjangoFilterBackend
 import django_filters
@@ -87,6 +87,15 @@ class LoginView(APIView):
 
             user = serializer.validated_data["user"]
             logger.info("LOGIN DEBUG: User retrieved")
+
+            if not user.verified:
+                return Response(
+                    {
+                        "detail": "Please verify your account before logging in.",
+                        "code": "email_not_verified",
+                    },
+                    status=status.HTTP_403_FORBIDDEN,
+                )
 
             user_serializer = UserSerializer(user)
             logger.info("LOGIN DEBUG: User serialized")
@@ -1086,6 +1095,58 @@ class DeviceReportView(APIView):
             },
             status=status.HTTP_201_CREATED,
         )
+
+
+class ManualIncidentReportView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, project_id):
+        project = get_object_or_404(Project, pk=project_id)
+        require_project_role(request, project.pk, Membership.Role.MANAGER)
+
+        serializer = ManualIncidentReportSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        validated_data = serializer.validated_data
+
+        project_threat_class = project.threat_classes.filter(
+            threat_class_id=validated_data["threat_class"]
+        ).select_related("threat_class").first()
+        if project_threat_class is None:
+            return Response(
+                {"detail": "The threat class is not configured for this project."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        coordinates = Point(
+            validated_data["longitude"],
+            validated_data["latitude"],
+            srid=4326,
+        )
+        grid_cell = project.grid_cells.filter(
+            geometry__covers=coordinates
+        ).first()
+        if grid_cell is None:
+            return Response(
+                {"detail": "No grid cell matches this incident location."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        incident = Incident.objects.create(
+            project=project,
+            threat_class=project_threat_class.threat_class,
+            coordinates=coordinates,
+            timestamp=validated_data["timestamp"],
+            confidence=100,
+            device=None,
+            grid_cell=grid_cell,
+            manual_report=True,
+        )
+
+        return Response(
+            IncidentSerializer(incident).data,
+            status=status.HTTP_201_CREATED,
+        )
+
 
 class PatrolCompletionView(APIView):
     permission_classes = [IsAuthenticated]

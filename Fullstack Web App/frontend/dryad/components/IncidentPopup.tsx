@@ -18,7 +18,10 @@ export default function IncidentPopup(props : IncidentPopupProps) {
             <div className="flex items-center justify-between pb-2 mb-3">
                 <div className="flex items-center gap-2 text-base-content">
                     <Icon className="text-base"/>
-                    <span className="font-semibold text-sm">{props.incident.threatClass.name}</span>
+                    <span className="font-semibold text-sm">
+                        {props.incident.threatClass.name}
+                        {props.incident.manual_report && <span className="ml-1 text-secondary-content">(Manual)</span>}
+                    </span>
                 </div>
             </div>
 

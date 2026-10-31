@@ -53,7 +53,8 @@ export type IncidentType = {
   status : string;
   project : ProjectOverview;
   threatClass : ThreatClass;
-  device : Device;
+  device : Device | null;
+  manual_report?: boolean;
 }
 
 function ProjectContent() {
@@ -69,8 +70,15 @@ function ProjectContent() {
   const [gridCells, setGridCells] = useState(null);
   const [devices, setDevices] = useState<Device[]>([]);
   const [projectRole, setProjectRole] = useState<ProjectRole | null>(null);
+  const [projectThreatClassIds, setProjectThreatClassIds] = useState<number[]>([]);
 
   const extractProjectFeatures = (data : any) => {
+    setProjectThreatClassIds(
+      (data.properties.threat_classes ?? []).map(
+        (projectThreatClass: { threat_class_id: number }) =>
+          projectThreatClass.threat_class_id
+      )
+    );
     setProject({
       ...data.properties,
       area : data.properties.surface_area,
@@ -125,6 +133,7 @@ function ProjectContent() {
       setFilterIndex={(index)=>setFilterIndex(index)}
       incidents={incidents}
       threatClasses={threatClasses}
+      projectThreatClassIds={projectThreatClassIds}
       setThreatClasses={setThreatClasses}
       setIncidents={setIncidents}
     />,

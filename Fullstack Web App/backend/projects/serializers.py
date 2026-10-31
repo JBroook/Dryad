@@ -259,6 +259,37 @@ class IncidentSerializer(serializers.ModelSerializer):
         model = Incident
         fields = '__all__'
 
+
+class ManualIncidentReportSerializer(serializers.Serializer):
+    threat_class = serializers.IntegerField()
+    timestamp = serializers.DateTimeField()
+    latitude = serializers.FloatField(min_value=-180, max_value=180)
+    longitude = serializers.FloatField(min_value=-180, max_value=180)
+
+    def validate(self, attrs):
+        latitude = attrs["latitude"]
+        longitude = attrs["longitude"]
+
+        if abs(latitude) <= 90 and abs(longitude) <= 180:
+            return attrs
+
+        if abs(longitude) <= 90 and abs(latitude) <= 180:
+            attrs["latitude"], attrs["longitude"] = longitude, latitude
+            return attrs
+
+        errors = {}
+        if abs(latitude) > 90:
+            errors["latitude"] = "Latitude must be between -90 and 90."
+        if abs(longitude) > 180:
+            errors["longitude"] = "Longitude must be between -180 and 180."
+        if not errors:
+            errors["coordinates"] = (
+                "Coordinates must be valid in latitude/longitude or "
+                "longitude/latitude order."
+            )
+        raise serializers.ValidationError(errors)
+
+
 class MembershipUserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User

@@ -289,7 +289,7 @@ export default function ForestMapView(props: ForestMapViewProps) {
                     </p>
                 </div>
                 <p className="text-secondary-content text-sm mt-2">
-                    Uncertainty represents the model’s confidence in its risk prediction, which may change based on the volume of attack data
+                    Uncertainty represents the model's consistency in its risk prediction, which may change based on the volume of attack data
                 </p>
             </div>
             <div className="border border-white/8 bg-base-200 py-4 px-6 rounded-xl flex-1">

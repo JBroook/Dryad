@@ -191,6 +191,7 @@ class Incident(models.Model):
     ])
     device = models.ForeignKey(to=Device, on_delete=models.CASCADE, blank=True, null=True)
     grid_cell = models.ForeignKey(to=GridCell, on_delete=models.CASCADE)
+    manual_report = models.BooleanField(default=False)
 
     class Status(models.TextChoices):
         NEW = "new", "New"
