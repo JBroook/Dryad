@@ -5,6 +5,7 @@ import { FiShield } from "react-icons/fi";
 import { GoPulse } from "react-icons/go";
 import RoleBadge from "./RoleBadge";
 import { IoMdCheckmark } from "react-icons/io";
+import UserAvatar from "./UserAvatar";
 
 interface MemberOptionProps {
     member : Member;
@@ -25,11 +26,12 @@ export default function MemberOption(props : MemberOptionProps) {
         : 
         "bg-secondary"}`}
                 onClick={props.addMember}>
-        <div className="avatar">
-            <div className="w-8 rounded-full">
-                <img src="https://img.daisyui.com/images/profile/demo/yellingcat@192.webp" />
-            </div>
-        </div>
+        <UserAvatar
+            firstName={props.member.firstName}
+            lastName={props.member.lastName}
+            email={props.member.email}
+            profilePicture={props.member.profilePicture}
+        />
 
         <div className="ml-4">
             <div className="flex">

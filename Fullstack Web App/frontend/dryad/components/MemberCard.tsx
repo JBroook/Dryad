@@ -9,6 +9,7 @@ import { IoIosArrowDown } from "react-icons/io";
 import { capitalizeFirstLetter } from "@/library/general";
 import { useState } from "react";
 import { RxCross2 } from "react-icons/rx";
+import UserAvatar from "./UserAvatar";
 
 interface MemberCardProps {
     member : Member;
@@ -37,11 +38,13 @@ export default function MemberCard(props : MemberCardProps) {
 
     return (
     <div className={`${props.member.accepted ? "bg-base-200" : "bg-base-100"} rounded-xl border border-white/8 flex flex-row p-4 mt-5 items-center`}>
-        <div className="avatar"
-        style={{opacity : props.member.accepted ? 1 : 0.5}}>
-            <div className="w-8 rounded-full">
-                <img src="https://img.daisyui.com/images/profile/demo/yellingcat@192.webp" />
-            </div>
+        <div style={{opacity : props.member.accepted ? 1 : 0.5}}>
+            <UserAvatar
+                firstName={props.member.firstName}
+                lastName={props.member.lastName}
+                email={props.member.email}
+                profilePicture={props.member.profilePicture}
+            />
         </div>
         <div className="ml-4"
         style={{opacity : props.member.accepted ? 1 : 0.5}}>

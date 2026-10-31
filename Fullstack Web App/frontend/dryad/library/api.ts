@@ -31,15 +31,26 @@ export async function apiFetch(
 ): Promise<Response> {
   let access = localStorage.getItem("access");
   const API_URL = process.env.NEXT_PUBLIC_API_URL;
+  const createHeaders = (token: string | null) => {
+    const headers = new Headers(options.headers);
+    headers.set("Authorization", `Bearer ${token}`);
+
+    if (
+      typeof FormData !== "undefined" &&
+      options.body instanceof FormData
+    ) {
+      headers.delete("Content-Type");
+    } else {
+      headers.set("Content-Type", "application/json");
+    }
+
+    return headers;
+  };
 
   // First attempt
   const response = await fetch(`${API_URL}/${url}`, {
     ...options,
-    headers: {
-      ...options.headers,
-      Authorization: `Bearer ${access}`,
-      "Content-Type": "application/json",
-    },
+    headers: createHeaders(access),
   });
 
   // Success or other error
@@ -63,10 +74,6 @@ export async function apiFetch(
   // Retry original request with the new access token
   return fetch(`${API_URL}/${url}`, {
     ...options,
-    headers: {
-      ...options.headers,
-      Authorization: `Bearer ${access}`,
-      "Content-Type": "application/json",
-    },
+    headers: createHeaders(access),
   });
 }

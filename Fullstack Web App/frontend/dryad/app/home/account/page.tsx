@@ -3,9 +3,10 @@
 import GlowButton from "@/components/GlowButton"
 import { apiFetch } from "@/library/api"
 import { useRouter } from "next/navigation"
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { FaRegTrashAlt } from "react-icons/fa"
 import { useToast } from "@/components/ToastProvider";
+import UserAvatar from "@/components/UserAvatar";
 
 export default function Account() {
   const { showToast } = useToast();
@@ -15,6 +16,10 @@ export default function Account() {
   const [lastNameInput, setLastNameInput] = useState<string>("")
   const [email, setEmail] = useState<string>("")
   const [joinDate, setJoinDate] = useState<string>("")
+  const [profilePicture, setProfilePicture] = useState<string | null>(null)
+  const [pictureFile, setPictureFile] = useState<File | null>(null)
+  const [picturePreview, setPicturePreview] = useState<string | null>(null)
+  const pictureInputRef = useRef<HTMLInputElement>(null)
   
   const setUserInfo = (data : any) => {
     setFirstName(data.first_name);
@@ -22,12 +27,24 @@ export default function Account() {
     setFirstNameInput(data.first_name);
     setLastNameInput(data.last_name);
     setEmail(data.email);
+    setProfilePicture(data.profile_picture);
     const newJoinDate = new Date(data.date_joined);
     setJoinDate(newJoinDate.toLocaleDateString("en-US", {
       month: "long",
       year: "numeric",
     }));
   }
+
+  useEffect(() => {
+    if (!pictureFile) {
+      setPicturePreview(null);
+      return;
+    }
+
+    const previewUrl = URL.createObjectURL(pictureFile);
+    setPicturePreview(previewUrl);
+    return () => URL.revokeObjectURL(previewUrl);
+  }, [pictureFile]);
 
   const router = useRouter()
   const logout = ()=> {
@@ -53,10 +70,57 @@ export default function Account() {
       const data = await response.json();
       setFirstName(firstNameInput);
       setLastName(lastNameInput);
+      window.dispatchEvent(new Event("user-profile-updated"));
       showToast(data.message ?? "Profile updated successfully.");
     } catch (err) {
       console.error("Profile update failed:", err);
       showToast("Unable to update your profile.", "error");
+    }
+  }
+
+  const uploadProfilePicture = async () => {
+    if (!pictureFile) return;
+
+    const userID = localStorage.getItem("userID");
+    const formData = new FormData();
+    formData.append("profile_picture", pictureFile);
+
+    try {
+      const response = await apiFetch(`users/${userID}/`, {
+        method: "PATCH",
+        body: formData,
+      });
+      if (!response.ok) throw new Error(await response.text());
+      const data = await response.json();
+      setProfilePicture(data.profile_picture);
+      setPictureFile(null);
+      if (pictureInputRef.current) pictureInputRef.current.value = "";
+      window.dispatchEvent(new Event("user-profile-updated"));
+      showToast(data.message ?? "Profile picture updated successfully.");
+    } catch (err) {
+      console.error("Profile picture upload failed:", err);
+      showToast("Unable to upload your profile picture.", "error");
+    }
+  }
+
+  const removeProfilePicture = async () => {
+    const userID = localStorage.getItem("userID");
+
+    try {
+      const response = await apiFetch(`users/${userID}/`, {
+        method: "PATCH",
+        body: JSON.stringify({ profile_picture: null }),
+      });
+      if (!response.ok) throw new Error(await response.text());
+      const data = await response.json();
+      setProfilePicture(data.profile_picture);
+      setPictureFile(null);
+      if (pictureInputRef.current) pictureInputRef.current.value = "";
+      window.dispatchEvent(new Event("user-profile-updated"));
+      showToast(data.message ?? "Profile picture removed.");
+    } catch (err) {
+      console.error("Profile picture removal failed:", err);
+      showToast("Unable to remove your profile picture.", "error");
     }
   }
 
@@ -130,11 +194,13 @@ export default function Account() {
 
     <div className="mx-30 mb-30">
       <div className="bg-base-200 rounded-2xl border border-white/8 mt-6 flex py-4 px-8 items-center">
-        <div className="avatar">
-          <div className="w-20 rounded-full">
-            <img src="https://img.daisyui.com/images/profile/demo/yellingcat@192.webp" />
-          </div>
-        </div>
+        <UserAvatar
+          firstName={firstName}
+          lastName={lastName}
+          email={email}
+          profilePicture={picturePreview ?? profilePicture}
+          sizeClassName="w-20"
+        />
 
         <div className="flex-1 ml-4">
           <h1 className="text-xl font-semibold">{firstName} {lastName}</h1>
@@ -148,6 +214,46 @@ export default function Account() {
         <div className="card-body">
           <h2 className="card-title text-lg">Profile Information</h2>
           <p className="text-secondary-content">Update your personal details</p>
+
+        <div className="mt-4 flex flex-wrap items-end gap-3">
+          <fieldset className="fieldset min-w-64 flex-1">
+            <legend className="fieldset-legend font-medium text-secondary-content">
+              Profile Picture
+            </legend>
+            <input
+              ref={pictureInputRef}
+              type="file"
+              accept="image/*"
+              className="file-input w-full bg-base-200"
+              onChange={(event) => {
+                const file = event.target.files?.[0] ?? null;
+                if (file && file.size > 5 * 1024 * 1024) {
+                  showToast("Profile pictures must be 5 MB or smaller.", "error");
+                  event.target.value = "";
+                  return;
+                }
+                setPictureFile(file);
+              }}
+            />
+          </fieldset>
+          <button
+            type="button"
+            className="btn btn-primary"
+            disabled={!pictureFile}
+            onClick={uploadProfilePicture}
+          >
+            Upload Picture
+          </button>
+          {profilePicture && (
+            <button
+              type="button"
+              className="btn btn-ghost text-error"
+              onClick={removeProfilePicture}
+            >
+              Remove Picture
+            </button>
+          )}
+        </div>
 
         <form className="flex flex-col" onSubmit={saveProfile}>
           <div className="flex gap-4">

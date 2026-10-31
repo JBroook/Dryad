@@ -293,7 +293,7 @@ class ManualIncidentReportSerializer(serializers.Serializer):
 class MembershipUserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ['first_name', 'last_name']
+        fields = ['first_name', 'last_name', 'profile_picture']
 
 class PatrolAssignerSerializer(serializers.ModelSerializer):
     user = MembershipUserSerializer()

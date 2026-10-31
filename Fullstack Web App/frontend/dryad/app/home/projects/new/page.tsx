@@ -18,6 +18,7 @@ export type Member = {
   firstName : string;
   lastName : string;
   email : string;
+  profilePicture?: string | null;
   role : string;
   joinDate : string;
   accepted? : boolean;
@@ -26,6 +27,7 @@ export type Member = {
     first_name: string;
     last_name: string;
     email: string;
+    profile_picture?: string | null;
   };
 }
 

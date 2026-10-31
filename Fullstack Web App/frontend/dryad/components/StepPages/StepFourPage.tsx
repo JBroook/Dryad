@@ -13,6 +13,7 @@ import { RxCross2 } from "react-icons/rx";
 import { apiFetch } from "@/library/api";
 import { Member } from "@/app/home/projects/new/page";
 import { capitalizeFirstLetter } from "@/library/general";
+import UserAvatar from "../UserAvatar";
 
 interface StepPageProps {
     submitEvent : () => void;
@@ -48,6 +49,7 @@ export default function StepFourPage(props: StepPageProps) {
                         firstName : data[0].first_name,
                         lastName : data[0].last_name,
                         email : data[0].email,
+                        profilePicture: data[0].profile_picture,
                         joinDate : data[0].join_date,
                         role : "viewer"
                     }
@@ -125,11 +127,12 @@ export default function StepFourPage(props: StepPageProps) {
                 {props.membersArray.map((member, index)=>{
                     return (
                     <div className="bg-secondary rounded-xl border border-white/8 flex flex-row p-4 mt-5 items-center" key={index}>
-                        <div className="avatar">
-                            <div className="w-8 rounded-full">
-                                <img src="https://img.daisyui.com/images/profile/demo/yellingcat@192.webp" />
-                            </div>
-                        </div>
+                        <UserAvatar
+                            firstName={member.firstName}
+                            lastName={member.lastName}
+                            email={member.email}
+                            profilePicture={member.profilePicture}
+                        />
                         <div className="ml-4">
                             <h1 className="font-semibold text-md">{member.firstName} {member.lastName}</h1>
                             <p className="text-secondary-content text-sm">{member.email}</p>

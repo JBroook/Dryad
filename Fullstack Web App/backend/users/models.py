@@ -36,6 +36,11 @@ class UserManager(BaseUserManager):
 class User(AbstractUser):
     username = None
     email = models.EmailField(unique=True)
+    profile_picture = models.ImageField(
+        upload_to="profile_pictures/",
+        blank=True,
+        null=True,
+    )
     verified = models.BooleanField(default=False)
     verification_code_hash = models.CharField(
         max_length=128,

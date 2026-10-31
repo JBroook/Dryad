@@ -1,14 +1,74 @@
 from datetime import timedelta
+from io import BytesIO
+import tempfile
 
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.contrib.gis.geos import Point, Polygon
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APIClient
+from PIL import Image
 
 from projects.models import ConnectionCode, Device, GridCell, Membership, Project
 from users.models import User
+
+
+class ProfilePictureTests(TestCase):
+    def setUp(self):
+        self.media_dir = tempfile.TemporaryDirectory()
+        self.addCleanup(self.media_dir.cleanup)
+        media_settings = override_settings(MEDIA_ROOT=self.media_dir.name)
+        media_settings.enable()
+        self.addCleanup(media_settings.disable)
+
+        self.client = APIClient()
+        self.user = User.objects.create_user(
+            email="profile@example.com",
+            password="Testpass123!",
+            first_name="Profile",
+            last_name="User",
+        )
+        self.client.force_authenticate(user=self.user)
+
+    def test_profile_picture_is_null_by_default_and_can_be_uploaded_and_cleared(self):
+        url = reverse("user-detail", args=[self.user.pk])
+        initial_response = self.client.get(url)
+        self.assertEqual(initial_response.status_code, status.HTTP_200_OK)
+        self.assertIsNone(initial_response.data["profile_picture"])
+
+        image_buffer = BytesIO()
+        Image.new("RGB", (1, 1), color="red").save(image_buffer, format="PNG")
+        image_buffer.seek(0)
+        upload_response = self.client.patch(
+            url,
+            {
+                "profile_picture": SimpleUploadedFile(
+                    "profile.png",
+                    image_buffer.read(),
+                    content_type="image/png",
+                )
+            },
+            format="multipart",
+        )
+
+        self.assertEqual(upload_response.status_code, status.HTTP_200_OK)
+        self.assertIn("/media/profile_pictures/", upload_response.data["profile_picture"])
+        self.user.refresh_from_db()
+        self.assertTrue(self.user.profile_picture.name)
+        self.assertTrue(self.user.profile_picture.storage.exists(self.user.profile_picture.name))
+
+        clear_response = self.client.patch(
+            url,
+            {"profile_picture": None},
+            format="json",
+        )
+
+        self.assertEqual(clear_response.status_code, status.HTTP_200_OK)
+        self.assertIsNone(clear_response.data["profile_picture"])
+        self.user.refresh_from_db()
+        self.assertFalse(self.user.profile_picture)
 
 
 class DeviceConnectionViewTests(TestCase):
