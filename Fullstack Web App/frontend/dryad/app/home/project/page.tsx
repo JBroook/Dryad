@@ -1,5 +1,6 @@
 "use client"
 
+import { Suspense } from "react";
 import { apiFetch } from "@/library/api";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -55,7 +56,7 @@ export type IncidentType = {
   device : Device;
 }
 
-export default function Project() {
+function ProjectContent() {
   const searchParams = useSearchParams();
   const projectID = searchParams.get("pid");
   const tab = searchParams.get("tab");
@@ -134,7 +135,7 @@ export default function Project() {
       incidents={incidents}
       devices={devices}
       project={project!}
-      canManage={hasProjectRole(projectRole, "manager")}
+      canCalculateRisk={hasProjectRole(projectRole, "admin")}
     />,
     devices : <DevicesView 
       projectID={projectID}
@@ -151,8 +152,9 @@ export default function Project() {
       projectID={projectID}
       members={members}
       setMembers={setMembers}
-      canManageMembers={hasProjectRole(projectRole, "manager")}
-      canInviteMembers={hasProjectRole(projectRole, "admin")}
+      canRemoveMembers={hasProjectRole(projectRole, "admin")}
+      canInviteMembers={hasProjectRole(projectRole, "manager")}
+      canChangeMemberRoles={hasProjectRole(projectRole, "admin")}
       canManageOwner={projectRole === "owner"}
     />,
     settings : <SettingsView 
@@ -170,7 +172,7 @@ export default function Project() {
     setProjectRole(null);
 
     // fetch project info
-    apiFetch(`http://127.0.0.1:8000/api/projects/${projectID}`)
+    apiFetch(`projects/${projectID}`)
       .then(async (res) => {
         if (!res.ok) throw new Error(await res.text());
         return res.json();
@@ -180,7 +182,7 @@ export default function Project() {
       .catch((err) => console.error("Fetch failed:", err));
 
     // fetch project incidents
-    apiFetch(`http://127.0.0.1:8000/api/incidents?project=${projectID}`)
+    apiFetch(`incidents?project=${projectID}`)
       .then(async (res) => {
         if (!res.ok) throw new Error(await res.text());
         return res.json();
@@ -190,7 +192,7 @@ export default function Project() {
       .catch((err) => console.error("Fetch failed:", err));
 
     // fetch project members
-    apiFetch(`http://127.0.0.1:8000/api/projects/${projectID}/members`)
+    apiFetch(`projects/${projectID}/members`)
       .then(async (res) => {
         if (!res.ok) throw new Error(await res.text());
         return res.json();
@@ -212,7 +214,7 @@ export default function Project() {
       .catch((err) => console.error("Fetch failed:", err));
 
     // fetch threat classes for incidents filter
-    apiFetch(`http://127.0.0.1:8000/api/threat_classes/`)
+    apiFetch(`threat_classes/`)
     .then(async (res) => {
       if (!res.ok) throw new Error(await res.text());
       return res.json();
@@ -221,7 +223,7 @@ export default function Project() {
     .catch((err) => console.error("Fetch failed:", err));
 
     // fetch project grid cells
-    apiFetch(`http://127.0.0.1:8000/api/projects/${projectID}/grid_cells`)
+    apiFetch(`projects/${projectID}/grid_cells`)
     .then(async (res) => {
       if (!res.ok) throw new Error(await res.text());
       return res.json();
@@ -231,7 +233,7 @@ export default function Project() {
     .catch((err) => console.error("Fetch failed:", err));
 
     // fetch project devices
-    apiFetch(`http://127.0.0.1:8000/api/projects/${projectID}/devices`)
+    apiFetch(`projects/${projectID}/devices`)
     .then(async (res) => {
       if (!res.ok) throw new Error(await res.text());
       return res.json();
@@ -295,4 +297,12 @@ export default function Project() {
         <span className="loading loading-spinner"></span>
       </div>}
     </div>);
+}
+
+export default function Project() {
+  return (
+    <Suspense fallback={<span className="loading loading-spinner" />}>
+      <ProjectContent />
+    </Suspense>
+  );
 }

@@ -15,8 +15,9 @@ interface TeamViewProps {
     projectID : string | null;
     members : Member[];
     setMembers : (members : Member[])=>void;
-    canManageMembers: boolean;
+    canRemoveMembers: boolean;
     canInviteMembers: boolean;
+    canChangeMemberRoles: boolean;
     canManageOwner: boolean;
 }
 
@@ -29,7 +30,7 @@ export default function TeamView(props: TeamViewProps) {
     const [currentUserID, setCurrentUserID] = useState<number | null>(null);
 
     const apiSearchMember = async (nameEmail : string) => {
-        await apiFetch(`http://127.0.0.1:8000/api/projects/${props.projectID}/members?search=${nameEmail}`)
+        await apiFetch(`projects/${props.projectID}/members?search=${nameEmail}`)
         .then(async (res) => {
         if (!res.ok) throw new Error(await res.text());
         return res.json();
@@ -47,7 +48,7 @@ export default function TeamView(props: TeamViewProps) {
 
     const changeMemberRole = async (id : number, newRole : string) => {
         try {
-            const response = await apiFetch(`http://127.0.0.1:8000/api/projects/${props.projectID}/members/${id}/`, {
+            const response = await apiFetch(`projects/${props.projectID}/members/${id}/`, {
                 method: "PATCH",
                 body: JSON.stringify({ role: newRole }),
             });
@@ -83,7 +84,7 @@ export default function TeamView(props: TeamViewProps) {
 
         if (email && email.toString().length > 0) {
             apiFetch(
-                `http://127.0.0.1:8000/api/projects/${props.projectID}/invite?email=${email}`,
+                `projects/${props.projectID}/invite?email=${email}`,
                 {
                     method: "POST"
                 }
@@ -123,7 +124,7 @@ export default function TeamView(props: TeamViewProps) {
     const removeMember = (e : React.SubmitEvent<HTMLFormElement>) => {
         e.preventDefault();
 
-        apiFetch(`http://127.0.0.1:8000/api/projects/${props.projectID}/members/${props.members[memberIndex].id}/`, {
+        apiFetch(`projects/${props.projectID}/members/${props.members[memberIndex].id}/`, {
             method: "DELETE",
         })
         .then(async (res) => {
@@ -234,7 +235,8 @@ export default function TeamView(props: TeamViewProps) {
                         key={index} 
                         changeMemberRole={changeMemberRole}
                         removeModal={()=>openModal(index)}
-                        canManage={props.canManageMembers}
+                        canRemoveMembers={props.canRemoveMembers}
+                        canChangeRole={props.canChangeMemberRoles}
                         canManageOwner={props.canManageOwner}
                         isCurrentUser={member.user?.id === currentUserID}
                         />;

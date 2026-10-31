@@ -17,7 +17,7 @@
     "daisyui": "^5.7.15",
     "leaflet": "^1.9.4",
     "leaflet-draw": "^1.0.4",
-    "next": "^16.3.0",
+    "next": "^16.4.3",
     "next-themes": "^0.4.6",
     "react": "19.2.4",
     "react-dom": "19.2.4",
@@ -36,7 +36,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@types/react-leaflet": "^2.8.3",
-    "eslint": "^9",
+    "eslint": "^8.57.1",
     "eslint-config-next": "^14.2.35",
     "tailwindcss": "^4.3.3",
     "typescript": "^5"

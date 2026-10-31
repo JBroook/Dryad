@@ -74,7 +74,7 @@ export default function IncidentsView(props: IncidentsViewProps) {
     const confirmIncident = async (e : React.SubmitEvent<HTMLFormElement>) => {
         e.preventDefault();
 
-        await apiFetch(`http://127.0.0.1:8000/api/incidents/${props.incidents[incidentIndex].id}/`, {
+        await apiFetch(`incidents/${props.incidents[incidentIndex].id}/`, {
             method : "PATCH",
             headers : {
                 "Content-Type" : "application/json"
@@ -105,7 +105,7 @@ export default function IncidentsView(props: IncidentsViewProps) {
     const dismissIncident = async (e : React.SubmitEvent<HTMLFormElement>) => {
         e.preventDefault();
 
-        await apiFetch(`http://127.0.0.1:8000/api/incidents/${props.incidents[incidentIndex].id}/`, {
+        await apiFetch(`incidents/${props.incidents[incidentIndex].id}/`, {
             method : "PATCH",
             headers : {
                 "Content-Type" : "application/json"
@@ -145,7 +145,7 @@ export default function IncidentsView(props: IncidentsViewProps) {
         }
 
         try {
-            const res = await apiFetch(`http://127.0.0.1:8000/api/incidents/${props.incidents[incidentIndex].id}/assign_patrol`, {
+            const res = await apiFetch(`incidents/${props.incidents[incidentIndex].id}/assign_patrol`, {
                 method : "POST",
                 body : JSON.stringify({
                     assignee_ids : selectedMembers.map((member) => member.id),
@@ -233,7 +233,7 @@ export default function IncidentsView(props: IncidentsViewProps) {
         params.set("ordering", `${sortToggles[sortKey as "date" | "confidence"] ? "-" : ""}${sortKeyMapping[sortKey as "date" | "confidence"]}`)
 
         await apiFetch(
-            `http://127.0.0.1:8000/api/incidents?project=${props.projectID}&${params}`)
+            `incidents?project=${props.projectID}&${params}`)
         .then(async (res) => {
         if (!res.ok) throw new Error(await res.text());
         return res.json();
@@ -296,7 +296,7 @@ export default function IncidentsView(props: IncidentsViewProps) {
 
 
     const apiSearchMember = async (nameEmail : string) => {
-        await apiFetch(`http://127.0.0.1:8000/api/projects/${props.projectID}/members?search=${nameEmail}`)
+        await apiFetch(`projects/${props.projectID}/members?search=${nameEmail}`)
         .then(async (res) => {
         if (!res.ok) throw new Error(await res.text());
         return res.json();
@@ -325,7 +325,7 @@ export default function IncidentsView(props: IncidentsViewProps) {
     }
 
     const apiSearchIncident = async (incidentName : string) => {
-        await apiFetch(`http://127.0.0.1:8000/api/incidents?project=${props.projectID}&search=${incidentName}`)
+        await apiFetch(`incidents?project=${props.projectID}&search=${incidentName}`)
         .then(async (res) => {
         if (!res.ok) throw new Error(await res.text());
         return res.json();

@@ -4,7 +4,7 @@ import HollowCard from "@/components/HollowCard";
 import { IoMdWifi } from "react-icons/io";
 import { FiShield } from "react-icons/fi";
 import { BsTree } from "react-icons/bs";
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -28,12 +28,11 @@ const resetPasswordSchema = z
 
 type ResetPasswordForm = z.infer<typeof resetPasswordSchema>;
 
-export default function ForgotPassword() {
+function ResetPasswordContent() {
   const [submitted, setSubmitted] = useState<boolean>(false);
   const [email, setEmail] = useState<string>("");
 
-  const APIBase = "http://127.0.0.1:8000/api";
-  // const APIBase = "http://192.168.100.7:8000/api";
+  const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
   const searchParams = useSearchParams();
 
@@ -52,7 +51,7 @@ export default function ForgotPassword() {
 
   const handlePasswordReset = async (data: ResetPasswordForm) => {
     setSubmitted(true);
-    const res = await fetch(`${APIBase}/reset_password/`, {
+    const res = await fetch(`${API_URL}/reset_password/`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -199,5 +198,13 @@ export default function ForgotPassword() {
       </HollowCard>
     </div>
   </div>
+  );
+}
+
+export default function ResetPasswordPage() {
+  return (
+    <Suspense fallback={<span className="loading loading-spinner" />}>
+      <ResetPasswordContent />
+    </Suspense>
   );
 }

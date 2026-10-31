@@ -62,7 +62,7 @@ export default function Home() {
 
   const acceptInvitation = async (notificationIndex : number, accept : boolean) => {
     try {
-      const response = await apiFetch(`http://127.0.0.1:8000/api/memberships/${notifications[notificationIndex].id}/accept_invite`, {
+      const response = await apiFetch(`memberships/${notifications[notificationIndex].id}/accept_invite`, {
         method: "POST",
         body: JSON.stringify({ accepted: accept }),
       });
@@ -89,7 +89,7 @@ export default function Home() {
 
     // fetch user info
     const userID = localStorage.getItem("userID")
-    apiFetch(`http://127.0.0.1:8000/api/users/${userID}`)
+    apiFetch(`users/${userID}`)
       .then(async (res) => {
         if (!res.ok) throw new Error(await res.text());
         return res.json();
@@ -101,7 +101,7 @@ export default function Home() {
       .catch((err) => console.error("Fetch failed:", err));
 
     // fetch all projects
-    apiFetch(`http://127.0.0.1:8000/api/projects/overview`)
+    apiFetch(`projects/overview`)
       .then(async (res) => {
         if (!res.ok) throw new Error(await res.text());
         return res.json();
@@ -111,7 +111,7 @@ export default function Home() {
       .catch((err) => console.error("Fetch failed:", err));
 
     // fetch overview info
-    apiFetch(`http://127.0.0.1:8000/api/users/${userID}/overview`)
+    apiFetch(`users/${userID}/overview`)
       .then(async (res) => {
         if (!res.ok) throw new Error(await res.text());
         return res.json();
@@ -127,7 +127,7 @@ export default function Home() {
       .catch((err) => console.error("Fetch failed:", err));
 
     // fetch invites
-    apiFetch(`http://127.0.0.1:8000/api/users/${userID}/memberships`)
+    apiFetch(`users/${userID}/memberships`)
       .then(async (res) => {
         if (!res.ok) throw new Error(await res.text());
         return res.json();

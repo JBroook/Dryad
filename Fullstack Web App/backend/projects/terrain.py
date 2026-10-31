@@ -1,7 +1,6 @@
 import os
 import numpy as np
 import requests
-import rasterio
 from django.contrib.gis.geos import LineString
 from .models import OSMRoad
 from django.contrib.gis.db.models.functions import Distance, Transform
@@ -51,6 +50,7 @@ def download_dem(project, output_path):
         f.write(response.content)
 
 def populate_terrain_data(project, dem_path, slope_path):
+    import rasterio
     with rasterio.open(dem_path) as dem, \
      rasterio.open(slope_path) as slope:
 
@@ -79,7 +79,7 @@ def populate_terrain_data(project, dem_path, slope_path):
             )
 
 def generate_slope_raster(dem_path, slope_path):
-
+    import rasterio
     with rasterio.open(dem_path) as src:
 
         elevation = src.read(1)

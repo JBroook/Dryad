@@ -57,7 +57,7 @@ export default function Sidebar() {
     
         // fetch user info
         const userID = localStorage.getItem("userID")
-        apiFetch(`http://127.0.0.1:8000/api/users/${userID}`)
+        apiFetch(`users/${userID}`)
           .then(async (res) => {
             if (!res.ok) throw new Error(await res.text());
             return res.json();

@@ -54,7 +54,7 @@ export default function DevicesView(props: DevicesViewProps) {
         const modal = document.getElementById('deviceModal') as HTMLDialogElement;
         modal.showModal();
 
-        apiFetch(`http://127.0.0.1:8000/api/projects/${props.projectID}/connection_code`, {
+        apiFetch(`projects/${props.projectID}/connection_code`, {
             method : "POST"
         })
         .then(async (res) => {
@@ -81,7 +81,7 @@ export default function DevicesView(props: DevicesViewProps) {
 
     const renameDevice = async (id : number, newName : string) => {
         try {
-            const response = await apiFetch(`http://127.0.0.1:8000/api/projects/${props.projectID}/devices/${id}/`, {
+            const response = await apiFetch(`projects/${props.projectID}/devices/${id}/`, {
                 method: "PATCH",
                 body: JSON.stringify({ name: newName }),
             });
@@ -100,7 +100,7 @@ export default function DevicesView(props: DevicesViewProps) {
 
     const removeDevice = async (id : number) => {
         try {
-            const response = await apiFetch(`http://127.0.0.1:8000/api/projects/${props.projectID}/devices/${id}/`, {
+            const response = await apiFetch(`projects/${props.projectID}/devices/${id}/`, {
                 method: "DELETE",
             });
             if (!response.ok) throw new Error(await response.text());
@@ -119,7 +119,7 @@ export default function DevicesView(props: DevicesViewProps) {
         if (!device) return;
         const newStatus = device.status === "online" ? "offline" : "online";
         try {
-            const response = await apiFetch(`http://127.0.0.1:8000/api/projects/${props.projectID}/devices/${id}/`, {
+            const response = await apiFetch(`projects/${props.projectID}/devices/${id}/`, {
                 method: "PATCH",
                 body: JSON.stringify({ status: newStatus }),
             });
@@ -161,7 +161,7 @@ export default function DevicesView(props: DevicesViewProps) {
         const checkStatus = async () => {
             try {
                 const response = await apiFetch(
-                    `http://127.0.0.1:8000/api/devices/connect?code=${deviceCode}`
+                    `devices/connect?code=${deviceCode}`
                 );
 
                 if (!response.ok) {

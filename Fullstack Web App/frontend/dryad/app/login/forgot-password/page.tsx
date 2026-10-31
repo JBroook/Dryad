@@ -5,26 +5,21 @@ import { IoMdWifi } from "react-icons/io";
 import { FiShield } from "react-icons/fi";
 import { BsTree } from "react-icons/bs";
 import { useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
 import { useToast } from "@/components/ToastProvider";
 
 export default function ForgotPassword() {
   const [submitted, setSubmitted] = useState<boolean>(false);
   const [email, setEmail] = useState<string>("");
 
-  const APIBase = "http://127.0.0.1:8000/api";
-  // const APIBase = "http://192.168.100.7:8000/api";
+  const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
-  const searchParams = useSearchParams();
-
-  const router = useRouter();
   const { showToast } = useToast();
 
   const handlePasswordReset = async (e : React.SubmitEvent<HTMLFormElement>) => {
     e.preventDefault();
 
     setSubmitted(true);
-    const res = await fetch(`${APIBase}/forgot_password/`, {
+    const res = await fetch(`${API_URL}/forgot_password/`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

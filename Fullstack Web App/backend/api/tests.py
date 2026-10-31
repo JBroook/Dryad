@@ -7,7 +7,7 @@ from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APIClient
 
-from projects.models import ConnectionCode, Device, GridCell, Project
+from projects.models import ConnectionCode, Device, GridCell, Membership, Project
 from users.models import User
 
 
@@ -61,3 +61,121 @@ class DeviceConnectionViewTests(TestCase):
         self.assertEqual(device.grid_cell, self.grid_cell)
         self.assertEqual(device.project, self.project)
         self.assertEqual(device.location, Point(1, 1, srid=4326))
+
+
+class ProjectMembershipPermissionTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.owner = User.objects.create_user(
+            email="owner@example.com",
+            password="test-password",
+            first_name="Owner",
+            last_name="User",
+        )
+        self.manager = User.objects.create_user(
+            email="manager@example.com",
+            password="test-password",
+            first_name="Manager",
+            last_name="User",
+        )
+        self.admin = User.objects.create_user(
+            email="admin@example.com",
+            password="test-password",
+            first_name="Admin",
+            last_name="User",
+        )
+        self.invitee = User.objects.create_user(
+            email="invitee@example.com",
+            password="test-password",
+            first_name="Invitee",
+            last_name="User",
+        )
+        self.project = Project.objects.create(
+            name="Membership Test Project",
+            status=True,
+            region="Test region",
+            color="#0055ff",
+            owner=self.owner,
+            coordinates="0,0",
+            surface_area=2500,
+            monitoring_area=Polygon.from_bbox((0, 0, 10, 10)),
+        )
+        Membership.objects.create(
+            project=self.project,
+            user=self.manager,
+            invited_by=self.owner,
+            role=Membership.Role.MANAGER,
+            accepted=True,
+        )
+        Membership.objects.create(
+            project=self.project,
+            user=self.admin,
+            invited_by=self.owner,
+            role=Membership.Role.ADMIN,
+            accepted=True,
+        )
+        self.member = Membership.objects.create(
+            project=self.project,
+            user=self.invitee,
+            invited_by=self.owner,
+            role=Membership.Role.VIEWER,
+            accepted=True,
+        )
+        self.client.force_authenticate(user=self.manager)
+
+    def test_manager_can_invite_a_member_but_cannot_change_roles(self):
+        new_invitee = User.objects.create_user(
+            email="new-invitee@example.com",
+            password="test-password",
+            first_name="New",
+            last_name="Invitee",
+        )
+        invite_response = self.client.post(
+            f"{reverse('invite', args=[self.project.id])}?email={new_invitee.email}",
+        )
+        self.assertEqual(invite_response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(
+            Membership.objects.get(project=self.project, user=new_invitee).role,
+            Membership.Role.VIEWER,
+        )
+
+        role_response = self.client.patch(
+            reverse("member-detail", args=[self.project.id, self.member.id]),
+            {"role": Membership.Role.MANAGER},
+            format="json",
+        )
+        self.assertEqual(role_response.status_code, status.HTTP_403_FORBIDDEN)
+        self.member.refresh_from_db()
+        self.assertEqual(self.member.role, Membership.Role.VIEWER)
+
+        remove_response = self.client.delete(
+            reverse("member-detail", args=[self.project.id, self.member.id]),
+        )
+        self.assertEqual(remove_response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertTrue(Membership.objects.filter(pk=self.member.id).exists())
+
+    def test_admin_can_change_member_roles(self):
+        self.client.force_authenticate(user=self.admin)
+        response = self.client.patch(
+            reverse("member-detail", args=[self.project.id, self.member.id]),
+            {"role": Membership.Role.MANAGER},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.member.refresh_from_db()
+        self.assertEqual(self.member.role, Membership.Role.MANAGER)
+
+    def test_admin_can_remove_members(self):
+        self.client.force_authenticate(user=self.admin)
+        response = self.client.delete(
+            reverse("member-detail", args=[self.project.id, self.member.id]),
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertFalse(Membership.objects.filter(pk=self.member.id).exists())
+
+    def test_manager_cannot_request_project_risk_calculation(self):
+        self.client.force_authenticate(user=self.manager)
+        response = self.client.post(
+            reverse("calculate_risk", args=[self.project.id]),
+        )
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)

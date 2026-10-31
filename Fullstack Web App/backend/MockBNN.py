@@ -23,9 +23,7 @@ from projects.BNN import (
 )
 
 
-# --------------------------------------------------
 # Configuration
-# --------------------------------------------------
 
 PROJECT_ID = 24
 
@@ -33,18 +31,14 @@ TEST_DAYS = 7
 NEGATIVE_RATIO = 3
 
 
-# --------------------------------------------------
 # Load project
-# --------------------------------------------------
 
 project = Project.objects.get(
     pk=PROJECT_ID
 )
 
 
-# --------------------------------------------------
 # Define time range
-# --------------------------------------------------
 
 end_time = (
     timezone.now()
@@ -70,9 +64,7 @@ print(
 )
 
 
-# --------------------------------------------------
 # Generate samples
-# --------------------------------------------------
 
 samples = generate_training_samples(
     project,
@@ -85,9 +77,7 @@ print(
     f"\nGenerated {len(samples)} samples"
 )
 
-# --------------------------------------------------
 # Inspect class distribution
-# --------------------------------------------------
 
 positive_count = sum(
     sample["target"] == 1
@@ -109,9 +99,7 @@ print(
 )
 
 
-# --------------------------------------------------
 # Chronological train/test split
-# --------------------------------------------------
 
 train_samples, test_samples = chronological_split(
     samples,
@@ -174,9 +162,7 @@ print(
 )
 
 
-# --------------------------------------------------
 # Undersample TRAINING DATA ONLY
-# --------------------------------------------------
 
 train_samples = undersample(
     train_samples,
@@ -211,9 +197,7 @@ print(
 )
 
 
-# --------------------------------------------------
 # Train model
-# --------------------------------------------------
 
 print(
     "\nTraining model..."
@@ -224,9 +208,7 @@ model, scaler = train_mlp(
 )
 
 
-# --------------------------------------------------
 # Evaluate on untouched TEST data
-# --------------------------------------------------
 
 print(
     "\nEvaluating model..."

@@ -4,16 +4,15 @@ import HollowCard from "@/components/HollowCard";
 import { IoMdWifi } from "react-icons/io";
 import { FiShield } from "react-icons/fi";
 import { BsTree } from "react-icons/bs";
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useToast } from "@/components/ToastProvider";
 
-export default function Verify() {
+function VerifyContent() {
   const [submitted, setSubmitted] = useState<boolean>(false);
   const [code, setCode] = useState<string>("");
 
-  const APIBase = "http://127.0.0.1:8000/api";
-  // const APIBase = "http://192.168.100.7:8000/api";
+  const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
   const searchParams = useSearchParams();
 
@@ -24,7 +23,7 @@ export default function Verify() {
     e.preventDefault();
 
     setSubmitted(true);
-    const res = await fetch(`${APIBase}/verify_email/`, {
+    const res = await fetch(`${API_URL}/verify_email/`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -141,5 +140,13 @@ export default function Verify() {
       </HollowCard>
     </div>
   </div>
+  );
+}
+
+export default function Verify() {
+  return (
+    <Suspense fallback={<span className="loading loading-spinner" />}>
+      <VerifyContent />
+    </Suspense>
   );
 }
