@@ -2,10 +2,6 @@ from django.db import migrations
 
 THREAT_CLASSES = [
     {
-        "name": "Axe",
-        "description": "Sound of chopping wood with an axe"
-    },
-    {
         "name": "Chainsaw",
         "description": "High-frequency acoustic signature of chainsaws"
     },
