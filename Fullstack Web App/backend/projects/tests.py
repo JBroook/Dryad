@@ -434,11 +434,17 @@ class PatrolAssignmentTests(TestCase):
         )
         self.assertFalse(Patrol.objects.filter(pk=cancelled_patrol.pk).exists())
 
-    def test_manager_cannot_invite_or_change_project_settings(self):
+    def test_manager_can_invite_but_not_change_project_settings_or_elevate(self):
         manager_user = User.objects.create_user(
             email="manager@example.com",
             password="test-password",
         )
+
+        invited_user = User.objects.create_user(
+            email="new-member@example.com",
+            password="test-password",
+        )
+
         Membership.objects.create(
             project=self.project,
             user=manager_user,
@@ -446,6 +452,7 @@ class PatrolAssignmentTests(TestCase):
             role=Membership.Role.MANAGER,
             accepted=True,
         )
+
         self.client.force_authenticate(user=manager_user)
 
         settings_response = self.client.patch(
@@ -453,21 +460,40 @@ class PatrolAssignmentTests(TestCase):
             {"name": "Changed by manager"},
             format="json",
         )
+
         role_response = self.client.patch(
             reverse("member-detail", args=[self.project.id, self.assignees[2].id]),
             {"role": Membership.Role.ADMIN},
             format="json",
         )
+
         invite_response = self.client.post(
-            reverse("invite", args=[self.project.id]),
-            {"email": "new-member@example.com"},
+            reverse("invite", args=[self.project.id]) + "?email=new-member@example.com",
         )
 
-        self.assertEqual(settings_response.status_code, status.HTTP_403_FORBIDDEN)
-        self.assertEqual(role_response.status_code, status.HTTP_200_OK)
-        self.assertEqual(invite_response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(
+            settings_response.status_code,
+            status.HTTP_403_FORBIDDEN
+        )
+        self.assertEqual(
+            role_response.status_code,
+            status.HTTP_403_FORBIDDEN
+        )
+        self.assertEqual(
+            invite_response.status_code,
+            status.HTTP_201_CREATED
+        )
+
         self.project.refresh_from_db()
         self.assertEqual(self.project.name, "Patrol Test Project")
+
+        self.assertTrue(
+            Membership.objects.filter(
+                project=self.project,
+                user=invited_user,
+                role=Membership.Role.VIEWER,
+            ).exists()
+        )
 
     def test_admin_can_edit_settings_but_cannot_disable_project(self):
         admin_user = User.objects.create_user(
@@ -1242,10 +1268,9 @@ class TerrainDataTests(ProjectAPITestCase):
         project = MagicMock()
         project.grid_cells.all.return_value = [cell]
 
-        with patch(
-            "projects.terrain.rasterio.open",
-            side_effect=[dem_context, slope_context],
-        ):
+        with patch("rasterio.open") as mock_open:
+            mock_open.side_effect = [dem_context, slope_context]
+
             populate_terrain_data(project, "dem.tif", "slope.tif")
 
         self.assertEqual(cell.elevation, 123.5)
