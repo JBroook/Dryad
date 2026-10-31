@@ -277,6 +277,7 @@ class ProjectViewSet(CRUDMessageMixin, ModelViewSet):
         )
         instance.delete()
 
+
 class ProjectOverviewView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -301,17 +302,20 @@ class ProjectOverviewView(APIView):
 
         if project_id:
             require_project_role(request, project_id)
-            projects = projects.filter(pk=project_id)
+            projects = projects.get(pk=project_id)
+            many = False
         else:
             projects = projects.filter(
                 Q(members__user=request.user, members__accepted=True)
                 | Q(owner=request.user)
             ).distinct()
+            many = True
 
         return Response(
-            ProjectOverviewSerializer(projects, many=not project_id).data,
+            ProjectOverviewSerializer(projects, many=many).data,
             status=status.HTTP_200_OK
         )
+
 
 class ThreatClassViewSet(ModelViewSet):
     queryset = ThreatClass.objects.all()

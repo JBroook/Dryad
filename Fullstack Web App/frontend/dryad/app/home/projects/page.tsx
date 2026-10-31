@@ -248,7 +248,7 @@ export default function Home() {
                 members ={project.memberCount!}
                 accentColor={project.color}
                 tagColor="#4ADE80"
-                openProject={()=>{router.push(`/home/project?pid=${project.id}&tab=forest_map`)}}
+                openProject={()=>{router.push(`/home/project?pid=${project.id}&tab=overview`)}}
               />
             })}
 

@@ -15,7 +15,7 @@ function ProjectAliasPageContent() {
       return;
     }
 
-    router.replace(`/home/project?pid=${projectId}&tab=forest_map`);
+    router.replace(`/home/project?pid=${projectId}&tab=overview`);
   }, [projectId, router]);
 
   return null;
