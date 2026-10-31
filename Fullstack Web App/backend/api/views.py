@@ -406,20 +406,38 @@ class IncidentViewSet(CRUDMessageMixin, ModelViewSet):
             return Incident.objects.none()
         return queryset
 
+    @transaction.atomic
     def perform_create(self, serializer):
         project = serializer.validated_data.get("project")
         if project is None:
             raise PermissionDenied("An incident project is required.")
         require_project_role(self.request, project.pk, Membership.Role.MANAGER)
-        serializer.save()
+        incident = serializer.save()
+        if incident.status == Incident.Status.CONFIRMED:
+            from projects.BNN import record_confirmed_incident
 
+            record_confirmed_incident(incident.project_id)
+
+    @transaction.atomic
     def perform_update(self, serializer):
+        incident = Incident.objects.select_for_update().get(
+            pk=serializer.instance.pk
+        )
         require_project_role(
             self.request,
-            self.get_object().project_id,
+            incident.project_id,
             Membership.Role.MANAGER,
         )
+        is_new_confirmation = (
+            incident.status != Incident.Status.CONFIRMED
+            and serializer.validated_data.get("status", incident.status)
+            == Incident.Status.CONFIRMED
+        )
         serializer.save()
+        if is_new_confirmation:
+            from projects.BNN import record_confirmed_incident
+
+            record_confirmed_incident(incident.project_id)
 
     def perform_destroy(self, instance):
         require_project_role(
@@ -1208,14 +1226,25 @@ class PatrolCompletionView(APIView):
 
         patrol.status = patrol_status
         patrol.save(update_fields=["status"])
-        patrol.incident.status = incident_status
+        incident = Incident.objects.select_for_update().get(
+            pk=patrol.incident_id
+        )
+        is_new_confirmation = (
+            incident.status != Incident.Status.CONFIRMED
+            and incident_status == Incident.Status.CONFIRMED
+        )
+        incident.status = incident_status
         if (
             incident_status == Incident.Status.CONFIRMED
             and latitude is not None
             and longitude is not None
         ):
-            patrol.incident.coordinates = Point(longitude, latitude, srid=4326)
-        patrol.incident.save()
+            incident.coordinates = Point(longitude, latitude, srid=4326)
+        incident.save()
+        if is_new_confirmation:
+            from projects.BNN import record_confirmed_incident
+
+            record_confirmed_incident(incident.project_id)
 
         return Response(
             {

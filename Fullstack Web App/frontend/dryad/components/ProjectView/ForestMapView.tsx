@@ -18,6 +18,15 @@ import { PiLightning } from "react-icons/pi";
 import { MdLoop } from "react-icons/md";
 import { Project } from "@/app/home/projects/new/page";
 import { FaQuestion } from "react-icons/fa6";
+
+type IncidentTimeRange =
+    | "today"
+    | "last-week"
+    | "last-30-days"
+    | "last-month"
+    | "last-6-months"
+    | "all-time";
+
 const ForestMapFull = dynamic(() => import("../ForestMapFull"), {
     ssr: false,
 });
@@ -43,6 +52,8 @@ export default function ForestMapView(props: ForestMapViewProps) {
         devices : {title : "Devices", color : "#4ADE80", active : false, key : "devices"},
     });
     const [heatmapOpacity, setHeatmapOpacity] = useState<number>(50);
+    const [incidentTimeRange, setIncidentTimeRange] =
+        useState<IncidentTimeRange>("last-30-days");
     const [routinePatrolPath, setRoutinePatrolPath] = useState<GeoJSON | null>(null);
     const [routinePatrolError, setRoutinePatrolError] = useState("");
 
@@ -129,6 +140,60 @@ export default function ForestMapView(props: ForestMapViewProps) {
         formalDateTime = date.toLocaleString("en-US");
     }else formalDateTime = "Never"
     
+    const now = new Date();
+    const rangeStart = new Date(now);
+    let rangeEnd: Date | null = null;
+
+    switch (incidentTimeRange) {
+        case "today":
+            rangeStart.setHours(0, 0, 0, 0);
+            break;
+        case "last-week":
+            rangeStart.setDate(rangeStart.getDate() - 7);
+            break;
+        case "last-30-days":
+            rangeStart.setDate(rangeStart.getDate() - 30);
+            break;
+        case "last-month":
+            rangeEnd = new Date(now.getFullYear(), now.getMonth(), 1);
+            rangeStart.setFullYear(now.getFullYear(), now.getMonth() - 1, 1);
+            rangeStart.setHours(0, 0, 0, 0);
+            break;
+        case "last-6-months": {
+            const dayOfMonth = rangeStart.getDate();
+            rangeStart.setDate(1);
+            rangeStart.setMonth(rangeStart.getMonth() - 6);
+            const lastDayOfMonth = new Date(
+                rangeStart.getFullYear(),
+                rangeStart.getMonth() + 1,
+                0
+            ).getDate();
+            rangeStart.setDate(Math.min(dayOfMonth, lastDayOfMonth));
+            break;
+        }
+        case "all-time":
+            break;
+    }
+
+    const filteredIncidents = props.incidents.filter((incident) => {
+        if (incidentTimeRange === "all-time") return true;
+
+        const timestamp = new Date(incident.timestamp);
+        return (
+            timestamp >= rangeStart &&
+            (!rangeEnd || timestamp < rangeEnd) &&
+            timestamp <= now
+        );
+    });
+
+    const incidentTimeRangeLabels: Record<IncidentTimeRange, string> = {
+        today: "Today",
+        "last-week": "Last week",
+        "last-30-days": "Last 30 days",
+        "last-month": "Last month",
+        "last-6-months": "Last 6 months",
+        "all-time": "All-time",
+    };
 
     return (<>
         <div className="flex mx-6 mt-4 items-center">
@@ -145,14 +210,17 @@ export default function ForestMapView(props: ForestMapViewProps) {
                     </div>
 
                     <div className="flex flex-col gap-4 my-2 divide-y divide-white/8">
-                    <div className="flex items-center justify-between pb-4">
+                    <div className="flex flex-col gap-3 pb-4">
+                        <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
                         <div className="p-2 rounded-lg bg-red-950/50 text-warning text-xl">
                             <IoWarning/>
                         </div>
                         <div>
                             <p className="font-semibold text-sm">Incidents</p>
-                            <p className="text-xs text-secondary-content">Past 30 days</p>
+                            <p className="text-xs text-secondary-content">
+                                {incidentTimeRangeLabels[incidentTimeRange]}
+                            </p>
                         </div>
                         </div>
                         <input 
@@ -160,6 +228,24 @@ export default function ForestMapView(props: ForestMapViewProps) {
                         className="toggle toggle-success" 
                         checked={mapTags.incidents.active}
                         onChange={(e)=>toggleMapLayer("incidents", e.target.checked)} />
+                        </div>
+                        <label className="flex flex-col gap-1 text-xs text-secondary-content">
+                            Time range
+                            <select
+                                className="select select-bordered select-sm w-full text-base-content"
+                                value={incidentTimeRange}
+                                onChange={(e) =>
+                                    setIncidentTimeRange(e.target.value as IncidentTimeRange)
+                                }
+                            >
+                                <option value="today">Today</option>
+                                <option value="last-week">Last week</option>
+                                <option value="last-30-days">Last 30 days</option>
+                                <option value="last-month">Last month</option>
+                                <option value="last-6-months">Last 6 months</option>
+                                <option value="all-time">All-time</option>
+                            </select>
+                        </label>
                     </div>
 
                     <div className="flex flex-col gap-2 pb-4">
@@ -233,7 +319,7 @@ export default function ForestMapView(props: ForestMapViewProps) {
             geoJSON={props.geoJSON ?? null}
             gridCells={props.gridCells}
             gridOpacity={mapTags.riskHeatmap.active ? heatmapOpacity/100 : 0}
-            incidents={props.incidents}
+            incidents={filteredIncidents}
             enableIncidents={mapTags.incidents.active}
             devices={props.devices}
             enableDevices={mapTags.devices.active}

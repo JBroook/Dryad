@@ -136,11 +136,30 @@ class PatrolAssignmentTests(TestCase):
             completion_response.data["message"],
             "Patrol completed and incident status updated successfully.",
         )
+        self.project.refresh_from_db()
+        self.assertEqual(self.project.confirmed_incidents_since_training, 1)
         for member in self.assignees:
             self.assertEqual(
                 Patrol.objects.get(members=member).status,
                 Patrol.Status.COMPLETED,
             )
+
+    def test_direct_incident_confirmation_is_counted_once(self):
+        response = self.client.patch(
+            reverse("incident-detail", args=[self.incident.id]),
+            {"status": Incident.Status.CONFIRMED},
+            format="json",
+        )
+        repeated_response = self.client.patch(
+            reverse("incident-detail", args=[self.incident.id]),
+            {"status": Incident.Status.CONFIRMED},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(repeated_response.status_code, status.HTTP_200_OK)
+        self.project.refresh_from_db()
+        self.assertEqual(self.project.confirmed_incidents_since_training, 1)
 
     def test_project_can_create_routine_patrol_with_route(self):
         self.client.force_authenticate(user=self.assigner_user)
@@ -1329,6 +1348,30 @@ class DeviceManagementTests(ProjectAPITestCase):
 
 
 class RiskModelTests(ProjectAPITestCase):
+    def test_tenth_confirmed_incident_resets_counter_and_triggers_retraining(self):
+        from projects.BNN import record_confirmed_incident
+
+        with (
+            patch("projects.BNN.retrain_project_model") as retrain_project_model,
+            self.captureOnCommitCallbacks(execute=True) as callbacks,
+        ):
+            for _ in range(9):
+                record_confirmed_incident(self.project.pk)
+
+            self.project.refresh_from_db()
+            self.assertEqual(
+                self.project.confirmed_incidents_since_training,
+                9,
+            )
+            retrain_project_model.assert_not_called()
+
+            record_confirmed_incident(self.project.pk)
+
+        self.project.refresh_from_db()
+        self.assertEqual(self.project.confirmed_incidents_since_training, 0)
+        self.assertEqual(len(callbacks), 1)
+        retrain_project_model.assert_called_once()
+
     def test_cyclical_features_repeat_at_their_period(self):
         from projects.BNN import cyclical
 
