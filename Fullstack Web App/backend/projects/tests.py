@@ -211,6 +211,86 @@ class PatrolAssignmentTests(TestCase):
         self.assertEqual(response.data[0]["name"], "North boundary")
         self.assertEqual(response.data[0]["created_by"]["id"], self.assigner.id)
 
+    def test_project_member_can_get_routine_patrol_geometry(self):
+        self.client.force_authenticate(user=self.assigner_user)
+        routine_patrol = RoutinePatrol.objects.create(
+            project=self.project,
+            created_by=self.assigner,
+            name="North boundary",
+            frequency=RoutinePatrol.Frequency.WEEKLY,
+            start_date="2026-10-20",
+            path=LineString([(1, 2), (3, 4)], srid=4326),
+        )
+
+        response = self.client.get(
+            reverse(
+                "project_routine_patrol_detail",
+                args=[self.project.id, routine_patrol.id],
+            )
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["path"]["type"], "LineString")
+        self.assertEqual(response.data["path"]["coordinates"], [[1.0, 2.0], [3.0, 4.0]])
+
+    def test_project_manager_can_delete_routine_patrol(self):
+        manager_user = User.objects.create_user(
+            email="routine-manager@example.com",
+            password="test-password",
+        )
+        Membership.objects.create(
+            project=self.project,
+            user=manager_user,
+            invited_by=self.assigner_user,
+            role=Membership.Role.MANAGER,
+            accepted=True,
+        )
+        routine_patrol = RoutinePatrol.objects.create(
+            project=self.project,
+            created_by=self.assigner,
+            name="North boundary",
+            frequency=RoutinePatrol.Frequency.WEEKLY,
+            start_date="2026-10-20",
+            path=LineString([(1, 2), (3, 4)], srid=4326),
+        )
+        self.client.force_authenticate(user=manager_user)
+
+        response = self.client.delete(
+            reverse(
+                "project_routine_patrol_detail",
+                args=[self.project.id, routine_patrol.id],
+            )
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(
+            response.data["message"],
+            "Routine Patrol deleted successfully.",
+        )
+        self.assertFalse(RoutinePatrol.objects.filter(pk=routine_patrol.id).exists())
+
+    def test_project_viewer_cannot_delete_routine_patrol(self):
+        routine_patrol = RoutinePatrol.objects.create(
+            project=self.project,
+            created_by=self.assigner,
+            name="North boundary",
+            frequency=RoutinePatrol.Frequency.WEEKLY,
+            start_date="2026-10-20",
+            path=LineString([(1, 2), (3, 4)], srid=4326),
+        )
+        viewer_membership = self.assignees[0]
+        self.client.force_authenticate(user=viewer_membership.user)
+
+        response = self.client.delete(
+            reverse(
+                "project_routine_patrol_detail",
+                args=[self.project.id, routine_patrol.id],
+            )
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertTrue(RoutinePatrol.objects.filter(pk=routine_patrol.id).exists())
+
     def test_routine_patrol_gpx_export_returns_track_for_project_member(self):
         self.client.force_authenticate(user=self.assigner_user)
         routine_patrol = RoutinePatrol.objects.create(

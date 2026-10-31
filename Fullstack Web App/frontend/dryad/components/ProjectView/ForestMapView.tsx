@@ -1,6 +1,6 @@
 "use client"
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { FaArrowUp, FaBrain, FaThermometer, FaThermometerEmpty } from "react-icons/fa";
 import { FiLayers } from "react-icons/fi";
 import { IoIosArrowUp, IoMdWifi } from "react-icons/io";
@@ -30,6 +30,7 @@ interface ForestMapViewProps {
     devices : Device[];
     project : Project;
     canCalculateRisk: boolean;
+    routinePatrolId: string | null;
 }
 
 export default function ForestMapView(props: ForestMapViewProps) {
@@ -40,6 +41,8 @@ export default function ForestMapView(props: ForestMapViewProps) {
         devices : {title : "Devices", color : "#4ADE80", active : false, key : "devices"},
     });
     const [heatmapOpacity, setHeatmapOpacity] = useState<number>(50);
+    const [routinePatrolPath, setRoutinePatrolPath] = useState<GeoJSON | null>(null);
+    const [routinePatrolError, setRoutinePatrolError] = useState("");
 
     const searchParams = useSearchParams();
     const lat = searchParams.get('lat');
@@ -49,6 +52,37 @@ export default function ForestMapView(props: ForestMapViewProps) {
     const [longitude, setLongitude] = useState<number | null>(lng!=null ? parseFloat(lng) : lng);
 
     const drawnItemsReference = useRef<LeafletFeatureGroup | null>(null);
+
+    useEffect(() => {
+        if (!props.projectID || !props.routinePatrolId) {
+            setRoutinePatrolPath(null);
+            setRoutinePatrolError("");
+            return;
+        }
+
+        let cancelled = false;
+        setRoutinePatrolPath(null);
+        setRoutinePatrolError("");
+
+        apiFetch(
+            `projects/${props.projectID}/routine_patrols/${props.routinePatrolId}/`
+        )
+            .then(async (response) => {
+                if (!response.ok) throw new Error(await response.text());
+                return response.json();
+            })
+            .then((patrol: { path: GeoJSON }) => {
+                if (!cancelled) setRoutinePatrolPath(patrol.path);
+            })
+            .catch((error) => {
+                console.error("Routine patrol map load failed:", error);
+                if (!cancelled) setRoutinePatrolError("Unable to load this routine patrol route.");
+            });
+
+        return () => {
+            cancelled = true;
+        };
+    }, [props.projectID, props.routinePatrolId]);
 
     const toggleMapLayer = (index : string, value : boolean) => {
         const newMapTags = {...mapTags};
@@ -177,6 +211,9 @@ export default function ForestMapView(props: ForestMapViewProps) {
         </div>
 
         <div className="mx-6 mt-2 min-h-120">
+            {routinePatrolError && (
+                <p role="alert" className="mb-2 text-error">{routinePatrolError}</p>
+            )}
             <ForestMapFull 
             latitude={latitude}
             longitude={longitude}
@@ -189,6 +226,7 @@ export default function ForestMapView(props: ForestMapViewProps) {
             enableIncidents={mapTags.incidents.active}
             devices={props.devices}
             enableDevices={mapTags.devices.active}
+            routinePatrolPath={routinePatrolPath}
             />
         </div>
 

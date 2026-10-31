@@ -13,6 +13,7 @@ import { RxCross2 } from "react-icons/rx";
 import dynamic from "next/dynamic";
 import { useToast } from "../ToastProvider";
 import { useRouter } from "next/navigation";
+import { MdOutlineExitToApp } from "react-icons/md";
 
 const ForestMap = dynamic(() => import("../ForestMap"), {
     ssr: false,
@@ -36,6 +37,7 @@ export default function SettingsView(props: SettingsViewProps) {
     const [searchSpinner, setSearchSpinner] = useState<boolean>(false);
     const [saveSpinner, setSaveSpinner] = useState<boolean>(false);
     const [saveError, setSaveError] = useState<string | null>(null);
+    const [leaveSpinner, setLeaveSpinner] = useState<boolean>(false);
 
     const extractProjectFeatures = (data : any) => {
         setProject({
@@ -223,6 +225,50 @@ export default function SettingsView(props: SettingsViewProps) {
         } catch (error) {
             console.error("Project deletion failed:", error);
             showToast("Unable to delete this project.", "error");
+        }
+    };
+
+    const leaveProject = async (event: React.SubmitEvent<HTMLFormElement>) => {
+        event.preventDefault();
+        if (!props.projectID || leaveSpinner) return;
+
+        setLeaveSpinner(true);
+        try {
+            const currentUserID = Number(localStorage.getItem("userID"));
+            const membersResponse = await apiFetch(
+                `projects/${props.projectID}/members`
+            );
+            if (!membersResponse.ok) {
+                throw new Error(await membersResponse.text());
+            }
+
+            const members = await membersResponse.json();
+            const ownMembership = members.find(
+                (membership: { user: { id: number }; accepted: boolean }) =>
+                    membership.user.id === currentUserID && membership.accepted
+            );
+            if (!ownMembership) {
+                throw new Error("Your accepted project membership could not be found.");
+            }
+
+            const response = await apiFetch(
+                `projects/${props.projectID}/members/${ownMembership.id}/`,
+                { method: "DELETE" }
+            );
+            if (!response.ok) throw new Error(await response.text());
+
+            const data = await response.json();
+            closeModal("leaveModal");
+            showToast(data.message ?? "You left the project successfully.");
+            router.push("/home/projects");
+        } catch (error) {
+            console.error("Project leave failed:", error);
+            showToast(
+                error instanceof Error ? error.message : "Unable to leave this project.",
+                "error"
+            );
+        } finally {
+            setLeaveSpinner(false);
         }
     };
 
@@ -474,7 +520,10 @@ export default function SettingsView(props: SettingsViewProps) {
                     </button>}
                 </div>:<></>}
             </div>
+        </div>
+        </fieldset>
 
+        <div className="mt-6 mx-60">
             <div className="flex gap-2 items-center mt-4 mb-20">
                 {props.canEdit && <button
                     type="button"
@@ -501,6 +550,15 @@ export default function SettingsView(props: SettingsViewProps) {
                 {props.isOwner && <button className="btn btn-error" onClick={()=>openModal("deleteModal")}>
                     <FaRegTrashAlt/> Delete Project
                 </button>}
+
+                {!props.isOwner && <button
+                    type="button"
+                    className="btn btn-error"
+                    onClick={()=>openModal("leaveModal")}
+                >
+                    <MdOutlineExitToApp /> Leave Project
+                </button>
+                }
             </div>
             {saveError && (
                 <p role="alert" className="text-error -mt-16 mb-20">
@@ -508,7 +566,26 @@ export default function SettingsView(props: SettingsViewProps) {
                 </p>
             )}
         </div>
-        </fieldset>
+        <dialog id="leaveModal" className="modal">
+            <div className="modal-box bg-base-200 border border-white/8">
+                <h3 className="font-bold text-lg">Leave Project</h3>
+                <p className="py-4 text-sm text-secondary-content">
+                    Are you sure you want to leave the project? You will not be able to access this project again unless you are invited back by a member.
+                </p>
+                <div className="modal-action">
+                <form onSubmit={leaveProject}>
+                    <button type="submit" className="btn btn-error mr-2" disabled={leaveSpinner}>
+                        {leaveSpinner ? "Leaving..." : "Leave"}
+                    </button>
+                    <button
+                    type="button"
+                    onClick={() => closeModal("leaveModal")} className="btn btn-secondary">
+                        Close
+                    </button>
+                </form>
+                </div>
+            </div>
+        </dialog>
     </>);
     }else{
         return (<div className="w-full h-screen flex justify-center items-center">

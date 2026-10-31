@@ -31,6 +31,7 @@ interface ForestMapFullProps {
     enableIncidents : boolean;
     devices : Device[];
     enableDevices : boolean;
+    routinePatrolPath: GeoJSONType | null;
 }
 
 export default function ForestMapFull({
@@ -112,6 +113,33 @@ export default function ForestMapFull({
         return null;
     }
 
+    function RoutinePatrolLayer({ path }: { path: GeoJSONType | null }) {
+        const map = useMap();
+
+        useEffect(() => {
+            if (!path) return;
+
+            const routeLayer = L.geoJSON(path, {
+                style: {
+                    color: "#22C55E",
+                    weight: 5,
+                    opacity: 0.95,
+                },
+            }).addTo(map);
+            const bounds = routeLayer.getBounds();
+
+            if (bounds.isValid()) {
+                map.fitBounds(bounds, { padding: [40, 40] });
+            }
+
+            return () => {
+                map.removeLayer(routeLayer);
+            };
+        }, [map, path]);
+
+        return null;
+    }
+
     const getRiskColor = (risk: number) => {
         if (risk >= 0.8) return "#d73027"; // very high
         if (risk >= 0.6) return "#fc8d59"; // high
@@ -130,6 +158,8 @@ export default function ForestMapFull({
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
             />
+
+            <RoutinePatrolLayer path={props.routinePatrolPath} />
 
             {/* <MapController
                 location={{

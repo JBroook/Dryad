@@ -482,6 +482,12 @@ class MembershipViewSet(CRUDMessageMixin, ModelViewSet):
         serializer.save()
 
     def perform_destroy(self, instance):
+        if instance.user_id == self.request.user.pk:
+            if instance.role == Membership.Role.OWNER:
+                raise PermissionDenied("The project owner cannot leave their own project.")
+            instance.delete()
+            return
+
         caller = require_project_role(
             self.request,
             instance.project_id,
@@ -781,6 +787,34 @@ class ProjectRoutinePatrolView(CRUDMessageMixin, ListCreateAPIView):
             user=self.request.user,
         )
         serializer.save(project=project, created_by=creator)
+
+
+class RoutinePatrolDetailView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get_patrol(self, request, project_id, routine_patrol_id):
+        require_project_role(request, project_id)
+        return get_object_or_404(
+            RoutinePatrol.objects.select_related("project", "created_by__user"),
+            pk=routine_patrol_id,
+            project_id=project_id,
+        )
+
+    def get(self, request, project_id, routine_patrol_id):
+        patrol = self.get_patrol(request, project_id, routine_patrol_id)
+        return Response(
+            RoutinePatrolSerializer(patrol).data,
+            status=status.HTTP_200_OK,
+        )
+
+    def delete(self, request, project_id, routine_patrol_id):
+        require_project_role(request, project_id, Membership.Role.MANAGER)
+        patrol = self.get_patrol(request, project_id, routine_patrol_id)
+        patrol.delete()
+        return Response(
+            {"message": "Routine Patrol deleted successfully."},
+            status=status.HTTP_200_OK,
+        )
 
 
 class RoutinePatrolGPXExportView(APIView):

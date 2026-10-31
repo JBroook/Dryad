@@ -49,6 +49,11 @@ urlpatterns = [
         name="project_routine_patrols",
     ),
     path(
+        'projects/<int:project_id>/routine_patrols/<int:routine_patrol_id>/',
+        views.RoutinePatrolDetailView.as_view(),
+        name="project_routine_patrol_detail",
+    ),
+    path(
         'projects/<int:project_id>/routine_patrols/<int:routine_patrol_id>/export/',
         views.RoutinePatrolGPXExportView.as_view(),
         name="routine_patrol_gpx_export",

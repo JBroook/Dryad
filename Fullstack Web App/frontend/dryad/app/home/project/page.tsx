@@ -136,6 +136,7 @@ function ProjectContent() {
       devices={devices}
       project={project!}
       canCalculateRisk={hasProjectRole(projectRole, "admin")}
+      routinePatrolId={searchParams.get("routine_patrol")}
     />,
     devices : <DevicesView 
       projectID={projectID}

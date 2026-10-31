@@ -290,7 +290,14 @@ export default function DevicesView(props: DevicesViewProps) {
             />
             ))}
             {matchingRoutinePatrols.map((patrol) => (
-                <RoutinePatrolCard key={`routine-${patrol.id}`} patrol={patrol} />
+                <RoutinePatrolCard
+                    key={`routine-${patrol.id}`}
+                    patrol={patrol}
+                    canManage={props.canManage}
+                    onDelete={(patrolID) => setRoutinePatrols((current) =>
+                        current.filter((routinePatrol) => routinePatrol.id !== patrolID)
+                    )}
+                />
             ))}
             </>
         :

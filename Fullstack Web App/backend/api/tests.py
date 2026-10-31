@@ -173,6 +173,65 @@ class ProjectMembershipPermissionTests(TestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertFalse(Membership.objects.filter(pk=self.member.id).exists())
 
+    def test_viewer_can_leave_project(self):
+        self.client.force_authenticate(user=self.invitee)
+
+        response = self.client.delete(
+            reverse("member-detail", args=[self.project.id, self.member.id]),
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertFalse(
+            Membership.objects.filter(
+                project=self.project,
+                user=self.invitee,
+            ).exists()
+        )
+
+    def test_manager_can_leave_project(self):
+        manager_membership = Membership.objects.get(
+            project=self.project,
+            user=self.manager,
+        )
+        self.client.force_authenticate(user=self.manager)
+
+        response = self.client.delete(
+            reverse(
+                "member-detail",
+                args=[self.project.id, manager_membership.id],
+            ),
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertFalse(
+            Membership.objects.filter(
+                project=self.project,
+                user=self.manager,
+            ).exists()
+        )
+
+    def test_project_owner_cannot_leave_project(self):
+        owner_membership = Membership.objects.create(
+            project=self.project,
+            user=self.owner,
+            invited_by=self.owner,
+            role=Membership.Role.OWNER,
+            accepted=True,
+        )
+        self.client.force_authenticate(user=self.owner)
+
+        response = self.client.delete(
+            reverse(
+                "member-detail",
+                args=[self.project.id, owner_membership.id],
+            ),
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertTrue(
+            Membership.objects.filter(pk=owner_membership.id).exists()
+        )
+
     def test_manager_cannot_request_project_risk_calculation(self):
         self.client.force_authenticate(user=self.manager)
         response = self.client.post(
