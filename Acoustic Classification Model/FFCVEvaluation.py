@@ -6,6 +6,7 @@ import pandas as pd
 import torch.nn as nn
 import numpy as np
 from sklearn.utils.class_weight import compute_class_weight
+from sklearn.metrics import precision_score, recall_score, f1_score, roc_auc_score
 import json
 import os
 
@@ -35,12 +36,10 @@ class FSC22Dataset(Dataset):
         self.augment = augment
         self.meta_df = pd.read_csv(fsc22_meta)
 
-        # get noise data
         self.noise_df = pd.read_csv(fsc22_meta)
         self.noise_df = self.noise_df[self.noise_df['Threat'] == False].reset_index(drop=True)
 
         if folds:
-            # filter out unwanted folds
             self.meta_df = self.meta_df[self.meta_df['Fold'].isin(folds)].reset_index(drop=True)
 
         self.audio_dir = fsc22_audio_dir
@@ -52,22 +51,18 @@ class FSC22Dataset(Dataset):
         row = self.meta_df.iloc[item]
         waveform, sample_rate = torchaudio.load(os.path.join(self.audio_dir, row['Dataset File Name']))
 
-        # average left and right channels to convert stereo to mono
         waveform = waveform.mean(dim=0)
 
         if self.augment:
-            # Random temporal shift
             if torch.rand(1) < 0.3:
                 shift_amt = torch.randint(0, waveform.size(0) // 4, (1,)).item()
                 waveform = torch.roll(waveform, shift_amt, dims=0)
 
-            # Random noise mixing
             if len(self.noise_df) > 0 and torch.rand(1) < 0.3:
                 noise_row = self.noise_df.sample(n=1).iloc[0]
                 noise, _ = torchaudio.load(os.path.join(self.audio_dir, noise_row['Dataset File Name']))
                 noise = noise.mean(dim=0)
 
-                # Match lengths if necessary
                 if noise.shape[0] < waveform.shape[0]:
                     pad_amount = waveform.shape[0] - noise.shape[0]
                     noise = torch.nn.functional.pad(noise, (0, pad_amount))
@@ -76,7 +71,6 @@ class FSC22Dataset(Dataset):
 
                 waveform = mix_noise(waveform, noise, snr_db=torch.randint(20, 35, size=(1,)).item())
 
-        # normalize audio
         if waveform.abs().max() > 1:
             waveform = waveform / waveform.abs().max()
 
@@ -85,12 +79,12 @@ class FSC22Dataset(Dataset):
         return waveform, label
 
 
-def save_checkpoint(file_name, epoch, model, optimiser, running_test_loss):
+def save_checkpoint(file_name, epoch, model, optimiser, running_loss):
     checkpoint = {
         'epoch': epoch + 1,
         'model_state_dict': model.state_dict(),
         'optimizer_state_dict': optimiser.state_dict(),
-        'loss': running_test_loss
+        'loss': running_loss
     }
     torch.save(checkpoint, file_name)
 
@@ -101,14 +95,19 @@ if __name__ == '__main__':
     print(torch.cuda.is_available())
     print("Device:", device)
 
-    training_stats = []
-    training_name = "100epoch_pure_AC/"
-    os.makedirs(f"trainedModels/{training_name}", exist_ok=True)
+    training_name = "final_pure_AC/"
+    all_folds = [0, 1, 2, 3, 4]
+    epochs = 50
+    worker_count = max(1, os.cpu_count() // 2)
 
-    for fold in range(5):
-        print(f"\n--- Training fold {fold} ---")
+    for test_fold in all_folds:
+        print(f"\nFold {test_fold}")
+        train_folds = [f for f in all_folds if f != test_fold]
 
-        # Initialise model
+        fold_dir = f"trainedModels/{training_name}fold_{test_fold}/"
+        os.makedirs(fold_dir, exist_ok=True)
+        training_stats = []
+
         model = Cnn10(
             sample_rate=32000,
             window_size=1024,
@@ -123,23 +122,17 @@ if __name__ == '__main__':
         model.fc_audioset = nn.Linear(512, FSC22Dataset.class_count, bias=True)
         model.to(device)
 
-        # Datasets and Loaders
-        test_dataset = FSC22Dataset(fsc22_meta_path, folds=[fold], augment=False)
-        train_folds = [0, 1, 2, 3, 4]
-        train_folds.pop(fold)
         train_dataset = FSC22Dataset(fsc22_meta_path, folds=train_folds, augment=True)
+        test_dataset = FSC22Dataset(fsc22_meta_path, folds=[test_fold], augment=False)
 
-        worker_count = max(1, os.cpu_count() // 2)
         train_loader = DataLoader(train_dataset, batch_size=32, num_workers=worker_count, shuffle=True, pin_memory=True)
         test_loader = DataLoader(test_dataset, batch_size=32, num_workers=worker_count, shuffle=False, pin_memory=True)
 
-        # Compute Class Weights for Imbalance
         labels = train_dataset.meta_df['Class ID'].values
         class_weights = compute_class_weight(class_weight='balanced', classes=np.unique(labels), y=labels)
         weights_tensor = torch.tensor(class_weights, dtype=torch.float).to(device)
-        loss_fn = nn.CrossEntropyLoss()
+        loss_fn = nn.CrossEntropyLoss(weight=weights_tensor)
 
-        # Differential Learning Rates & Optimizer
         pretrained_params = [p for n, p in model.named_parameters() if 'fc_audioset' not in n]
         new_head_params = model.fc_audioset.parameters()
 
@@ -148,8 +141,6 @@ if __name__ == '__main__':
             {'params': new_head_params, 'lr': 1e-4}
         ], weight_decay=1e-5)
 
-        # Learning Rate Scheduler
-        epochs = 50
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimiser, T_max=epochs, eta_min=1e-6)
 
         for epoch in range(epochs):
@@ -176,47 +167,74 @@ if __name__ == '__main__':
 
             acc = running_correct / running_total * 100
 
-            # Evaluate on test set every epoch to feed the scheduler
             model.eval()
-            with torch.inference_mode():
-                running_test_correct = 0
-                running_test_total = 0
-                running_test_loss = 0
+            test_loss = 0
+            test_correct = 0
+            test_total = 0
 
+            all_test_preds = []
+            all_test_targets = []
+            all_test_probs = []
+
+            with torch.no_grad():
                 for inputs, labels in test_loader:
                     inputs = inputs.to(device, non_blocking=True)
                     labels = labels.to(device, non_blocking=True)
 
                     output_logits = model(inputs)['logits']
-
                     loss = loss_fn(output_logits, labels)
-                    running_test_loss += loss.item()
+                    test_loss += loss.item()
 
-                    predictions = torch.argmax(output_logits, dim=1)
-                    running_test_correct += torch.eq(predictions, labels).sum().item()
-                    running_test_total += labels.size(0)
+                    probs = torch.softmax(output_logits, dim=1)
+                    predictions = torch.argmax(probs, dim=1)
 
-                test_acc = running_test_correct / running_test_total * 100
+                    test_correct += torch.eq(predictions, labels).sum().item()
+                    test_total += labels.size(0)
+
+                    all_test_preds.extend(predictions.cpu().numpy())
+                    all_test_targets.extend(labels.cpu().numpy())
+                    all_test_probs.extend(probs.cpu().numpy())
+
+            test_acc = test_correct / test_total * 100
+            test_preds_arr = np.array(all_test_preds)
+            test_targets_arr = np.array(all_test_targets)
+            test_probs_arr = np.array(all_test_probs)
+
+            test_precision_macro = precision_score(test_targets_arr, test_preds_arr, average='macro', zero_division=0)
+            test_precision_weighted = precision_score(test_targets_arr, test_preds_arr, average='weighted', zero_division=0)
+            test_recall_macro = recall_score(test_targets_arr, test_preds_arr, average='macro', zero_division=0)
+            test_recall_weighted = recall_score(test_targets_arr, test_preds_arr, average='weighted', zero_division=0)
+            test_f1_macro = f1_score(test_targets_arr, test_preds_arr, average='macro', zero_division=0)
+            test_f1_weighted = f1_score(test_targets_arr, test_preds_arr, average='weighted', zero_division=0)
+
+            try:
+                test_roc_auc_macro = roc_auc_score(test_targets_arr, test_probs_arr, multi_class='ovr', average='macro')
+            except ValueError:
+                test_roc_auc_macro = np.nan
 
             print(
-                f"Epoch {epoch + 1:02d} | Train Loss: {running_loss:.2f}, Train Acc: {acc:.2f}% | Test Loss: {running_test_loss:.2f}, Test Acc: {test_acc:.2f}%")
+                f"Epoch {epoch + 1:02d} | Train Loss: {running_loss:.2f}, Train Acc: {acc:.2f}% | Test Loss: {test_loss:.2f}, Test Acc: {test_acc:.2f}% | Test F1 (Macro): {test_f1_macro:.4f}")
 
-            # Step the scheduler based on validation accuracy
             scheduler.step()
 
             training_stats.append({
-                'fold': fold,
-                'epoch': epoch,
+                'epoch': epoch + 1,
                 'loss': running_loss,
                 'accuracy': acc,
+                'test_loss': test_loss,
                 'test_accuracy': test_acc,
-                'test_loss': running_test_loss
+                'test_precision_macro': test_precision_macro,
+                'test_precision_weighted': test_precision_weighted,
+                'test_recall_macro': test_recall_macro,
+                'test_recall_weighted': test_recall_weighted,
+                'test_f1_macro': test_f1_macro,
+                'test_f1_weighted': test_f1_weighted,
+                'test_roc_auc_macro': test_roc_auc_macro
             })
 
-            # Save checkpoint at the end of the fold
-            if epoch == epochs - 1:
-                save_checkpoint(f'trainedModels/{training_name}fold{fold}_checkpoint_epoch{epoch + 1}.pth', epoch,
-                                model, optimiser, running_test_loss)
+            if (epoch == epochs - 1 or (epoch + 1) % 10 == 0) and epoch > 0:
+                save_checkpoint(f'{fold_dir}checkpoint_epoch{epoch + 1}.pth', epoch,
+                                model, optimiser, running_loss)
 
-    with open(f"trainedModels/{training_name}training_stats.json", "w") as f:
-        json.dump(training_stats, f, indent=4)
+        with open(f"{fold_dir}training_stats.json", "w") as f:
+            json.dump(training_stats, f, indent=4)

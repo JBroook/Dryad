@@ -5,8 +5,8 @@ import torch
 import torchaudio
 from torchlibrosa.stft import Spectrogram, LogmelFilterBank
 
-df = pd.read_csv("FSC22/Metadata/SED_Metadata.csv")
-audio_dir = "FSC22/SyntheticSoundscapes"
+df = pd.read_csv("../FSC22/Metadata/SED_Metadata.csv")
+audio_dir = "../FSC22/SyntheticSoundscapes"
 
 sample_rate=32000
 window_size=1024
