@@ -12,6 +12,7 @@ from .models import GridCell, Incident, Project
 import math
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
 from sklearn.metrics import (
     precision_score,
@@ -23,16 +24,14 @@ FEATURES = [
     "elevation",
     "slope",
     "distance_to_road",
-
-    # "attacks_last_24h",
-    # "attacks_last_7d",
-    # "attacks_last_30d",
-    # "days_since_last_attack",
-
-    # "hour_sin",
-    # "hour_cos",
-    # "day_sin",
-    # "day_cos",
+    "attacks_last_24h",
+    "attacks_last_7d",
+    "attacks_last_30d",
+    "days_since_last_attack",
+    "hour_sin",
+    "hour_cos",
+    "day_sin",
+    "day_cos",
 ]
 
 RISK_INFERENCE_PASSES = 100
@@ -152,7 +151,7 @@ def get_future_attack_target_from_memory(
 
     return 0
 
-def build_training_sample(
+def build_feature_values(
     grid_cell,
     observation_time,
     incident_timestamps,
@@ -171,11 +170,6 @@ def build_training_sample(
     day_sin, day_cos = cyclical(
         observation_time.weekday(),
         7,
-    )
-
-    target = get_future_attack_target_from_memory(
-        incident_timestamps,
-        observation_time,
     )
 
     return {
@@ -200,7 +194,26 @@ def build_training_sample(
 
         "day_sin": day_sin,
         "day_cos": day_cos,
+    }
 
+
+def build_training_sample(
+    grid_cell,
+    observation_time,
+    incident_timestamps,
+):
+    features = build_feature_values(
+        grid_cell,
+        observation_time,
+        incident_timestamps,
+    )
+    target = get_future_attack_target_from_memory(
+        incident_timestamps,
+        observation_time,
+    )
+
+    return {
+        **features,
         "target": target,
 
         "grid_cell_id": grid_cell.id,
@@ -289,27 +302,39 @@ def samples_to_tensors(samples):
     return X, y
 
 
-class RiskMLP(nn.Module):
-    def __init__(self, input_size):
-
+class RiskPredictorMCDropout(nn.Module):
+    def __init__(self, num_input_features=8) -> None:
         super().__init__()
 
-        self.network = nn.Sequential(
-            nn.Linear(input_size, 32),
-            nn.ReLU(),
+        self.blinear1 = nn.Linear(num_input_features, 64)
+        self.dropout1 = nn.Dropout(p=0.2)
 
-            nn.Linear(32, 16),
-            nn.ReLU(),
+        self.blinear2 = nn.Linear(64, 64)
+        self.dropout2 = nn.Dropout(p=0.2)
 
-            nn.Linear(16, 1),
-        )
+        self.blinear3 = nn.Linear(64,32)
+        self.dropout3 = nn.Dropout(p=0.2)
 
-    def forward(self, x, stochastic=False):
-        for layer in self.network:
-            x = layer(x)
-            if stochastic and isinstance(layer, nn.ReLU):
-                x = nn.functional.dropout(x, p=0.2, training=True)
-        return x.squeeze(-1)
+        self.output = nn.Linear(32,1)
+        self.sigmoid = nn.Sigmoid()
+
+    def forward(self, x):
+        x = F.gelu(self.blinear1(x))
+        x = self.dropout1(x)
+
+        x = F.gelu(self.blinear2(x))
+        x = self.dropout2(x)
+
+        x = F.gelu(self.blinear3(x))
+        x = self.dropout3(x)
+
+        x = self.output(x)
+        results = {
+            "logits" : x,
+            "probabilities" : self.sigmoid(x)
+        }
+
+        return results
 
 def undersample(
     samples,
@@ -372,7 +397,7 @@ def chronological_split(
 
     return train, test
 
-def train_mlp(train_samples):
+def train_model(train_samples):
 
     X, y = samples_to_tensors(
         train_samples
@@ -389,8 +414,8 @@ def train_mlp(train_samples):
         dtype=torch.float32,
     )
 
-    model = RiskMLP(
-        input_size=len(FEATURES)
+    model = RiskPredictorMCDropout(
+        num_input_features=len(FEATURES)
     )
 
     # Positive-class weighting.
@@ -415,7 +440,7 @@ def train_mlp(train_samples):
 
         optimizer.zero_grad()
 
-        logits = model(X_scaled)
+        logits = model(X_scaled)["logits"].squeeze(-1)
 
         loss = criterion(
             logits,
@@ -459,9 +484,7 @@ def evaluate_model(
 
     with torch.no_grad():
 
-        probabilities = torch.sigmoid(
-            model(X_scaled)
-        )
+        probabilities = model(X_scaled)["probabilities"].squeeze(-1)
 
     predictions = (
         probabilities >= 0.5
@@ -515,7 +538,9 @@ def initialize_project_model(project):
     model_path, scaler_path = project_model_paths(project)
     model_path.parent.mkdir(parents=True, exist_ok=True)
 
-    model = RiskMLP(input_size=len(FEATURES))
+    model = RiskPredictorMCDropout(
+        num_input_features=len(FEATURES)
+    )
     model.load_state_dict(
         torch.load(MODEL_PATH, map_location="cpu")
     )
@@ -539,7 +564,7 @@ def retrain_project_model(project):
             f"Project {project.pk} has no training samples for BNN retraining."
         )
 
-    model, scaler = train_mlp(training_samples)
+    model, scaler = train_model(training_samples)
     model_path, scaler_path = project_model_paths(project)
     model_path.parent.mkdir(parents=True, exist_ok=True)
     torch.save(model.state_dict(), model_path)
@@ -583,7 +608,9 @@ def load_project_model(project):
             f"Incomplete risk model artifacts for project {project.pk}."
         )
 
-    model = RiskMLP(input_size=len(FEATURES))
+    model = RiskPredictorMCDropout(
+        num_input_features=len(FEATURES)
+    )
     model.load_state_dict(
         torch.load(model_path, map_location="cpu")
     )
@@ -602,23 +629,33 @@ def calculate_project_risk(project):
         project.save(update_fields=["uncertainty"])
         return cells
 
-    values = [
-        [
-            cell.elevation or 0,
-            cell.slope or 0,
-            cell.distance_to_road or 0,
-        ]
-        for cell in cells
-    ]
+    observation_time = timezone.now()
+    incidents = load_incidents(
+        project,
+        observation_time - timedelta(days=30),
+        observation_time,
+    )
+    incidents_by_cell = group_incidents_by_cell(incidents)
+    values = []
+    for cell in cells:
+        feature_values = build_feature_values(
+            cell,
+            observation_time,
+            incidents_by_cell.get(cell.id, []),
+        )
+        values.append(
+            [feature_values[feature] for feature in FEATURES]
+        )
 
     scaled_values = scaler.transform(values)
 
     x = torch.tensor(scaled_values,dtype=torch.float32)
 
+    model.train()
     with torch.no_grad():
         predictions = torch.stack(
             [
-                torch.sigmoid(model(x, stochastic=True)).reshape(-1)
+                model(x)["probabilities"].reshape(-1)
                 for _ in range(RISK_INFERENCE_PASSES)
             ]
         )

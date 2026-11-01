@@ -1431,6 +1431,13 @@ class RiskModelTests(ProjectAPITestCase):
         self.assertEqual(sample["slope"], 5)
         self.assertEqual(sample["distance_to_road"], 10)
         self.assertEqual(sample["attacks_last_24h"], 1)
+        self.assertEqual(sample["attacks_last_7d"], 1)
+        self.assertEqual(sample["attacks_last_30d"], 1)
+        self.assertEqual(sample["days_since_last_attack"], 2 / 24)
+        self.assertIn("hour_sin", sample)
+        self.assertIn("hour_cos", sample)
+        self.assertIn("day_sin", sample)
+        self.assertIn("day_cos", sample)
         self.assertEqual(sample["target"], 1)
         self.assertEqual(sample["grid_cell_id"], self.cell.id)
 
@@ -1452,13 +1459,15 @@ class RiskModelTests(ProjectAPITestCase):
             {"positive-1", "positive-2"},
         )
 
-    def test_tensor_conversion_uses_only_model_features_and_targets(self):
+    def test_tensor_conversion_uses_all_model_features_and_targets(self):
         from projects.BNN import FEATURES, samples_to_tensors
 
+        feature_values = {
+            feature: index + 1
+            for index, feature in enumerate(FEATURES)
+        }
         sample = {
-            "elevation": 1.0,
-            "slope": 2.0,
-            "distance_to_road": 3.0,
+            **feature_values,
             "target": 1,
             "timestamp": timezone.now(),
             "grid_cell_id": self.cell.id,
@@ -1468,12 +1477,12 @@ class RiskModelTests(ProjectAPITestCase):
 
         self.assertEqual(tuple(features.shape), (1, len(FEATURES)))
         self.assertEqual(tuple(targets.shape), (1,))
-        self.assertEqual(features.tolist(), [[1.0, 2.0, 3.0]])
+        self.assertEqual(features.tolist(), [[float(i + 1) for i in range(len(FEATURES))]])
         self.assertEqual(targets.tolist(), [1.0])
 
     def test_risk_calculation_stores_model_probabilities_on_each_cell(self):
         import torch
-        from projects.BNN import calculate_project_risk
+        from projects.BNN import FEATURES, calculate_project_risk
 
         second_cell = GridCell.objects.create(
             project=self.project,
@@ -1484,7 +1493,9 @@ class RiskModelTests(ProjectAPITestCase):
             distance_to_road=20,
         )
         model = MagicMock()
-        model.return_value = torch.tensor([0.0, 2.0])
+        model.return_value = {
+            "probabilities": torch.tensor([0.5, 0.880797]),
+        }
         scaler = MagicMock()
         scaler.transform.side_effect = lambda values: values
 
@@ -1499,6 +1510,58 @@ class RiskModelTests(ProjectAPITestCase):
         self.assertEqual(len(calculated_cells), 2)
         self.assertAlmostEqual(self.cell.risk_score, 0.5, places=5)
         self.assertAlmostEqual(second_cell.risk_score, 0.880797, places=5)
+        self.assertEqual(
+            len(scaler.transform.call_args.args[0][0]),
+            len(FEATURES),
+        )
+
+    def test_risk_calculation_includes_attack_history_and_time_features(self):
+        import torch
+        from projects.BNN import (
+            FEATURES,
+            build_feature_values,
+            calculate_project_risk,
+        )
+
+        observed_at = timezone.now()
+        incident_time = observed_at - timedelta(hours=2)
+        model = MagicMock()
+        model.return_value = {
+            "probabilities": torch.tensor([0.5]),
+        }
+        scaler = MagicMock()
+        scaler.transform.side_effect = lambda values: values
+
+        with (
+            patch(
+                "projects.BNN.timezone.now",
+                return_value=observed_at,
+            ),
+            patch(
+                "projects.BNN.load_incidents",
+                return_value=[
+                    {
+                        "grid_cell_id": self.cell.id,
+                        "timestamp": incident_time,
+                    },
+                ],
+            ),
+            patch(
+                "projects.BNN.load_project_model",
+                return_value=(model, scaler),
+            ),
+        ):
+            calculate_project_risk(self.project)
+
+        expected_features = build_feature_values(
+            self.cell,
+            observed_at,
+            [incident_time],
+        )
+        self.assertEqual(
+            scaler.transform.call_args.args[0][0],
+            [expected_features[feature] for feature in FEATURES],
+        )
 
     def test_risk_calculation_stores_average_variance_from_repeated_inference(self):
         import torch
@@ -1514,8 +1577,8 @@ class RiskModelTests(ProjectAPITestCase):
         )
         model = MagicMock()
         model.side_effect = [
-            torch.tensor([0.0, 2.0]),
-            torch.tensor([2.0, 0.0]),
+            {"probabilities": torch.tensor([0.5, 0.880797])},
+            {"probabilities": torch.tensor([0.880797, 0.5])},
         ]
         scaler = MagicMock()
         scaler.transform.side_effect = lambda values: values
@@ -1550,13 +1613,15 @@ class RiskModelTests(ProjectAPITestCase):
         from sklearn.preprocessing import StandardScaler
         from projects.BNN import (
             FEATURES,
-            RiskMLP,
+            RiskPredictorMCDropout,
             initialize_project_model,
             load_project_model,
             project_model_paths,
         )
 
-        model = RiskMLP(input_size=len(FEATURES))
+        model = RiskPredictorMCDropout(
+            num_input_features=len(FEATURES)
+        )
         scaler = StandardScaler()
         second_project = SimpleNamespace(pk=self.project.pk + 1)
         self.assertNotEqual(
@@ -1615,24 +1680,23 @@ class RiskModelTests(ProjectAPITestCase):
         self.assertEqual(response.data["uncertainty"], 0.125)
         self.assertEqual(self.project.uncertainty, 0.125)
 
-    def test_risk_model_stochastic_inference_applies_dropout_without_changing_weights(self):
+    def test_risk_model_uses_dropout_without_changing_weights(self):
         import torch
-        from projects.BNN import RiskMLP
+        from projects.BNN import RiskPredictorMCDropout
 
-        model = RiskMLP(input_size=1)
-        with torch.no_grad():
-            for parameter in model.parameters():
-                parameter.zero_()
-            model.network[0].weight[0, 0] = 1
-            model.network[2].weight[0, 0] = 1
-            model.network[4].weight[0, 0] = 1
-
+        model = RiskPredictorMCDropout(num_input_features=1)
         inputs = torch.ones((64, 1))
+        original_weights = {
+            name: parameter.clone()
+            for name, parameter in model.named_parameters()
+        }
         outputs = torch.stack(
-            [model(inputs, stochastic=True) for _ in range(10)]
+            [model(inputs)["probabilities"] for _ in range(10)]
         )
 
         self.assertGreater(torch.unique(outputs).numel(), 1)
+        for name, parameter in model.named_parameters():
+            self.assertTrue(torch.equal(parameter, original_weights[name]))
 
 
 class TerrainDataTests(ProjectAPITestCase):
