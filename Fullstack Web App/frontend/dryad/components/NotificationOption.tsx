@@ -7,6 +7,7 @@ interface NotificationOptionProps {
     state : boolean;
     onChange : (e : React.ChangeEvent<HTMLInputElement>)=>void;
     active : boolean | null;
+    disabled?: boolean;
 }
 
 export default function NotificationOption(props : NotificationOptionProps) {
@@ -19,7 +20,13 @@ export default function NotificationOption(props : NotificationOptionProps) {
             <p className="text-secondary-content text-base">{props.description}</p>
         </div>
         {props.active!=null ?
-            <input type="checkbox" className="toggle toggle-primary" checked={props.active} onChange={props.onChange} />
+            <input
+                type="checkbox"
+                className="toggle toggle-primary"
+                checked={props.active}
+                onChange={props.onChange}
+                disabled={props.disabled}
+            />
             :
             <span className="loading loading-spinner"></span>
         }

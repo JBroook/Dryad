@@ -5,12 +5,12 @@ import { usePathname, useRouter } from "next/navigation";
 import { BsTree } from "react-icons/bs";
 import { IoSettingsOutline, IoWarningOutline } from "react-icons/io5";
 import { TbMapRoute } from "react-icons/tb";
-import HollowCard from "./HollowCard";
 import { MdOutlineDarkMode, MdOutlineLightMode } from "react-icons/md";
 import { useEffect, useState } from "react";
 import { useTheme } from "next-themes";
 import { apiFetch } from "@/library/api";
 import { useToast } from "./ToastProvider";
+import UserAvatar from "./UserAvatar";
 
 export default function Sidebar() {
     const sidebarOptions = [
@@ -39,24 +39,20 @@ export default function Sidebar() {
     const [firstName, setFirstName] = useState<string>("")
     const [lastName, setLastName] = useState<string>("")
     const [email, setEmail] = useState<string>("")
+    const [profilePicture, setProfilePicture] = useState<string | null>(null)
     
     const setUserInfo = (data : any) => {
         setFirstName(data.first_name);
         setLastName(data.last_name);
         setEmail(data.email);
+        setProfilePicture(data.profile_picture);
       }
     
       useEffect(()=>{
-        // const token = localStorage.getItem("access");
-    
-        // if(!token){
-        //   router.push("/login")
-        // }else{
-        //   setAuthenticated(true)
-        // }
-    
-        // fetch user info
+        const fetchUserInfo = () => {
         const userID = localStorage.getItem("userID")
+        if (!userID) return;
+
         apiFetch(`users/${userID}`)
           .then(async (res) => {
             if (!res.ok) throw new Error(await res.text());
@@ -64,13 +60,19 @@ export default function Sidebar() {
           })
           .then(setUserInfo)
           .catch((err) => console.error("Fetch failed:", err));
+        };
+
+        fetchUserInfo();
+        window.addEventListener("user-profile-updated", fetchUserInfo);
+        return () =>
+            window.removeEventListener("user-profile-updated", fetchUserInfo);
       }, [])
 
     return (
         <aside className="w-64 h-screen fixed left-0 top-0">
             <div className="flex flex-col w-full h-full bg-base-200 border-r border-r-base-300 border-r-[2px]">
                 <div className="py-5 pl-5 border-b border-b-base-300 border-b-[2px]">
-                    <h1 className="text-3xl font-semibold">Dryad</h1>
+                    <Link className="text-3xl font-semibold" href="/home/projects">Dryad</Link>
                 </div>
 
                 <ul className="menu p-4 w-full">
@@ -102,11 +104,12 @@ export default function Sidebar() {
                         </h1>
                     </button>
                     <Link href="/home/account" className="mt-3 p-3 w-[90%] flex flex-row bg-base-100 rounded-2xl border border-white/8 cursor-pointer">
-                        <div className="avatar">
-                            <div className="w-8 rounded-full">
-                                <img src="https://img.daisyui.com/images/profile/demo/yellingcat@192.webp" />
-                            </div>
-                        </div>
+                        <UserAvatar
+                            firstName={firstName}
+                            lastName={lastName}
+                            email={email}
+                            profilePicture={profilePicture}
+                        />
                         <div className="ml-4">
                             <h1 className="font-semibold">{firstName} {lastName}</h1>
                             <p className="text-secondary-content text-xs truncate w-40">{email}</p>

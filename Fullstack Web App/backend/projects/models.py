@@ -30,6 +30,8 @@ class Project(models.Model):
     created_at = models.DateTimeField(default=timezone.now)
     last_trained = models.DateTimeField(null=True, blank=True)
     train_count = models.IntegerField(default=0)
+    confirmed_incidents_since_training = models.PositiveSmallIntegerField(default=0)
+    uncertainty = models.FloatField(default=0)
 
     class AlertPreference(models.TextChoices):
         ALL = "all", "All"
@@ -67,6 +69,7 @@ class Membership(models.Model):
     join_date = models.DateField(null=True, blank=True)
     accepted = models.BooleanField(default=False)
     invited_by = models.ForeignKey(to=User, on_delete=models.PROTECT)
+    opened = models.BooleanField(default=False)
 
     class Role(models.TextChoices):
         VIEWER = "viewer", "Viewer"
@@ -158,7 +161,14 @@ class Device(models.Model):
         )
 
         for member in members:
-            if member.user.email!=real_email:
+            if (
+                member.user.email != real_email
+                or not member.user.receive_emails
+                or (
+                    member.user.critical_incidents_only
+                    and confidence <= 85
+                )
+            ):
                 continue
 
             params.append(
@@ -169,7 +179,8 @@ class Device(models.Model):
                 "html": html,
             })
 
-        resend.Batch.send(params)
+        if params:
+            resend.Batch.send(params)
 
 class Incident(models.Model):
     project = models.ForeignKey(to=Project, on_delete=models.CASCADE, related_name="incidents")
@@ -182,6 +193,7 @@ class Incident(models.Model):
     ])
     device = models.ForeignKey(to=Device, on_delete=models.CASCADE, blank=True, null=True)
     grid_cell = models.ForeignKey(to=GridCell, on_delete=models.CASCADE)
+    manual_report = models.BooleanField(default=False)
 
     class Status(models.TextChoices):
         NEW = "new", "New"

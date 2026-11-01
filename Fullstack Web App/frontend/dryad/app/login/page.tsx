@@ -45,15 +45,33 @@ export default function Login() {
   const [password, setPassword] = useState<string>("");
   const [isLogin, setIsLogin] = useState<boolean>(true);
 
+  const toggleLogin = (login : boolean) => {
+    setIsLogin(login);
+    reset({
+      firstName: "",
+      lastName: "",
+      email: "",
+      password: "",
+      retypePassword: "",
+    })
+  }
 
   const {
     register,
     handleSubmit,
     setError,
+    reset,
     formState: { errors, isSubmitting },
   } = useForm<RegisterForm>({
     resolver: zodResolver(registerSchema),
     mode: "onBlur",
+    defaultValues: {
+      firstName: "",
+      lastName: "",
+      email: "",
+      password: "",
+      retypePassword: "",
+    },
   });
 
   const router = useRouter();
@@ -76,7 +94,14 @@ export default function Login() {
     })
 
     if(!res.ok){
-      alert("Invalid Credentials");
+      const error = await res.json();
+
+      if (error.code === "email_not_verified") {
+        showToast("Please verify your account before logging in.", "warning");
+      } else {
+        alert("Invalid Credentials");
+      }
+
       setSubmitted(false);
       return;
     }
@@ -120,6 +145,8 @@ export default function Login() {
           });
         }
       }
+
+      setSubmitted(false);
       return;
     }
 
@@ -191,24 +218,24 @@ export default function Login() {
 
         <div role="tablist" className="tabs tabs-box bg-base-200 w-full border border-base-300">
           <a role="tab" className={`tab flex-1 ${isLogin ? "text-accent bg-base-300 tab-active" : "text-secondary-content"}`}
-          onClick={()=>setIsLogin(true)}>
+          onClick={()=>toggleLogin(true)}>
             Sign in
           </a>
           <a role="tab" className={`tab flex-1 ${!isLogin ? "text-accent bg-base-300 tab-active" : "text-secondary-content"}`}
-          onClick={()=>setIsLogin(false)}>
+          onClick={()=>toggleLogin(false)}>
             Register
           </a>
         </div>
 
         {isLogin ?
-          <form className="flex flex-col max-w-md mx-auto space-y-4" onSubmit={handleLogin}>
+          <form className="flex flex-col max-w-md mx-auto space-y-4" onSubmit={handleLogin} key="login-form">
             <fieldset className="fieldset">
               <legend className="fieldset-legend font-medium text-secondary-content">Email Address</legend>
               <input
                 type="email"
                 className="input w-full bg-base-200 border border-base-300 text-base-content"
                 placeholder="you@example.com"
-                value={email}
+                value={email ?? ""}
                 onChange={(e)=>setEmail(e.target.value)}
               />
             </fieldset>
@@ -219,7 +246,7 @@ export default function Login() {
                 type="password"
                 className="input w-full bg-base-200 border border-base-300 text-base-content"
                 placeholder="••••••••"
-                value={password}
+                value={password ?? ""}
                 onChange={(e)=>setPassword(e.target.value)}
               />
             </fieldset>
@@ -242,6 +269,7 @@ export default function Login() {
           :
           <form
             className="flex flex-col max-w-md mx-auto space-y-4"
+            key="registration-form"
             onSubmit={handleSubmit(handleRegister)}
           >
             <fieldset className="fieldset">

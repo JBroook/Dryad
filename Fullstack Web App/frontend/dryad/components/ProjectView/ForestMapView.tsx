@@ -1,6 +1,6 @@
 "use client"
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { FaArrowUp, FaBrain, FaThermometer, FaThermometerEmpty } from "react-icons/fa";
 import { FiLayers } from "react-icons/fi";
 import { IoIosArrowUp, IoMdWifi } from "react-icons/io";
@@ -17,6 +17,16 @@ import { useSearchParams } from "next/navigation";
 import { PiLightning } from "react-icons/pi";
 import { MdLoop } from "react-icons/md";
 import { Project } from "@/app/home/projects/new/page";
+import { FaQuestion } from "react-icons/fa6";
+
+type IncidentTimeRange =
+    | "today"
+    | "last-week"
+    | "last-30-days"
+    | "last-month"
+    | "last-6-months"
+    | "all-time";
+
 const ForestMapFull = dynamic(() => import("../ForestMapFull"), {
     ssr: false,
 });
@@ -29,17 +39,24 @@ interface ForestMapViewProps {
     incidents : IncidentType[];
     devices : Device[];
     project : Project;
+    setUncertainty : (uncertainty: number) => void;
     canCalculateRisk: boolean;
+    routinePatrolId: string | null;
 }
 
 export default function ForestMapView(props: ForestMapViewProps) {
     const { showToast } = useToast();
+    const riskWarningDialog = useRef<HTMLDialogElement>(null);
     const [mapTags , setMapTags] = useState({
         incidents : {title : "Incidents", color : "#F87171", active : true, key : "incidents"},
         riskHeatmap : {title : "Risk Heatmap", color : "#F97316", active : true, key : "riskHeatmap"},
         devices : {title : "Devices", color : "#4ADE80", active : false, key : "devices"},
     });
     const [heatmapOpacity, setHeatmapOpacity] = useState<number>(50);
+    const [incidentTimeRange, setIncidentTimeRange] =
+        useState<IncidentTimeRange>("last-30-days");
+    const [routinePatrolPath, setRoutinePatrolPath] = useState<GeoJSON | null>(null);
+    const [routinePatrolError, setRoutinePatrolError] = useState("");
 
     const searchParams = useSearchParams();
     const lat = searchParams.get('lat');
@@ -49,6 +66,58 @@ export default function ForestMapView(props: ForestMapViewProps) {
     const [longitude, setLongitude] = useState<number | null>(lng!=null ? parseFloat(lng) : lng);
 
     const drawnItemsReference = useRef<LeafletFeatureGroup | null>(null);
+
+    useEffect(() => {
+        if (!props.projectID) return;
+
+        apiFetch(`projects/${props.projectID}/forest_map/opened`, {
+            method: "POST",
+        })
+            .then(async (response) => {
+                if (!response.ok) throw new Error(await response.text());
+                return response.json();
+            })
+            .then((data: { show_warning: boolean }) => {
+                if (data.show_warning && !riskWarningDialog.current?.open) {
+                    riskWarningDialog.current?.showModal();
+                }
+            })
+            .catch((error) => {
+                console.error("Forest map visit tracking failed:", error);
+                showToast("Unable to load the forest map notice.", "error");
+            });
+    }, [props.projectID, showToast]);
+
+    useEffect(() => {
+        if (!props.projectID || !props.routinePatrolId) {
+            setRoutinePatrolPath(null);
+            setRoutinePatrolError("");
+            return;
+        }
+
+        let cancelled = false;
+        setRoutinePatrolPath(null);
+        setRoutinePatrolError("");
+
+        apiFetch(
+            `projects/${props.projectID}/routine_patrols/${props.routinePatrolId}/`
+        )
+            .then(async (response) => {
+                if (!response.ok) throw new Error(await response.text());
+                return response.json();
+            })
+            .then((patrol: { path: GeoJSON }) => {
+                if (!cancelled) setRoutinePatrolPath(patrol.path);
+            })
+            .catch((error) => {
+                console.error("Routine patrol map load failed:", error);
+                if (!cancelled) setRoutinePatrolError("Unable to load this routine patrol route.");
+            });
+
+        return () => {
+            cancelled = true;
+        };
+    }, [props.projectID, props.routinePatrolId]);
 
     const toggleMapLayer = (index : string, value : boolean) => {
         const newMapTags = {...mapTags};
@@ -69,7 +138,16 @@ export default function ForestMapView(props: ForestMapViewProps) {
             return res.json();
         })
         .then((data)=>{
-            props.setGridCells(data)
+            props.setUncertainty(data.uncertainty);
+            apiFetch(`projects/${props.projectID}/grid_cells`)
+                .then(async (response) => {
+                    if (!response.ok) throw new Error(await response.text());
+                    return response.json();
+                })
+                .then(props.setGridCells)
+                .catch((error) => {
+                    console.error("Risk grid refresh failed:", error);
+                });
             showToast(data.message ?? "Risk calculation completed.");
         })
         .catch((err) => {
@@ -84,8 +162,76 @@ export default function ForestMapView(props: ForestMapViewProps) {
         formalDateTime = date.toLocaleString("en-US");
     }else formalDateTime = "Never"
     
+    const now = new Date();
+    const rangeStart = new Date(now);
+    let rangeEnd: Date | null = null;
+
+    switch (incidentTimeRange) {
+        case "today":
+            rangeStart.setHours(0, 0, 0, 0);
+            break;
+        case "last-week":
+            rangeStart.setDate(rangeStart.getDate() - 7);
+            break;
+        case "last-30-days":
+            rangeStart.setDate(rangeStart.getDate() - 30);
+            break;
+        case "last-month":
+            rangeEnd = new Date(now.getFullYear(), now.getMonth(), 1);
+            rangeStart.setFullYear(now.getFullYear(), now.getMonth() - 1, 1);
+            rangeStart.setHours(0, 0, 0, 0);
+            break;
+        case "last-6-months": {
+            const dayOfMonth = rangeStart.getDate();
+            rangeStart.setDate(1);
+            rangeStart.setMonth(rangeStart.getMonth() - 6);
+            const lastDayOfMonth = new Date(
+                rangeStart.getFullYear(),
+                rangeStart.getMonth() + 1,
+                0
+            ).getDate();
+            rangeStart.setDate(Math.min(dayOfMonth, lastDayOfMonth));
+            break;
+        }
+        case "all-time":
+            break;
+    }
+
+    const filteredIncidents = props.incidents.filter((incident) => {
+        if (incidentTimeRange === "all-time") return true;
+
+        const timestamp = new Date(incident.timestamp);
+        return (
+            timestamp >= rangeStart &&
+            (!rangeEnd || timestamp < rangeEnd) &&
+            timestamp <= now
+        );
+    });
+
+    const incidentTimeRangeLabels: Record<IncidentTimeRange, string> = {
+        today: "Today",
+        "last-week": "Last week",
+        "last-30-days": "Last 30 days",
+        "last-month": "Last month",
+        "last-6-months": "Last 6 months",
+        "all-time": "All-time",
+    };
 
     return (<>
+        <dialog ref={riskWarningDialog} className="modal">
+            <div className="modal-box bg-base-200 border border-white/8">
+                <h2 className="text-lg font-bold">Risk Prediction Notice</h2>
+                <p className="py-4 text-secondary-content">
+                    Predictions generated by the risk prediction model are not guaranteed to be true, and should only be taken as estimations of risk.
+                </p>
+                <div className="modal-action">
+                    <form method="dialog">
+                        <button className="btn btn-primary">Understood</button>
+                    </form>
+                </div>
+            </div>
+        </dialog>
+
         <div className="flex mx-6 mt-4 items-center">
             <details className="dropdown">
                 <summary className="btn border border-accent/50 bg-accent/15 text-accent font-medium">
@@ -100,14 +246,17 @@ export default function ForestMapView(props: ForestMapViewProps) {
                     </div>
 
                     <div className="flex flex-col gap-4 my-2 divide-y divide-white/8">
-                    <div className="flex items-center justify-between pb-4">
+                    <div className="flex flex-col gap-3 pb-4">
+                        <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
                         <div className="p-2 rounded-lg bg-red-950/50 text-warning text-xl">
                             <IoWarning/>
                         </div>
                         <div>
                             <p className="font-semibold text-sm">Incidents</p>
-                            <p className="text-xs text-secondary-content">Past 30 days</p>
+                            <p className="text-xs text-secondary-content">
+                                {incidentTimeRangeLabels[incidentTimeRange]}
+                            </p>
                         </div>
                         </div>
                         <input 
@@ -115,6 +264,24 @@ export default function ForestMapView(props: ForestMapViewProps) {
                         className="toggle toggle-success" 
                         checked={mapTags.incidents.active}
                         onChange={(e)=>toggleMapLayer("incidents", e.target.checked)} />
+                        </div>
+                        <label className="flex flex-col gap-1 text-xs text-secondary-content">
+                            Time range
+                            <select
+                                className="select select-bordered select-sm w-full text-base-content"
+                                value={incidentTimeRange}
+                                onChange={(e) =>
+                                    setIncidentTimeRange(e.target.value as IncidentTimeRange)
+                                }
+                            >
+                                <option value="today">Today</option>
+                                <option value="last-week">Last week</option>
+                                <option value="last-30-days">Last 30 days</option>
+                                <option value="last-month">Last month</option>
+                                <option value="last-6-months">Last 6 months</option>
+                                <option value="all-time">All-time</option>
+                            </select>
+                        </label>
                     </div>
 
                     <div className="flex flex-col gap-2 pb-4">
@@ -177,6 +344,9 @@ export default function ForestMapView(props: ForestMapViewProps) {
         </div>
 
         <div className="mx-6 mt-2 min-h-120">
+            {routinePatrolError && (
+                <p role="alert" className="mb-2 text-error">{routinePatrolError}</p>
+            )}
             <ForestMapFull 
             latitude={latitude}
             longitude={longitude}
@@ -185,10 +355,11 @@ export default function ForestMapView(props: ForestMapViewProps) {
             geoJSON={props.geoJSON ?? null}
             gridCells={props.gridCells}
             gridOpacity={mapTags.riskHeatmap.active ? heatmapOpacity/100 : 0}
-            incidents={props.incidents}
+            incidents={filteredIncidents}
             enableIncidents={mapTags.incidents.active}
             devices={props.devices}
             enableDevices={mapTags.devices.active}
+            routinePatrolPath={routinePatrolPath}
             />
         </div>
 
@@ -206,13 +377,13 @@ export default function ForestMapView(props: ForestMapViewProps) {
             <button className="btn btn-primary"
             onClick={calculateRisk}>
                 <PiLightning />
-                Calculate Risk
+                Retrain Model
             </button>
         </div>
         )}
 
-        <div className="flex  gap-4 mx-6 mt-4 mb-30">
-            <div className="border border-white/8 bg-base-200 py-4 px-6 rounded-xl flex-3">
+        <div className="flex gap-4 mx-6 mt-4 mb-30">
+            <div className="border border-white/8 bg-base-200 py-4 px-6 rounded-xl flex-2">
                 <div className="p-2 border border-[#60A5FA]/70 w-10 h-10 rounded-full flex items-center justify-center bg-[#60A5FA]/25">
                     <FaBrain className="my-2 text-xl text-[#60A5FA]"/>
                 </div>
@@ -222,6 +393,25 @@ export default function ForestMapView(props: ForestMapViewProps) {
                 <p className="text-secondary-content text-sm">
                     Data obtained from the detection devices is used to train the Risk Prediction Model. The model learns from terrain features (e.g. elevation, slope, proximity to landmarks, etc) and historical attack data.
                     This helps it determine a risk score for each cell of the forest.
+                </p>
+            </div>
+            <div className="border border-white/8 bg-base-200 py-4 px-6 rounded-xl flex-1">
+                <div className="p-2 border border-[#A78BFA]/70 w-10 h-10 rounded-full flex items-center justify-center bg-[#A78BFA]/25">
+                    <FaQuestion className="my-2 text-xl text-[#A78BFA]"/>
+                </div>
+                <h1 className="font-semibold my-2 text-xl">
+                    Uncertainty
+                </h1>
+                <div className="flex items-end">
+                    <h1 className="text-4xl font-bold text-[#A78BFA]">
+                        {props.project.uncertainty.toFixed(4)}
+                    </h1>
+                    <p className="text-secondary-content text-sm ml-2">
+                        avg. variance
+                    </p>
+                </div>
+                <p className="text-secondary-content text-sm mt-2">
+                    Uncertainty represents the model's consistency in its risk prediction, which may change based on the volume of attack data
                 </p>
             </div>
             <div className="border border-white/8 bg-base-200 py-4 px-6 rounded-xl flex-1">

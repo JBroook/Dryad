@@ -1,24 +1,31 @@
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { FaDownload, FaRegClock, FaRegUser } from "react-icons/fa6";
 import { IoIosArrowDown, IoIosArrowUp } from "react-icons/io";
-import { TbMapRoute } from "react-icons/tb";
+import { TbMap2, TbMapRoute, TbTrash } from "react-icons/tb";
 import type { RoutinePatrol } from "./ProjectView/PatrolsView";
 import { capitalizeFirstLetter, timeAgo } from "@/library/general";
 import GlowButton from "./GlowButton";
 import { FiExternalLink } from "react-icons/fi";
 import { apiFetch } from "@/library/api";
+import { useToast } from "./ToastProvider";
 
 interface RoutinePatrolCardProps {
     patrol: RoutinePatrol;
+    canManage?: boolean;
+    onDelete?: (patrolID: number) => void;
 }
 
-export default function RoutinePatrolCard({ patrol }: RoutinePatrolCardProps) {
+export default function RoutinePatrolCard({ patrol, canManage, onDelete }: RoutinePatrolCardProps) {
     const [isOpen, setIsOpen] = useState(false);
+    const [isDeleting, setIsDeleting] = useState(false);
     const createdAt = new Date(patrol.created_at);
     const createdBy = patrol.created_by?.user;
     const coordinates = patrol.path.coordinates;
     const [isExporting, setIsExporting] = useState(false);
     const [exportError, setExportError] = useState("");
+    const router = useRouter();
+    const { showToast } = useToast();
 
     const exportGPX = async () => {
         setIsExporting(true);
@@ -47,6 +54,38 @@ export default function RoutinePatrolCard({ patrol }: RoutinePatrolCardProps) {
         } finally {
             setIsExporting(false);
         }
+    };
+
+    const deletePatrol = async () => {
+        if (!window.confirm(`Delete the routine patrol "${patrol.name}"?`)) return;
+
+        setIsDeleting(true);
+        setExportError("");
+        try {
+            const response = await apiFetch(
+                `projects/${patrol.project.id}/routine_patrols/${patrol.id}/`,
+                { method: "DELETE" }
+            );
+            if (!response.ok) {
+                throw new Error(await response.text());
+            }
+
+            const data = await response.json();
+            onDelete?.(patrol.id);
+            showToast(data.message ?? "Routine patrol deleted successfully.");
+        } catch (error) {
+            setExportError(
+                error instanceof Error ? error.message : "Unable to delete this patrol."
+            );
+        } finally {
+            setIsDeleting(false);
+        }
+    };
+
+    const viewOnMap = () => {
+        router.push(
+            `/home/project?pid=${patrol.project.id}&tab=forest_map&routine_patrol=${patrol.id}`
+        );
     };
 
     return (
@@ -117,6 +156,17 @@ export default function RoutinePatrolCard({ patrol }: RoutinePatrolCardProps) {
                     <p className="text-secondary-content text-sm">
                         Route · {coordinates.length} waypoints
                     </p>
+                    <div className="flex flex-wrap justify-end gap-2">
+                    {coordinates.length >= 2 && (
+                        <GlowButton
+                            className="btn btn-primary"
+                            color="#34D399"
+                            onClick={viewOnMap}
+                        >
+                            <TbMap2 />
+                            View on Map
+                        </GlowButton>
+                    )}
                     {coordinates.length >= 2 && (
                         <GlowButton
                             className="btn btn-secondary"
@@ -129,6 +179,18 @@ export default function RoutinePatrolCard({ patrol }: RoutinePatrolCardProps) {
                             <FiExternalLink />
                         </GlowButton>
                     )}
+                    {canManage && onDelete && (
+                        <GlowButton
+                            className="btn btn-error"
+                            color="#F87171"
+                            onClick={deletePatrol}
+                            disabled={isDeleting}
+                        >
+                            <TbTrash />
+                            {isDeleting ? "Deleting..." : "Delete"}
+                        </GlowButton>
+                    )}
+                    </div>
                 </div>
                 {exportError && <p role="alert" className="text-error text-sm mt-2">{exportError}</p>}
             </div>

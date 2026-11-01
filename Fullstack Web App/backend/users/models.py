@@ -36,6 +36,11 @@ class UserManager(BaseUserManager):
 class User(AbstractUser):
     username = None
     email = models.EmailField(unique=True)
+    profile_picture = models.ImageField(
+        upload_to="profile_pictures/",
+        blank=True,
+        null=True,
+    )
     verified = models.BooleanField(default=False)
     verification_code_hash = models.CharField(
         max_length=128,
@@ -54,6 +59,7 @@ class User(AbstractUser):
     )
 
     receive_emails = models.BooleanField(default=True)
+    receive_invite_emails = models.BooleanField(default=True)
     critical_incidents_only = models.BooleanField(default=False)
 
     USERNAME_FIELD = "email"

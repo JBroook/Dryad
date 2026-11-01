@@ -1,4 +1,3 @@
-import random
 import logging
 
 from .terrain import download_dem, download_osm_roads, generate_slope_raster, populate_road_distances, populate_terrain_data, save_osm_roads
@@ -38,7 +37,8 @@ class ProjectOverviewSerializer(serializers.ModelSerializer):
             'device_count',
             'new_alerts',
             'total_incidents',
-            'online_devices'
+            'online_devices',
+            'uncertainty',
         ]
         read_only_fields = ['owner']
 
@@ -115,7 +115,6 @@ def generate_grid(project, cell_size=100):
         grid_cells.append(GridCell(
             project=project,
             geometry=geometry,
-            risk_score=random.random(),
             identifier=f"cell-{index}"
         ))
 
@@ -186,6 +185,8 @@ class ProjectSerializer(GeoFeatureModelSerializer):
         geo_field = "monitoring_area"
 
     def create(self, validated_data):
+        from .BNN import calculate_project_risk, initialize_project_model
+
         members = validated_data.pop("members", [])
         threat_classes = validated_data.pop("threat_classes", [])
 
@@ -193,6 +194,8 @@ class ProjectSerializer(GeoFeatureModelSerializer):
 
         # generate grid
         generate_grid(project=project, cell_size=100)
+        initialize_project_model(project)
+        calculate_project_risk(project)
 
         # generate memberships
         for member in members:
@@ -256,10 +259,41 @@ class IncidentSerializer(serializers.ModelSerializer):
         model = Incident
         fields = '__all__'
 
+
+class ManualIncidentReportSerializer(serializers.Serializer):
+    threat_class = serializers.IntegerField()
+    timestamp = serializers.DateTimeField()
+    latitude = serializers.FloatField(min_value=-180, max_value=180)
+    longitude = serializers.FloatField(min_value=-180, max_value=180)
+
+    def validate(self, attrs):
+        latitude = attrs["latitude"]
+        longitude = attrs["longitude"]
+
+        if abs(latitude) <= 90 and abs(longitude) <= 180:
+            return attrs
+
+        if abs(longitude) <= 90 and abs(latitude) <= 180:
+            attrs["latitude"], attrs["longitude"] = longitude, latitude
+            return attrs
+
+        errors = {}
+        if abs(latitude) > 90:
+            errors["latitude"] = "Latitude must be between -90 and 90."
+        if abs(longitude) > 180:
+            errors["longitude"] = "Longitude must be between -180 and 180."
+        if not errors:
+            errors["coordinates"] = (
+                "Coordinates must be valid in latitude/longitude or "
+                "longitude/latitude order."
+            )
+        raise serializers.ValidationError(errors)
+
+
 class MembershipUserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ['first_name', 'last_name']
+        fields = ['first_name', 'last_name', 'profile_picture']
 
 class PatrolAssignerSerializer(serializers.ModelSerializer):
     user = MembershipUserSerializer()

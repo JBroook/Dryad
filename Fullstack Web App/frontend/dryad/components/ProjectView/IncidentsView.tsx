@@ -25,10 +25,18 @@ interface IncidentsViewProps {
     setFilterIndex : (index : number) => void;
     incidents : IncidentType[];
     threatClasses : ThreatClass[];
+    projectThreatClassIds: number[];
     setThreatClasses : (newThreatClasses : ThreatClass[]) => void;
     setIncidents : (incidents : IncidentType[]) => void;
     canManage: boolean;
 }
+
+const getLocalDateTimeValue = () => {
+    const now = new Date();
+    return new Date(now.getTime() - now.getTimezoneOffset() * 60000)
+        .toISOString()
+        .slice(0, 16);
+};
 
 
 export default function IncidentsView(props: IncidentsViewProps) {
@@ -42,6 +50,12 @@ export default function IncidentsView(props: IncidentsViewProps) {
     const [sortToggle, setSortToggle] = useState<{date : boolean, confidence : boolean}>({date : true, confidence : true});
     const [showFilters, setShowFilters] = useState<boolean>(false);
     const [minimumConfidence, setMinimumConfidence] = useState<number>(0);
+    const [manualThreatClass, setManualThreatClass] = useState("");
+    const [manualTimestamp, setManualTimestamp] = useState(getLocalDateTimeValue);
+    const [manualLatitude, setManualLatitude] = useState("");
+    const [manualLongitude, setManualLongitude] = useState("");
+    const [isCreatingManualReport, setIsCreatingManualReport] = useState(false);
+    const [isGettingLocation, setIsGettingLocation] = useState(false);
     type StatusKey = "new" | "reviewing" | "confirmed" | "dismissed";
     const [statusFilter, setStatusFilter] = useState<Record<StatusKey, boolean>>({
         new : false,
@@ -185,6 +199,41 @@ export default function IncidentsView(props: IncidentsViewProps) {
         modal.close();
     }
 
+    const manualThreatClasses = props.threatClasses.filter((threatClass) =>
+        props.projectThreatClassIds.includes(threatClass.id)
+    );
+
+    const openManualReportModal = () => {
+        setManualThreatClass(manualThreatClasses[0]?.id.toString() ?? "");
+        setManualTimestamp(getLocalDateTimeValue());
+        setManualLatitude("");
+        setManualLongitude("");
+        const modal = document.getElementById("manualReportModal") as HTMLDialogElement;
+        modal.showModal();
+    };
+
+    const fillCurrentLocation = () => {
+        if (!navigator.geolocation) {
+            showToast("Location is not available in this browser.", "error");
+            return;
+        }
+
+        setIsGettingLocation(true);
+        navigator.geolocation.getCurrentPosition(
+            ({ coords }) => {
+                setManualLatitude(coords.latitude.toString());
+                setManualLongitude(coords.longitude.toString());
+                setIsGettingLocation(false);
+            },
+            (error) => {
+                console.error("Could not retrieve current location:", error);
+                showToast("Unable to retrieve your current location.", "error");
+                setIsGettingLocation(false);
+            },
+            { enableHighAccuracy: true, timeout: 10000 }
+        );
+    };
+
     const handleSort = (type: "date" | "confidence") => {
         if (sortBy !== type) {
             setSortBy(type)
@@ -306,23 +355,63 @@ export default function IncidentsView(props: IncidentsViewProps) {
             firstName : member.user.first_name, 
             lastName : member.user.last_name,
             email : member.user.email,
+            profilePicture: member.user.profile_picture,
             joinDate : member.join_date
         }
         })))
         .catch((err) => console.error("Fetch failed:", err));
     }
 
-    const extractIncidents = (data : any)=>{
-        props.setIncidents(data.map((incident : any)=>{
-        return {...incident, 
-            threatClass : incident.threat_class,
-            coordinates : {
-            lat : parseFloat(incident.coordinates.coordinates[0]),
-            lng : parseFloat(incident.coordinates.coordinates[1])
-            }
+    const normalizeIncident = (incident: any): IncidentType => ({
+        ...incident,
+        threatClass: incident.threat_class,
+        coordinates: {
+            lat: parseFloat(incident.coordinates.coordinates[0]),
+            lng: parseFloat(incident.coordinates.coordinates[1])
         }
-        }))
+    });
+
+    const extractIncidents = (data : any)=>{
+        props.setIncidents(data.map(normalizeIncident));
     }
+
+    const createManualReport = async (e: React.SubmitEvent<HTMLFormElement>) => {
+        e.preventDefault();
+        setIsCreatingManualReport(true);
+
+        try {
+            const response = await apiFetch(`projects/${props.projectID}/manual_reports`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    threat_class: Number(manualThreatClass),
+                    timestamp: new Date(manualTimestamp).toISOString(),
+                    latitude: Number(manualLatitude),
+                    longitude: Number(manualLongitude),
+                }),
+            });
+            if (!response.ok) throw new Error(await response.text());
+
+            const data = await response.json();
+            props.setIncidents([
+                {
+                    ...normalizeIncident(data),
+                    coordinates: {
+                        lat: Number(manualLatitude),
+                        lng: Number(manualLongitude),
+                    },
+                },
+                ...props.incidents,
+            ]);
+            closeModal("manualReportModal");
+            showToast("Manual incident report created successfully.");
+        } catch (error) {
+            console.error("Manual incident report creation failed:", error);
+            showToast("Unable to create the manual incident report.", "error");
+        } finally {
+            setIsCreatingManualReport(false);
+        }
+    };
 
     const apiSearchIncident = async (incidentName : string) => {
         await apiFetch(`incidents?project=${props.projectID}&search=${incidentName}`)
@@ -455,6 +544,101 @@ export default function IncidentsView(props: IncidentsViewProps) {
         
     </dialog>
 
+    <dialog id="manualReportModal" className="modal">
+        <div className="modal-box bg-base-200 border border-white/8">
+            <h3 className="font-bold text-lg">New Manual Incident Report</h3>
+            <p className="py-2 text-sm text-secondary-content">
+                Enter the incident details and location.
+            </p>
+            <form onSubmit={createManualReport} className="space-y-2">
+                <div className="form-control w-full">
+                    <span className="label-text mb-2 text-sm font-semibold">Threat</span>
+                    <select
+                        className="select select-bordered w-full border border-white/10 bg-secondary"
+                        value={manualThreatClass}
+                        onChange={(event) => setManualThreatClass(event.target.value)}
+                        required
+                    >
+                        <option value="" disabled>Select a threat</option>
+                        {manualThreatClasses.map((threatClass) => (
+                            <option key={threatClass.id} value={threatClass.id}>
+                                {threatClass.name}
+                            </option>
+                        ))}
+                    </select>
+                </div>
+
+                {manualThreatClasses.length === 0 && (
+                    <p className="text-sm text-warning">
+                        No threat types are configured for this project.
+                    </p>
+                )}
+
+                <div className="form-control w-full">
+                    <span className="label-text mb-2 text-sm font-semibold">Date and time</span>
+                    <input
+                        type="datetime-local"
+                        className="input input-bordered w-full border border-white/10 bg-secondary"
+                        value={manualTimestamp}
+                        onChange={(event) => setManualTimestamp(event.target.value)}
+                        required
+                    />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 mt-2">
+                    <label className="form-control">
+                        <span className="label-text mb-2 text-sm font-semibold">Latitude</span>
+                        <input
+                            type="number"
+                            step="any"
+                            className="input input-bordered w-full border border-white/10 bg-secondary"
+                            value={manualLatitude}
+                            onChange={(event) => setManualLatitude(event.target.value)}
+                            required
+                        />
+                    </label>
+                    <label className="form-control">
+                        <span className="label-text mb-2 text-sm font-semibold">Longitude</span>
+                        <input
+                            type="number"
+                            step="any"
+                            className="input input-bordered w-full border border-white/10 bg-secondary"
+                            value={manualLongitude}
+                            onChange={(event) => setManualLongitude(event.target.value)}
+                            required
+                        />
+                    </label>
+                </div>
+
+                <button
+                    type="button"
+                    className="btn btn-primary w-full"
+                    onClick={fillCurrentLocation}
+                    disabled={isGettingLocation}
+                >
+                    {isGettingLocation ? "Getting location..." : "Use Current Location"}
+                </button>
+
+                <div className="modal-action">
+                    <button
+                        type="submit"
+                        className="btn btn-primary"
+                        disabled={isCreatingManualReport || manualThreatClasses.length === 0}
+                    >
+                        {isCreatingManualReport ? "Creating..." : "Create report"}
+                    </button>
+                    <button
+                        type="button"
+                        className="btn btn-secondary"
+                        onClick={() => closeModal("manualReportModal")}
+                    >
+                        Cancel
+                    </button>
+                </div>
+            </form>
+        </div>
+    </dialog>
+
     <div className="mx-6 flex flex-row items-center mt-5">
         <label className="input bg-secondary w-full border border-white/8 flex-1">
             <IoSearch />
@@ -502,7 +686,7 @@ export default function IncidentsView(props: IncidentsViewProps) {
             Confidence
         </SortButton>
 
-        {props.canManage && <button className="btn btn-primary ml-2">
+        {props.canManage && <button className="btn btn-primary ml-2" onClick={openManualReportModal}>
             <FaPlus/> New Incident
         </button>}
     </div>
@@ -613,6 +797,7 @@ export default function IncidentsView(props: IncidentsViewProps) {
                 return <Incident
                     key={incident.id}
                     name={incident.threatClass.name}
+                    manualReport={incident.manual_report}
                     coordinates={incident.coordinates}
                     timestamp={incident.timestamp}
                     device={incident.device?.name ?? "Non-device"}

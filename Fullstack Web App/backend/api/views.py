@@ -1,12 +1,15 @@
 import hashlib
 import json
 import math
+import os
 from datetime import timedelta
 from xml.sax.saxutils import escape
 from django.http import HttpResponse
+from django.template.loader import render_to_string
 from django.utils import timezone
 import secrets
 import string
+import resend
 from rest_framework import status
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.permissions import IsAuthenticated, SAFE_METHODS
@@ -22,7 +25,7 @@ from projects.models import ConnectionCode, Project, Incident, ThreatClass, Memb
 from projects.permissions import require_project_role
 from projects.serializers import (DeviceConnectSerializer, ProjectOverviewSerializer, ProjectSerializer, IncidentSerializer, 
 ThreatClassSerializer, MembershipSerializer, PatrolSerializer,
-GridCellSerializer, DeviceSerializer, RoutinePatrolSerializer)
+GridCellSerializer, DeviceSerializer, RoutinePatrolSerializer, ManualIncidentReportSerializer)
 from django.db.models import Q
 from django_filters.rest_framework import DjangoFilterBackend
 import django_filters
@@ -84,6 +87,15 @@ class LoginView(APIView):
 
             user = serializer.validated_data["user"]
             logger.info("LOGIN DEBUG: User retrieved")
+
+            if not user.verified:
+                return Response(
+                    {
+                        "detail": "Please verify your account before logging in.",
+                        "code": "email_not_verified",
+                    },
+                    status=status.HTTP_403_FORBIDDEN,
+                )
 
             user_serializer = UserSerializer(user)
             logger.info("LOGIN DEBUG: User serialized")
@@ -277,6 +289,7 @@ class ProjectViewSet(CRUDMessageMixin, ModelViewSet):
         )
         instance.delete()
 
+
 class ProjectOverviewView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -301,17 +314,20 @@ class ProjectOverviewView(APIView):
 
         if project_id:
             require_project_role(request, project_id)
-            projects = projects.filter(pk=project_id)
+            projects = projects.get(pk=project_id)
+            many = False
         else:
             projects = projects.filter(
                 Q(members__user=request.user, members__accepted=True)
                 | Q(owner=request.user)
             ).distinct()
+            many = True
 
         return Response(
-            ProjectOverviewSerializer(projects, many=not project_id).data,
+            ProjectOverviewSerializer(projects, many=many).data,
             status=status.HTTP_200_OK
         )
+
 
 class ThreatClassViewSet(ModelViewSet):
     queryset = ThreatClass.objects.all()
@@ -390,20 +406,38 @@ class IncidentViewSet(CRUDMessageMixin, ModelViewSet):
             return Incident.objects.none()
         return queryset
 
+    @transaction.atomic
     def perform_create(self, serializer):
         project = serializer.validated_data.get("project")
         if project is None:
             raise PermissionDenied("An incident project is required.")
         require_project_role(self.request, project.pk, Membership.Role.MANAGER)
-        serializer.save()
+        incident = serializer.save()
+        if incident.status == Incident.Status.CONFIRMED:
+            from projects.BNN import record_confirmed_incident
 
+            record_confirmed_incident(incident.project_id)
+
+    @transaction.atomic
     def perform_update(self, serializer):
+        incident = Incident.objects.select_for_update().get(
+            pk=serializer.instance.pk
+        )
         require_project_role(
             self.request,
-            self.get_object().project_id,
+            incident.project_id,
             Membership.Role.MANAGER,
         )
+        is_new_confirmation = (
+            incident.status != Incident.Status.CONFIRMED
+            and serializer.validated_data.get("status", incident.status)
+            == Incident.Status.CONFIRMED
+        )
         serializer.save()
+        if is_new_confirmation:
+            from projects.BNN import record_confirmed_incident
+
+            record_confirmed_incident(incident.project_id)
 
     def perform_destroy(self, instance):
         require_project_role(
@@ -475,6 +509,12 @@ class MembershipViewSet(CRUDMessageMixin, ModelViewSet):
         serializer.save()
 
     def perform_destroy(self, instance):
+        if instance.user_id == self.request.user.pk:
+            if instance.role == Membership.Role.OWNER:
+                raise PermissionDenied("The project owner cannot leave their own project.")
+            instance.delete()
+            return
+
         caller = require_project_role(
             self.request,
             instance.project_id,
@@ -485,6 +525,34 @@ class MembershipViewSet(CRUDMessageMixin, ModelViewSet):
         ):
             raise PermissionDenied("Only the project owner can remove an owner.")
         instance.delete()
+
+class ProjectForestMapOpenedView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @transaction.atomic
+    def post(self, request, project_id):
+        project = get_object_or_404(Project, pk=project_id)
+        require_project_role(request, project.pk)
+        membership = Membership.objects.select_for_update().filter(
+            project=project,
+            user=request.user,
+            accepted=True,
+        ).first()
+
+        if membership is None:
+            raise PermissionDenied(
+                "You must be an accepted project member to view its forest map."
+            )
+
+        show_warning = not membership.opened
+        if show_warning:
+            membership.opened = True
+            membership.save(update_fields=["opened"])
+
+        return Response(
+            {"show_warning": show_warning},
+            status=status.HTTP_200_OK,
+        )
 
 class UserMembershipsView(APIView):
     permission_classes = [IsAuthenticated]
@@ -555,7 +623,34 @@ class InviteMemberView(APIView):
                 {"details": "This user is already a member of this project"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        
+
+        if user.receive_invite_emails:
+            resend.api_key = os.getenv("RESEND_API_KEY")
+            sender_name = (
+                f"{request.user.first_name} {request.user.last_name}".strip()
+                or request.user.email
+            )
+            frontend_url = os.getenv("FRONTEND_URL", "http://localhost:3000").rstrip("/")
+            html = render_to_string(
+                "emails/project_invitation.html",
+                {
+                    "project_name": project.name,
+                    "sender_name": sender_name,
+                    "invite_date": timezone.localtime(membership.invited_on).strftime(
+                        "%B %d, %Y"
+                    ),
+                    "website_url": f"{frontend_url}/home/projects",
+                },
+            )
+            params: resend.Emails.SendParams = {
+                "from": "Dryad <onboarding@resend.dev>",
+                "to": [os.getenv("REAL_EMAIL")],
+                # "to": [user.email],  # Send directly to the invited member outside testing.
+                "subject": f"{project.name}: Project Invitation",
+                "html": html,
+            }
+            resend.Emails.send(params)
+
         return Response(
             {
                 **MembershipSerializer(membership).data,
@@ -747,6 +842,34 @@ class ProjectRoutinePatrolView(CRUDMessageMixin, ListCreateAPIView):
             user=self.request.user,
         )
         serializer.save(project=project, created_by=creator)
+
+
+class RoutinePatrolDetailView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get_patrol(self, request, project_id, routine_patrol_id):
+        require_project_role(request, project_id)
+        return get_object_or_404(
+            RoutinePatrol.objects.select_related("project", "created_by__user"),
+            pk=routine_patrol_id,
+            project_id=project_id,
+        )
+
+    def get(self, request, project_id, routine_patrol_id):
+        patrol = self.get_patrol(request, project_id, routine_patrol_id)
+        return Response(
+            RoutinePatrolSerializer(patrol).data,
+            status=status.HTTP_200_OK,
+        )
+
+    def delete(self, request, project_id, routine_patrol_id):
+        require_project_role(request, project_id, Membership.Role.MANAGER)
+        patrol = self.get_patrol(request, project_id, routine_patrol_id)
+        patrol.delete()
+        return Response(
+            {"message": "Routine Patrol deleted successfully."},
+            status=status.HTTP_200_OK,
+        )
 
 
 class RoutinePatrolGPXExportView(APIView):
@@ -1019,6 +1142,58 @@ class DeviceReportView(APIView):
             status=status.HTTP_201_CREATED,
         )
 
+
+class ManualIncidentReportView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, project_id):
+        project = get_object_or_404(Project, pk=project_id)
+        require_project_role(request, project.pk, Membership.Role.MANAGER)
+
+        serializer = ManualIncidentReportSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        validated_data = serializer.validated_data
+
+        project_threat_class = project.threat_classes.filter(
+            threat_class_id=validated_data["threat_class"]
+        ).select_related("threat_class").first()
+        if project_threat_class is None:
+            return Response(
+                {"detail": "The threat class is not configured for this project."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        coordinates = Point(
+            validated_data["longitude"],
+            validated_data["latitude"],
+            srid=4326,
+        )
+        grid_cell = project.grid_cells.filter(
+            geometry__covers=coordinates
+        ).first()
+        if grid_cell is None:
+            return Response(
+                {"detail": "No grid cell matches this incident location."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        incident = Incident.objects.create(
+            project=project,
+            threat_class=project_threat_class.threat_class,
+            coordinates=coordinates,
+            timestamp=validated_data["timestamp"],
+            confidence=100,
+            device=None,
+            grid_cell=grid_cell,
+            manual_report=True,
+        )
+
+        return Response(
+            IncidentSerializer(incident).data,
+            status=status.HTTP_201_CREATED,
+        )
+
+
 class PatrolCompletionView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -1079,14 +1254,25 @@ class PatrolCompletionView(APIView):
 
         patrol.status = patrol_status
         patrol.save(update_fields=["status"])
-        patrol.incident.status = incident_status
+        incident = Incident.objects.select_for_update().get(
+            pk=patrol.incident_id
+        )
+        is_new_confirmation = (
+            incident.status != Incident.Status.CONFIRMED
+            and incident_status == Incident.Status.CONFIRMED
+        )
+        incident.status = incident_status
         if (
             incident_status == Incident.Status.CONFIRMED
             and latitude is not None
             and longitude is not None
         ):
-            patrol.incident.coordinates = Point(longitude, latitude, srid=4326)
-        patrol.incident.save()
+            incident.coordinates = Point(longitude, latitude, srid=4326)
+        incident.save()
+        if is_new_confirmation:
+            from projects.BNN import record_confirmed_incident
+
+            record_confirmed_incident(incident.project_id)
 
         return Response(
             {
@@ -1192,6 +1378,7 @@ class CalculateProjectRiskView(APIView):
         return Response({
             "message": "Risk calculation completed.",
             "project": project.id,
+            "uncertainty": project.uncertainty,
         }, status=status.HTTP_200_OK)
 
 class UserOverviewView(APIView):

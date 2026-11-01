@@ -18,6 +18,7 @@ export type Member = {
   firstName : string;
   lastName : string;
   email : string;
+  profilePicture?: string | null;
   role : string;
   joinDate : string;
   accepted? : boolean;
@@ -26,6 +27,7 @@ export type Member = {
     first_name: string;
     last_name: string;
     email: string;
+    profile_picture?: string | null;
   };
 }
 
@@ -55,6 +57,7 @@ export type Project = {
   newAlerts? : number;
   trainCount : number;
   lastTrained : string | null;
+  uncertainty : number;
 }
 
 export default function New() {
@@ -75,7 +78,8 @@ export default function New() {
     threatClasses : [],
     alertPreference : "all",
     trainCount : 0,
-    lastTrained : null
+    lastTrained : null,
+    uncertainty : 0,
   });
 
   const nextPage = () => {

@@ -136,11 +136,30 @@ class PatrolAssignmentTests(TestCase):
             completion_response.data["message"],
             "Patrol completed and incident status updated successfully.",
         )
+        self.project.refresh_from_db()
+        self.assertEqual(self.project.confirmed_incidents_since_training, 1)
         for member in self.assignees:
             self.assertEqual(
                 Patrol.objects.get(members=member).status,
                 Patrol.Status.COMPLETED,
             )
+
+    def test_direct_incident_confirmation_is_counted_once(self):
+        response = self.client.patch(
+            reverse("incident-detail", args=[self.incident.id]),
+            {"status": Incident.Status.CONFIRMED},
+            format="json",
+        )
+        repeated_response = self.client.patch(
+            reverse("incident-detail", args=[self.incident.id]),
+            {"status": Incident.Status.CONFIRMED},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(repeated_response.status_code, status.HTTP_200_OK)
+        self.project.refresh_from_db()
+        self.assertEqual(self.project.confirmed_incidents_since_training, 1)
 
     def test_project_can_create_routine_patrol_with_route(self):
         self.client.force_authenticate(user=self.assigner_user)
@@ -210,6 +229,86 @@ class PatrolAssignmentTests(TestCase):
         self.assertEqual(len(response.data), 1)
         self.assertEqual(response.data[0]["name"], "North boundary")
         self.assertEqual(response.data[0]["created_by"]["id"], self.assigner.id)
+
+    def test_project_member_can_get_routine_patrol_geometry(self):
+        self.client.force_authenticate(user=self.assigner_user)
+        routine_patrol = RoutinePatrol.objects.create(
+            project=self.project,
+            created_by=self.assigner,
+            name="North boundary",
+            frequency=RoutinePatrol.Frequency.WEEKLY,
+            start_date="2026-10-20",
+            path=LineString([(1, 2), (3, 4)], srid=4326),
+        )
+
+        response = self.client.get(
+            reverse(
+                "project_routine_patrol_detail",
+                args=[self.project.id, routine_patrol.id],
+            )
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["path"]["type"], "LineString")
+        self.assertEqual(response.data["path"]["coordinates"], [[1.0, 2.0], [3.0, 4.0]])
+
+    def test_project_manager_can_delete_routine_patrol(self):
+        manager_user = User.objects.create_user(
+            email="routine-manager@example.com",
+            password="test-password",
+        )
+        Membership.objects.create(
+            project=self.project,
+            user=manager_user,
+            invited_by=self.assigner_user,
+            role=Membership.Role.MANAGER,
+            accepted=True,
+        )
+        routine_patrol = RoutinePatrol.objects.create(
+            project=self.project,
+            created_by=self.assigner,
+            name="North boundary",
+            frequency=RoutinePatrol.Frequency.WEEKLY,
+            start_date="2026-10-20",
+            path=LineString([(1, 2), (3, 4)], srid=4326),
+        )
+        self.client.force_authenticate(user=manager_user)
+
+        response = self.client.delete(
+            reverse(
+                "project_routine_patrol_detail",
+                args=[self.project.id, routine_patrol.id],
+            )
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(
+            response.data["message"],
+            "Routine Patrol deleted successfully.",
+        )
+        self.assertFalse(RoutinePatrol.objects.filter(pk=routine_patrol.id).exists())
+
+    def test_project_viewer_cannot_delete_routine_patrol(self):
+        routine_patrol = RoutinePatrol.objects.create(
+            project=self.project,
+            created_by=self.assigner,
+            name="North boundary",
+            frequency=RoutinePatrol.Frequency.WEEKLY,
+            start_date="2026-10-20",
+            path=LineString([(1, 2), (3, 4)], srid=4326),
+        )
+        viewer_membership = self.assignees[0]
+        self.client.force_authenticate(user=viewer_membership.user)
+
+        response = self.client.delete(
+            reverse(
+                "project_routine_patrol_detail",
+                args=[self.project.id, routine_patrol.id],
+            )
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertTrue(RoutinePatrol.objects.filter(pk=routine_patrol.id).exists())
 
     def test_routine_patrol_gpx_export_returns_track_for_project_member(self):
         self.client.force_authenticate(user=self.assigner_user)
@@ -467,9 +566,10 @@ class PatrolAssignmentTests(TestCase):
             format="json",
         )
 
-        invite_response = self.client.post(
-            reverse("invite", args=[self.project.id]) + "?email=new-member@example.com",
-        )
+        with patch("api.views.resend.Emails.send"):
+            invite_response = self.client.post(
+                reverse("invite", args=[self.project.id]) + "?email=new-member@example.com",
+            )
 
         self.assertEqual(
             settings_response.status_code,
@@ -580,6 +680,7 @@ class AuthenticationAPITests(TestCase):
     def test_login_returns_tokens_and_user_for_valid_credentials(self):
         user = User.objects.create_user(
             email="login@example.com",
+            verified=True,
             password="Testpass123!",
         )
 
@@ -593,6 +694,23 @@ class AuthenticationAPITests(TestCase):
         self.assertIn("access", response.data)
         self.assertIn("refresh", response.data)
         self.assertEqual(response.data["user"]["email"], user.email)
+
+    def test_login_rejects_an_unverified_user(self):
+        user = User.objects.create_user(
+            email="unverified@example.com",
+            password="Testpass123!",
+        )
+
+        response = self.client.post(
+            reverse("login"),
+            {"email": user.email, "password": "Testpass123!"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(response.data["code"], "email_not_verified")
+        self.assertNotIn("access", response.data)
+        self.assertNotIn("refresh", response.data)
 
     def test_login_rejects_an_incorrect_password(self):
         user = User.objects.create_user(
@@ -685,6 +803,98 @@ class ProjectAPITestCase(TestCase):
         self.client.force_authenticate(user=self.owner)
 
 
+class ManualIncidentReportTests(ProjectAPITestCase):
+    def setUp(self):
+        super().setUp()
+        ProjectThreatClass.objects.create(
+            project=self.project,
+            threat_class=self.threat_class,
+        )
+
+    def test_project_manager_can_create_a_manual_incident_report(self):
+        timestamp = timezone.now().isoformat()
+        response = self.client.post(
+            reverse("manual_incident_report", args=[self.project.id]),
+            {
+                "threat_class": self.threat_class.id,
+                "timestamp": timestamp,
+                "latitude": 2,
+                "longitude": 3,
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        incident = Incident.objects.get()
+        self.assertEqual(incident.project, self.project)
+        self.assertEqual(incident.threat_class, self.threat_class)
+        self.assertEqual(incident.coordinates.x, 3)
+        self.assertEqual(incident.coordinates.y, 2)
+        self.assertEqual(incident.confidence, 100)
+        self.assertIsNone(incident.device)
+        self.assertTrue(incident.manual_report)
+        self.assertEqual(incident.grid_cell, self.cell)
+        self.assertTrue(response.data["manual_report"])
+        self.assertIsNone(response.data["device"])
+
+    def test_manual_report_requires_a_project_threat_class(self):
+        other_threat = ThreatClass.objects.create(
+            name="Unconfigured threat",
+            description="Not configured for this project",
+        )
+        response = self.client.post(
+            reverse("manual_incident_report", args=[self.project.id]),
+            {
+                "threat_class": other_threat.id,
+                "timestamp": timezone.now().isoformat(),
+                "latitude": 2,
+                "longitude": 3,
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertFalse(Incident.objects.exists())
+
+    def test_manual_report_location_must_match_a_project_grid_cell(self):
+        response = self.client.post(
+            reverse("manual_incident_report", args=[self.project.id]),
+            {
+                "threat_class": self.threat_class.id,
+                "timestamp": timezone.now().isoformat(),
+                "latitude": 8,
+                "longitude": 8,
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertFalse(Incident.objects.exists())
+
+    def test_manual_report_accepts_unambiguously_reversed_coordinates(self):
+        GridCell.objects.create(
+            project=self.project,
+            geometry=Polygon.from_bbox((99, 1, 101, 3)),
+            identifier="reverse",
+        )
+
+        response = self.client.post(
+            reverse("manual_incident_report", args=[self.project.id]),
+            {
+                "threat_class": self.threat_class.id,
+                "timestamp": timezone.now().isoformat(),
+                "latitude": 100,
+                "longitude": 2,
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        incident = Incident.objects.get()
+        self.assertEqual(incident.coordinates.x, 100)
+        self.assertEqual(incident.coordinates.y, 2)
+
+
 class ProjectManagementTests(ProjectAPITestCase):
     def test_project_list_only_contains_projects_the_user_owns_or_joined(self):
         outsider = User.objects.create_user(
@@ -723,7 +933,11 @@ class ProjectManagementTests(ProjectAPITestCase):
             },
         }
 
-        with patch("projects.serializers.generate_grid") as generate_grid:
+        with (
+            patch("projects.serializers.generate_grid") as generate_grid,
+            patch("projects.BNN.initialize_project_model") as initialize_model,
+            patch("projects.BNN.calculate_project_risk") as calculate_risk,
+        ):
             response = self.client.post(
                 reverse("project-list"),
                 data,
@@ -742,6 +956,8 @@ class ProjectManagementTests(ProjectAPITestCase):
             ).exists()
         )
         generate_grid.assert_called_once()
+        initialize_model.assert_called_once_with(project)
+        calculate_risk.assert_called_once_with(project)
 
     def test_project_owner_can_update_project_preferences(self):
         response = self.client.patch(
@@ -760,6 +976,56 @@ class ProjectManagementTests(ProjectAPITestCase):
             self.project.alert_recipients,
             Project.AlertPreference.OWNER_ONLY,
         )
+
+    def test_project_owner_can_disable_and_activate_project(self):
+        project_url = reverse("project-detail", args=[self.project.id])
+
+        disable_response = self.client.patch(
+            project_url,
+            {"status": False},
+            format="json",
+        )
+
+        self.assertEqual(disable_response.status_code, status.HTTP_200_OK)
+        self.project.refresh_from_db()
+        self.assertFalse(self.project.status)
+
+        overview_response = self.client.get(reverse("project_overview"))
+        self.assertEqual(overview_response.status_code, status.HTTP_200_OK)
+        project_data = next(
+            project for project in overview_response.data if project["id"] == self.project.id
+        )
+        self.assertFalse(project_data["status"])
+
+        activate_response = self.client.patch(
+            project_url,
+            {"status": True},
+            format="json",
+        )
+
+        self.assertEqual(activate_response.status_code, status.HTTP_200_OK)
+        self.project.refresh_from_db()
+        self.assertTrue(self.project.status)
+
+    def test_project_owner_can_delete_project_and_related_data(self):
+        connection_code = ConnectionCode.objects.create(
+            code="ABC123",
+            project=self.project,
+            expires_at=timezone.now() + timedelta(minutes=5),
+        )
+
+        response = self.client.delete(
+            reverse("project-detail", args=[self.project.id])
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["message"], "Project deleted successfully.")
+        self.assertFalse(Project.objects.filter(pk=self.project.id).exists())
+        self.assertFalse(
+            Membership.objects.filter(pk=self.owner_membership.id).exists()
+        )
+        self.assertFalse(GridCell.objects.filter(pk=self.cell.id).exists())
+        self.assertFalse(ConnectionCode.objects.filter(pk=connection_code.id).exists())
 
     def test_project_settings_are_not_visible_to_an_unrelated_user(self):
         outsider = User.objects.create_user(
@@ -792,9 +1058,20 @@ class ProjectManagementTests(ProjectAPITestCase):
         )
         self.client.force_authenticate(user=admin_user)
 
-        response = self.client.post(
-            f"{reverse('invite', args=[self.project.id])}?email={invited_user.email}"
-        )
+        with (
+            patch.dict(
+                os.environ,
+                {
+                    "REAL_EMAIL": "test-inbox@example.com",
+                    "RESEND_API_KEY": "test-api-key",
+                    "FRONTEND_URL": "https://dryad.example.com/",
+                },
+            ),
+            patch("api.views.resend.Emails.send") as send_email,
+        ):
+            response = self.client.post(
+                f"{reverse('invite', args=[self.project.id])}?email={invited_user.email}"
+            )
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         invitation = Membership.objects.get(
@@ -803,6 +1080,35 @@ class ProjectManagementTests(ProjectAPITestCase):
         )
         self.assertFalse(invitation.accepted)
         self.assertEqual(invitation.role, Membership.Role.VIEWER)
+        send_email.assert_called_once()
+        email_params = send_email.call_args.args[0]
+        self.assertEqual(email_params["to"], ["test-inbox@example.com"])
+        self.assertEqual(email_params["subject"], f"{self.project.name}: Project Invitation")
+        self.assertIn(f"You're Invited to {self.project.name}!", email_params["html"])
+        self.assertIn("project-admin@example.com", email_params["html"])
+        self.assertIn("https://dryad.example.com/home/projects", email_params["html"])
+
+    def test_project_invitation_respects_member_email_preference(self):
+        invited_user = User.objects.create_user(
+            email="no-invite-email@example.com",
+            password="test-password",
+            receive_invite_emails=False,
+        )
+
+        with patch("api.views.resend.Emails.send") as send_email:
+            response = self.client.post(
+                f"{reverse('invite', args=[self.project.id])}?email={invited_user.email}"
+            )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertTrue(
+            Membership.objects.filter(
+                project=self.project,
+                user=invited_user,
+                accepted=False,
+            ).exists()
+        )
+        send_email.assert_not_called()
 
     def test_project_invitation_requires_an_email_address(self):
         response = self.client.post(reverse("invite", args=[self.project.id]))
@@ -1042,6 +1348,30 @@ class DeviceManagementTests(ProjectAPITestCase):
 
 
 class RiskModelTests(ProjectAPITestCase):
+    def test_tenth_confirmed_incident_resets_counter_and_triggers_retraining(self):
+        from projects.BNN import record_confirmed_incident
+
+        with (
+            patch("projects.BNN.retrain_project_model") as retrain_project_model,
+            self.captureOnCommitCallbacks(execute=True) as callbacks,
+        ):
+            for _ in range(9):
+                record_confirmed_incident(self.project.pk)
+
+            self.project.refresh_from_db()
+            self.assertEqual(
+                self.project.confirmed_incidents_since_training,
+                9,
+            )
+            retrain_project_model.assert_not_called()
+
+            record_confirmed_incident(self.project.pk)
+
+        self.project.refresh_from_db()
+        self.assertEqual(self.project.confirmed_incidents_since_training, 0)
+        self.assertEqual(len(callbacks), 1)
+        retrain_project_model.assert_called_once()
+
     def test_cyclical_features_repeat_at_their_period(self):
         from projects.BNN import cyclical
 
@@ -1158,10 +1488,9 @@ class RiskModelTests(ProjectAPITestCase):
         scaler = MagicMock()
         scaler.transform.side_effect = lambda values: values
 
-        with (
-            patch("projects.BNN.joblib.load", return_value=scaler),
-            patch("projects.BNN.RiskMLP", return_value=model),
-            patch("projects.BNN.torch.load", return_value={"weights": "test"}),
+        with patch(
+            "projects.BNN.load_project_model",
+            return_value=(model, scaler),
         ):
             calculated_cells = calculate_project_risk(self.project)
 
@@ -1170,7 +1499,140 @@ class RiskModelTests(ProjectAPITestCase):
         self.assertEqual(len(calculated_cells), 2)
         self.assertAlmostEqual(self.cell.risk_score, 0.5, places=5)
         self.assertAlmostEqual(second_cell.risk_score, 0.880797, places=5)
-        model.load_state_dict.assert_called_once_with({"weights": "test"})
+
+    def test_risk_calculation_stores_average_variance_from_repeated_inference(self):
+        import torch
+        from projects.BNN import calculate_project_risk
+
+        second_cell = GridCell.objects.create(
+            project=self.project,
+            geometry=Polygon.from_bbox((5, 5, 10, 10)),
+            identifier="cell-2",
+            elevation=120,
+            slope=8,
+            distance_to_road=20,
+        )
+        model = MagicMock()
+        model.side_effect = [
+            torch.tensor([0.0, 2.0]),
+            torch.tensor([2.0, 0.0]),
+        ]
+        scaler = MagicMock()
+        scaler.transform.side_effect = lambda values: values
+
+        with (
+            patch("projects.BNN.RISK_INFERENCE_PASSES", 2),
+            patch(
+                "projects.BNN.load_project_model",
+                return_value=(model, scaler),
+            ),
+        ):
+            calculate_project_risk(self.project)
+
+        self.cell.refresh_from_db()
+        second_cell.refresh_from_db()
+        self.project.refresh_from_db()
+
+        expected_mean = (
+            torch.sigmoid(torch.tensor(0.0))
+            + torch.sigmoid(torch.tensor(2.0))
+        ).item() / 2
+        expected_variance = torch.var(
+            torch.sigmoid(torch.tensor([0.0, 2.0])),
+            unbiased=False,
+        ).item()
+        self.assertAlmostEqual(self.cell.risk_score, expected_mean, places=5)
+        self.assertAlmostEqual(second_cell.risk_score, expected_mean, places=5)
+        self.assertAlmostEqual(self.project.uncertainty, expected_variance, places=5)
+
+    def test_project_models_are_saved_in_distinct_project_paths(self):
+        import torch
+        from sklearn.preprocessing import StandardScaler
+        from projects.BNN import (
+            FEATURES,
+            RiskMLP,
+            initialize_project_model,
+            load_project_model,
+            project_model_paths,
+        )
+
+        model = RiskMLP(input_size=len(FEATURES))
+        scaler = StandardScaler()
+        second_project = SimpleNamespace(pk=self.project.pk + 1)
+        self.assertNotEqual(
+            project_model_paths(self.project),
+            project_model_paths(second_project),
+        )
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            model_path = Path(temp_dir) / "risk_model.pt"
+            scaler_path = Path(temp_dir) / "risk_scaler.pkl"
+            with (
+                patch(
+                    "projects.BNN.project_model_paths",
+                    return_value=(model_path, scaler_path),
+                ),
+                patch(
+                    "projects.BNN.torch.load",
+                    return_value=model.state_dict(),
+                ) as load_checkpoint,
+                patch(
+                    "projects.BNN.joblib.load",
+                    return_value=scaler,
+                ) as load_scaler,
+            ):
+                initialize_project_model(self.project)
+                loaded_model, loaded_scaler = load_project_model(self.project)
+
+            self.assertTrue(model_path.is_file())
+            self.assertTrue(scaler_path.is_file())
+            self.assertEqual(
+                set(torch.load(model_path, map_location="cpu")),
+                set(model.state_dict()),
+            )
+            self.assertEqual(
+                load_checkpoint.call_args_list[-1].args[0],
+                model_path,
+            )
+            self.assertEqual(load_scaler.call_args_list[-1].args[0], scaler_path)
+            self.assertIsNot(loaded_model, model)
+            self.assertIs(loaded_scaler, scaler)
+
+    def test_risk_calculation_endpoint_returns_project_uncertainty(self):
+        def set_uncertainty(project):
+            project.uncertainty = 0.125
+
+        with patch(
+            "projects.BNN.calculate_project_risk",
+            side_effect=set_uncertainty,
+        ):
+            response = self.client.post(
+                reverse("calculate_risk", args=[self.project.id]),
+            )
+
+        self.project.refresh_from_db()
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["uncertainty"], 0.125)
+        self.assertEqual(self.project.uncertainty, 0.125)
+
+    def test_risk_model_stochastic_inference_applies_dropout_without_changing_weights(self):
+        import torch
+        from projects.BNN import RiskMLP
+
+        model = RiskMLP(input_size=1)
+        with torch.no_grad():
+            for parameter in model.parameters():
+                parameter.zero_()
+            model.network[0].weight[0, 0] = 1
+            model.network[2].weight[0, 0] = 1
+            model.network[4].weight[0, 0] = 1
+
+        inputs = torch.ones((64, 1))
+        outputs = torch.stack(
+            [model(inputs, stochastic=True) for _ in range(10)]
+        )
+
+        self.assertGreater(torch.unique(outputs).numel(), 1)
 
 
 class TerrainDataTests(ProjectAPITestCase):
@@ -1333,20 +1795,49 @@ class NotificationAndAlertTests(ProjectAPITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(
             response.data,
-            {"receive_emails": True, "critical_incidents_only": False},
+            {
+                "receive_emails": True,
+                "receive_invite_emails": True,
+                "critical_incidents_only": False,
+            },
         )
 
     def test_user_can_update_and_persist_notification_preferences(self):
-        response = self.client.patch(
+        invite_alert_response = self.client.patch(
             reverse("user_settings"),
-            {"receive_emails": False, "critical_incidents_only": True},
+            {"receive_invite_emails": False},
             format="json",
         )
 
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(invite_alert_response.status_code, status.HTTP_200_OK)
+        self.owner.refresh_from_db()
+        self.assertTrue(self.owner.receive_emails)
+        self.assertFalse(self.owner.receive_invite_emails)
+        self.assertFalse(self.owner.critical_incidents_only)
+
+        critical_alert_response = self.client.patch(
+            reverse("user_settings"),
+            {"critical_incidents_only": True},
+            format="json",
+        )
+
+        self.assertEqual(critical_alert_response.status_code, status.HTTP_200_OK)
+        self.owner.refresh_from_db()
+        self.assertTrue(self.owner.receive_emails)
+        self.assertFalse(self.owner.receive_invite_emails)
+        self.assertTrue(self.owner.critical_incidents_only)
+
+        disable_email_response = self.client.patch(
+            reverse("user_settings"),
+            {"receive_emails": False},
+            format="json",
+        )
+
+        self.assertEqual(disable_email_response.status_code, status.HTTP_200_OK)
         self.owner.refresh_from_db()
         self.assertFalse(self.owner.receive_emails)
-        self.assertTrue(self.owner.critical_incidents_only)
+        self.assertFalse(self.owner.critical_incidents_only)
+        self.assertFalse(self.owner.receive_invite_emails)
 
     def test_user_cannot_read_another_users_overview(self):
         other_user = User.objects.create_user(
@@ -1419,6 +1910,69 @@ class NotificationAndAlertTests(ProjectAPITestCase):
         self.assertEqual(incident.threat_class, self.threat_class)
         self.assertEqual(incident.confidence, 95)
         self.assertEqual(incident.status, Incident.Status.NEW)
+        send_email.assert_called_once()
+        sent_params = send_email.call_args.args[0]
+        self.assertEqual(len(sent_params), 1)
+        self.assertEqual(sent_params[0]["to"], [self.owner.email])
+
+    def test_device_report_respects_email_alert_preference(self):
+        self.owner.receive_emails = False
+        self.owner.save(update_fields=["receive_emails"])
+        device = Device.objects.create(
+            name="Muted notification sensor",
+            location=Point(1, 1, srid=4326),
+            project=self.project,
+            grid_cell=self.cell,
+            battery=80,
+            status=Device.Status.ONLINE,
+        )
+
+        with (
+            patch.dict(os.environ, {"REAL_EMAIL": self.owner.email}),
+            patch("projects.models.resend.Batch.send") as send_email,
+        ):
+            response = self.client.post(
+                reverse("report_incident", args=[device.id]),
+                {
+                    "threat_class": self.threat_class.id,
+                    "timestamp": timezone.now().isoformat(),
+                    "confidence": 95,
+                },
+                format="json",
+            )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        send_email.assert_not_called()
+
+    def test_critical_incidents_only_emails_only_confidence_above_85(self):
+        self.owner.critical_incidents_only = True
+        self.owner.save(update_fields=["critical_incidents_only"])
+        device = Device.objects.create(
+            name="Critical-only notification sensor",
+            location=Point(1, 1, srid=4326),
+            project=self.project,
+            grid_cell=self.cell,
+            battery=80,
+            status=Device.Status.ONLINE,
+        )
+
+        with (
+            patch.dict(os.environ, {"REAL_EMAIL": self.owner.email}),
+            patch("projects.models.render_to_string", return_value="<p>Incident</p>"),
+            patch("projects.models.resend.Batch.send") as send_email,
+        ):
+            for confidence in (85, 86):
+                response = self.client.post(
+                    reverse("report_incident", args=[device.id]),
+                    {
+                        "threat_class": self.threat_class.id,
+                        "timestamp": timezone.now().isoformat(),
+                        "confidence": confidence,
+                    },
+                    format="json",
+                )
+                self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
         send_email.assert_called_once()
         sent_params = send_email.call_args.args[0]
         self.assertEqual(len(sent_params), 1)

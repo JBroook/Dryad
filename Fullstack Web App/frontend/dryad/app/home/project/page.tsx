@@ -53,7 +53,8 @@ export type IncidentType = {
   status : string;
   project : ProjectOverview;
   threatClass : ThreatClass;
-  device : Device;
+  device : Device | null;
+  manual_report?: boolean;
 }
 
 function ProjectContent() {
@@ -69,15 +70,23 @@ function ProjectContent() {
   const [gridCells, setGridCells] = useState(null);
   const [devices, setDevices] = useState<Device[]>([]);
   const [projectRole, setProjectRole] = useState<ProjectRole | null>(null);
+  const [projectThreatClassIds, setProjectThreatClassIds] = useState<number[]>([]);
 
   const extractProjectFeatures = (data : any) => {
+    setProjectThreatClassIds(
+      (data.properties.threat_classes ?? []).map(
+        (projectThreatClass: { threat_class_id: number }) =>
+          projectThreatClass.threat_class_id
+      )
+    );
     setProject({
       ...data.properties,
       area : data.properties.surface_area,
       id : data.id,
       geoJSON : data.geometry,
       trainCount : data.properties.train_count,
-      lastTrained : data.properties.last_trained
+      lastTrained : data.properties.last_trained,
+      uncertainty : data.properties.uncertainty ?? 0,
     })
   }
 
@@ -124,6 +133,7 @@ function ProjectContent() {
       setFilterIndex={(index)=>setFilterIndex(index)}
       incidents={incidents}
       threatClasses={threatClasses}
+      projectThreatClassIds={projectThreatClassIds}
       setThreatClasses={setThreatClasses}
       setIncidents={setIncidents}
     />,
@@ -135,7 +145,11 @@ function ProjectContent() {
       incidents={incidents}
       devices={devices}
       project={project!}
+      setUncertainty={(uncertainty) => setProject((current) =>
+        current ? { ...current, uncertainty } : current
+      )}
       canCalculateRisk={hasProjectRole(projectRole, "admin")}
+      routinePatrolId={searchParams.get("routine_patrol")}
     />,
     devices : <DevicesView 
       projectID={projectID}
@@ -171,14 +185,24 @@ function ProjectContent() {
   useEffect(()=>{
     setProjectRole(null);
 
+    if (!projectID) {
+      router.replace("/project-not-found");
+      return;
+    }
+
     // fetch project info
     apiFetch(`projects/${projectID}`)
       .then(async (res) => {
+        if (res.status === 404) {
+          router.replace("/project-not-found");
+          return null;
+        }
         if (!res.ok) throw new Error(await res.text());
         return res.json();
       })
-      .then((data)=>{console.log(data); return data})
-      .then((data)=>extractProjectFeatures(data))
+      .then((data)=>{
+        if (data) extractProjectFeatures(data);
+      })
       .catch((err) => console.error("Fetch failed:", err));
 
     // fetch project incidents
@@ -208,6 +232,7 @@ function ProjectContent() {
           firstName : member.user.first_name,
           lastName : member.user.last_name,
           email : member.user.email,
+          profilePicture: member.user.profile_picture,
           joinDate : member.join_date
         })));
       })
@@ -247,7 +272,7 @@ function ProjectContent() {
       }));
     })
     .catch((err) => console.error("Fetch failed:", err));
-  }, [projectID])
+  }, [projectID, router])
 
   return (<div className="flex flex-col">
       {project!=null ? 

@@ -49,6 +49,11 @@ urlpatterns = [
         name="project_routine_patrols",
     ),
     path(
+        'projects/<int:project_id>/routine_patrols/<int:routine_patrol_id>/',
+        views.RoutinePatrolDetailView.as_view(),
+        name="project_routine_patrol_detail",
+    ),
+    path(
         'projects/<int:project_id>/routine_patrols/<int:routine_patrol_id>/export/',
         views.RoutinePatrolGPXExportView.as_view(),
         name="routine_patrol_gpx_export",
@@ -65,10 +70,20 @@ urlpatterns = [
     ),
     path('devices/connect', views.DeviceConnectionView.as_view(), name="connect_device"),
     path('devices/<int:device_id>/report', views.DeviceReportView.as_view(), name="report_incident"),
+    path(
+        'projects/<int:project_id>/manual_reports',
+        views.ManualIncidentReportView.as_view(),
+        name="manual_incident_report",
+    ),
     path('projects/<int:project_id>/invite', views.InviteMemberView.as_view(), name="invite"),
     path('patrols/<int:patrol_id>/complete_patrol', views.PatrolCompletionView.as_view(), name="complete_patrol"),
     path('incidents/<int:incident_id>/assign_patrol', views.PatrolAssignView.as_view(), name="assign_patrol"),
     path('projects/<int:project_id>/calculate_risk', views.CalculateProjectRiskView.as_view(), name="calculate_risk"),
+    path(
+        'projects/<int:project_id>/forest_map/opened',
+        views.ProjectForestMapOpenedView.as_view(),
+        name="project_forest_map_opened",
+    ),
     path('users/<int:user_id>/overview', views.UserOverviewView.as_view(), name="user_overview"),
     path('users/<int:user_id>/memberships', views.UserMembershipsView.as_view(), name="user_memberships"),
     path('projects/overview', views.ProjectOverviewView.as_view(), name="project_overview"),

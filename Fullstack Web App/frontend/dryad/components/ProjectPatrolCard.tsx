@@ -64,7 +64,11 @@ export default function ProjectPatrolCard(props : ProjectPatrolCardProps) {
 
             <div className="ml-4">
                 <div className="flex flex-row mb-1">
-                    <h1 className="font-semibold">{incident.threatClass.name} Activity</h1>
+                    <h1 className="font-semibold">
+                        {incident.threatClass.name}
+                        {incident.manual_report && <span className="ml-1 text-secondary-content">(Manual)</span>}
+                        {" "}Activity
+                    </h1>
                 </div>
 
                 <div className="flex flex-row items-center text-secondary-content text-sm">
@@ -144,7 +148,7 @@ export default function ProjectPatrolCard(props : ProjectPatrolCardProps) {
                     </div>
                     
                     <h1 className="font-semibold mt-1">
-                        {incident.device.name}
+                        {incident.device?.name ?? "Non-device"}
                     </h1>
                     <p className="text-accent text-sm mt-1">
                         {incident.confidence}% Confidence

@@ -21,6 +21,7 @@ interface IncidentProps {
     projectID : number;
     mini? : boolean;
     canManage?: boolean;
+    manualReport?: boolean;
 }
 
 export type Coordinate = {
@@ -80,7 +81,10 @@ export default function Incident(props : IncidentProps) {
 
             <div className="ml-2 min-w-0 flex-1 md:ml-4">
                 <div className="mb-1 flex flex-wrap items-center gap-1">
-                    <h1 className="font-semibold">{props.name}</h1>
+                    <h1 className="font-semibold">
+                        {props.name}
+                        {props.manualReport && <span className="ml-1 text-secondary-content">(Manual)</span>}
+                    </h1>
                     {statusBadge}
                 </div>
 

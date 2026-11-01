@@ -18,6 +18,7 @@ scikit-learn = "*"
 pandas = "*"
 resend = "*"
 dj-database-url = "*"
+pillow = "*"
 
 [dev-packages]
 

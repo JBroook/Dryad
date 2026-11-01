@@ -305,6 +305,7 @@ export default function FullIncidentsView(props: FullIncidentsViewProps) {
             firstName : member.user.first_name, 
             lastName : member.user.last_name,
             email : member.user.email,
+            profilePicture: member.user.profile_picture,
             joinDate : member.join_date
         }
         })))
@@ -629,6 +630,7 @@ export default function FullIncidentsView(props: FullIncidentsViewProps) {
                 
                 <Incident
                     name={incident.threatClass.name}
+                    manualReport={incident.manual_report}
                     coordinates={incident.coordinates}
                     timestamp={incident.timestamp}
                     device={incident.device?.name ?? "Non-device"}

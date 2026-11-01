@@ -1,11 +1,14 @@
 from django.conf import settings
+from django.db import transaction
+from django.db.models import F
+from django.utils import timezone
 from collections import defaultdict
 import random
 from datetime import timedelta
 
 import joblib
 from sklearn.preprocessing import StandardScaler
-from .models import GridCell, Incident
+from .models import GridCell, Incident, Project
 import math
 import torch
 import torch.nn as nn
@@ -31,6 +34,8 @@ FEATURES = [
     # "day_sin",
     # "day_cos",
 ]
+
+RISK_INFERENCE_PASSES = 100
 
 def cyclical(value, period):
     return (
@@ -299,8 +304,12 @@ class RiskMLP(nn.Module):
             nn.Linear(16, 1),
         )
 
-    def forward(self, x):
-        return self.network(x).squeeze(-1)
+    def forward(self, x, stochastic=False):
+        for layer in self.network:
+            x = layer(x)
+            if stochastic and isinstance(layer, nn.ReLU):
+                x = nn.functional.dropout(x, p=0.2, training=True)
+        return x.squeeze(-1)
 
 def undersample(
     samples,
@@ -492,25 +501,106 @@ MODEL_PATH = settings.BASE_DIR / "data" / "models" / "risk_model.pt"
 SCALER_PATH = settings.BASE_DIR / "data" / "models" / "risk_scaler.pkl"
 
 
-def calculate_project_risk(project):
+def project_model_paths(project):
+    project_model_dir = (
+        settings.BASE_DIR / "data" / "models" / "projects" / str(project.pk)
+    )
+    return (
+        project_model_dir / "risk_model.pt",
+        project_model_dir / "risk_scaler.pkl",
+    )
+
+
+def initialize_project_model(project):
+    model_path, scaler_path = project_model_paths(project)
+    model_path.parent.mkdir(parents=True, exist_ok=True)
+
+    model = RiskMLP(input_size=len(FEATURES))
+    model.load_state_dict(
+        torch.load(MODEL_PATH, map_location="cpu")
+    )
     scaler = joblib.load(SCALER_PATH)
 
-    model = RiskMLP(
-        input_size=len(FEATURES)
-    )
+    torch.save(model.state_dict(), model_path)
+    joblib.dump(scaler, scaler_path)
+    return model_path, scaler_path
 
-    model.load_state_dict(
-        torch.load(
-            MODEL_PATH,
-            map_location="cpu"
+
+def retrain_project_model(project):
+    end_time = timezone.now() - timedelta(days=7)
+    start_time = end_time - timedelta(days=30)
+    training_samples = generate_training_samples(
+        project,
+        start_time,
+        end_time,
+    )
+    if not training_samples:
+        raise ValueError(
+            f"Project {project.pk} has no training samples for BNN retraining."
         )
+
+    model, scaler = train_mlp(training_samples)
+    model_path, scaler_path = project_model_paths(project)
+    model_path.parent.mkdir(parents=True, exist_ok=True)
+    torch.save(model.state_dict(), model_path)
+    joblib.dump(scaler, scaler_path)
+
+    calculate_project_risk(project)
+
+    Project.objects.filter(pk=project.pk).update(
+        train_count=F("train_count") + 1,
+        last_trained=timezone.now(),
     )
 
+
+def _retrain_project_after_confirmation(project_id):
+    project = Project.objects.get(pk=project_id)
+    retrain_project_model(project)
+
+
+@transaction.atomic
+def record_confirmed_incident(project_id):
+    project = Project.objects.select_for_update().get(pk=project_id)
+    project.confirmed_incidents_since_training += 1
+    should_retrain = project.confirmed_incidents_since_training >= 10
+    if should_retrain:
+        project.confirmed_incidents_since_training = 0
+
+    project.save(update_fields=["confirmed_incidents_since_training"])
+
+    if should_retrain:
+        transaction.on_commit(
+            lambda: _retrain_project_after_confirmation(project_id)
+        )
+
+
+def load_project_model(project):
+    model_path, scaler_path = project_model_paths(project)
+    if not model_path.exists() and not scaler_path.exists():
+        initialize_project_model(project)
+    elif not model_path.exists() or not scaler_path.exists():
+        raise FileNotFoundError(
+            f"Incomplete risk model artifacts for project {project.pk}."
+        )
+
+    model = RiskMLP(input_size=len(FEATURES))
+    model.load_state_dict(
+        torch.load(model_path, map_location="cpu")
+    )
     model.eval()
+    return model, joblib.load(scaler_path)
+
+
+def calculate_project_risk(project):
+    model, scaler = load_project_model(project)
 
     cells = list(
         project.grid_cells.all()
     )
+    if not cells:
+        project.uncertainty = 0
+        project.save(update_fields=["uncertainty"])
+        return cells
 
     values = [
         [
@@ -526,14 +616,24 @@ def calculate_project_risk(project):
     x = torch.tensor(scaled_values,dtype=torch.float32)
 
     with torch.no_grad():
-        logits = model(x)
-
-        probabilities = torch.sigmoid(logits).squeeze()
+        predictions = torch.stack(
+            [
+                torch.sigmoid(model(x, stochastic=True)).reshape(-1)
+                for _ in range(RISK_INFERENCE_PASSES)
+            ]
+        )
+        probabilities = predictions.mean(dim=0)
+        average_uncertainty = (
+            predictions.var(dim=0, unbiased=False).mean().item()
+        )
 
     for cell, probability in zip(cells, probabilities):
         cell.risk_score = float(
             probability.item()
         )
+
+    project.uncertainty = float(average_uncertainty)
+    project.save(update_fields=["uncertainty"])
 
     GridCell.objects.bulk_update(
         cells,
