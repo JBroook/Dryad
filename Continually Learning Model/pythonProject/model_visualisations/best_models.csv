@@ -1,0 +1,49 @@
+dataset,metric,best_model,score
+Road Proximity,pr_auc,Oracle,0.3123
+Road Proximity,roc_auc,Oracle,0.8326
+Road Proximity,precision,BNN (Pos Weight),0.3065
+Road Proximity,recall,Oracle,0.6141
+Road Proximity,f1,Logistic Regression,0.3994
+Road Proximity,top5_prec,Oracle,0.4099
+Road Proximity,log_loss,Oracle,0.2368
+Road Proximity,brier,Oracle,0.0692
+Slope,pr_auc,Oracle,0.2719
+Slope,roc_auc,Oracle,0.7937
+Slope,precision,Oracle,0.2616
+Slope,recall,BNN (Oversample),0.7215
+Slope,f1,Oracle,0.3731
+Slope,top5_prec,Oracle,0.3149
+Slope,log_loss,Oracle,0.2889
+Slope,brier,Oracle,0.0862
+Elevation,pr_auc,BNN (None),0.2231
+Elevation,roc_auc,Oracle,0.7823
+Elevation,precision,Logistic Regression,0.2452
+Elevation,recall,BNN (Oversample),0.6442
+Elevation,f1,Logistic Regression,0.3337
+Elevation,top5_prec,Oracle,0.26
+Elevation,log_loss,Oracle,0.2641
+Elevation,brier,Oracle,0.077
+Recency,pr_auc,Logistic Regression,0.2036
+Recency,roc_auc,Logistic Regression,0.6877
+Recency,precision,Logistic Regression,0.3607
+Recency,recall,BNN (None),0.2338
+Recency,f1,Logistic Regression,0.2709
+Recency,top5_prec,Oracle,0.2489
+Recency,log_loss,Logistic Regression,0.1478
+Recency,brier,Oracle,0.0347
+Sustained Activity,pr_auc,Logistic Regression,0.459
+Sustained Activity,roc_auc,BNN (Pos Weight),0.8483
+Sustained Activity,precision,Oracle,0.4952
+Sustained Activity,recall,BNN (Oversample),0.5952
+Sustained Activity,f1,Oracle,0.5276
+Sustained Activity,top5_prec,Oracle,0.5962
+Sustained Activity,log_loss,Oracle,0.1843
+Sustained Activity,brier,Oracle,0.0503
+Combined,pr_auc,Oracle,0.3282
+Combined,roc_auc,Oracle,0.7976
+Combined,precision,Oracle,0.38
+Combined,recall,Logistic Regression,0.5109
+Combined,f1,Oracle,0.3675
+Combined,top5_prec,Oracle,0.4358
+Combined,log_loss,Oracle,0.2206
+Combined,brier,Oracle,0.0601

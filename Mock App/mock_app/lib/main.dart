@@ -43,6 +43,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      debugShowCheckedModeBanner: false,
       title: 'Dryad',
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
@@ -388,7 +389,7 @@ class _CodeRequestScreenState extends State<CodeRequestScreen> {
       appBar: AppBar(title: const Text('Dryad')),
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.all(24),
+          padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
           child: SingleChildScrollView(
             child: Center(
               child: ConstrainedBox(
@@ -396,7 +397,6 @@ class _CodeRequestScreenState extends State<CodeRequestScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    const SizedBox(height: 20),
                     ValueListenableBuilder<int?>(
                       valueListenable: _deviceId,
                       builder: (context, deviceId, _) {

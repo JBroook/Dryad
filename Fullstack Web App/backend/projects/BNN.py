@@ -78,7 +78,6 @@ def load_incidents(project, start_time, end_time):
     )
 
 def group_incidents_by_cell(incidents):
-
     grouped = defaultdict(list)
 
     for incident in incidents:

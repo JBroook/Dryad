@@ -17,7 +17,7 @@ from projects.BNN import (
     generate_training_samples,
     undersample,
     chronological_split,
-    train_mlp,
+    train_model,
     evaluate_model,
     FEATURES
 )
@@ -25,7 +25,7 @@ from projects.BNN import (
 
 # Configuration
 
-PROJECT_ID = 24
+PROJECT_ID = 58
 
 TEST_DAYS = 7
 NEGATIVE_RATIO = 3
@@ -203,7 +203,7 @@ print(
     "\nTraining model..."
 )
 
-model, scaler = train_mlp(
+model, scaler = train_model(
     train_samples
 )
 
@@ -229,10 +229,10 @@ import joblib
 
 torch.save(
     model.state_dict(),
-    "data/models/risk_model.pt"
+    "data/models/risk_model_1.pt"
 )
 
 joblib.dump(
     scaler,
-    "data/models/risk_scaler.pkl"
+    "data/models/risk_scaler_1.pkl"
 )
