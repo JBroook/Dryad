@@ -504,12 +504,6 @@ export default function FullIncidentsView(props: FullIncidentsViewProps) {
         ascending={sortToggle["confidence"]}>
             Confidence
         </SortButton>
-
-        {Object.values(props.projectRoles).some((role) =>
-            hasProjectRole(role, "manager")
-        ) && <button className="btn btn-primary ml-auto md:ml-2">
-            <FaPlus/> New Incident
-        </button>}
     </div>
     
 

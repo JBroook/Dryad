@@ -272,7 +272,7 @@ export default function DevicesView(props: DevicesViewProps) {
                 {patrols.length + routinePatrols.length} patrols
             </p>
             {props.canManage && <button className="btn btn-primary ml-2" onClick={()=>setIsCreatingPatrol(true)}>
-                <FaPlus/> New Patrol    
+                <FaPlus/> New Routine Patrol    
             </button>}
         </div>
 
