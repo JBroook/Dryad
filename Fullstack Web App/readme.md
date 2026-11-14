@@ -2,7 +2,7 @@
 
 This project has two main parts:
 
-- Backend: Django REST API with GIS and ML features
+- Backend: GeoDjango REST API with GIS and ML features
 - Frontend: Next.js application
 
 ## Requirements
@@ -120,25 +120,30 @@ npm run start
 
 ## Running both together
 
-A simple workflow is:
-
-1. Start the backend
-2. Start the frontend in a second terminal
-3. Open the frontend in the browser
-
-Example commands from the project root:
+The easiest local setup is to use the project scripts from the project root:
 
 ```bash
-cd backend
-pipenv run python manage.py runserver 0.0.0.0:8000
+./back.sh
 ```
 
-In another terminal:
+In a second terminal:
 
 ```bash
-cd frontend/dryad
-npm install
-npm run dev
+./front.sh
+```
+
+These scripts start the backend and frontend directly on localhost without needing to run the commands manually.
+
+Backend:
+
+```text
+http://localhost:8000
+```
+
+Frontend:
+
+```text
+http://localhost:3000
 ```
 
 ## Docker quick start
@@ -157,6 +162,5 @@ Then open:
 
 ## Notes
 
-- The backend uses Django and expects a working database connection.
 - If you are running on Windows and GDAL or geospatial dependencies fail, install the OSGeo4W packages and make sure `OSGEO4W_BIN_PATH` in the `.env` file points to the correct installation folder.
 - If API requests fail in the frontend, check that `NEXT_PUBLIC_API_URL` points to the backend correctly.
