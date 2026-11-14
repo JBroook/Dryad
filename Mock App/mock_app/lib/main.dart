@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
 
@@ -8,6 +9,7 @@ import 'package:http/http.dart' as http;
 import 'package:mock_app/audio_model_runner.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'audio_classes.dart';
 import 'audio_listening_screen.dart';
 
 const String _wifiHost = '192.168.100.7';
@@ -16,6 +18,12 @@ const String _deviceIdStorageKey = 'device_id';
 const String _threatClassesStorageKey = 'threat_classes';
 const String _networkModeStorageKey = 'network_mode_hotspot';
 const String _sentIncidentsStorageKey = 'sent_incidents';
+const String _threatClassNamesStorageKey = 'threat_class_names';
+const String _confidenceThresholdStorageKey = 'confidence_threshold';
+const String _reportCooldownStorageKey = 'report_cooldown_seconds';
+const String _lastReportAtStorageKey = 'last_report_at';
+const int _defaultConfidenceThreshold = 75;
+const int _defaultReportCooldownSeconds = 5;
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -73,6 +81,8 @@ class AppShell extends StatefulWidget {
 
 class _AppShellState extends State<AppShell> {
   int _selectedPage = 0;
+  final GlobalKey<_CodeRequestScreenState> _connectionScreenKey =
+      GlobalKey<_CodeRequestScreenState>();
 
   @override
   Widget build(BuildContext context) {
@@ -80,8 +90,14 @@ class _AppShellState extends State<AppShell> {
       body: IndexedStack(
         index: _selectedPage == 1 ? 1 : 0,
         children: [
-          CodeRequestScreen(showSettings: _selectedPage == 2),
-          const AudioListeningScreen(),
+          CodeRequestScreen(
+            key: _connectionScreenKey,
+            showSettings: _selectedPage == 2,
+          ),
+          AudioListeningScreen(
+            onScores: (scores) =>
+                _connectionScreenKey.currentState?._handleAudioScores(scores),
+          ),
         ],
       ),
       bottomNavigationBar: NavigationBar(
@@ -132,6 +148,10 @@ class _CodeRequestScreenState extends State<CodeRequestScreen> {
   bool _isRunningModel = false;
   bool _isHotspotMode = false;
   List<Map<String, dynamic>> _sentIncidents = [];
+  Map<int, String> _threatClassNames = {};
+  int _confidenceThreshold = _defaultConfidenceThreshold;
+  int _reportCooldownSeconds = _defaultReportCooldownSeconds;
+  DateTime? _lastReportAt;
 
   bool get _isBusy => _isSendingCode || _isSendingReport || _isRunningModel;
 
@@ -142,9 +162,17 @@ class _CodeRequestScreenState extends State<CodeRequestScreen> {
   @override
   void initState() {
     super.initState();
-    _restoreSavedDeviceData();
-    _restoreNetworkMode();
+    _restoreAppState();
     _restoreIncidentHistory();
+  }
+
+  Future<void> _restoreAppState() async {
+    await _restoreNetworkMode();
+    await _restoreSavedDeviceData();
+    final deviceId = _deviceId.value;
+    if (deviceId != null) {
+      await _refreshDeviceConfiguration(deviceId);
+    }
   }
 
   Future<void> _restoreSavedDeviceData() async {
@@ -152,6 +180,24 @@ class _CodeRequestScreenState extends State<CodeRequestScreen> {
     final savedDeviceId = prefs.getInt(_deviceIdStorageKey);
     final savedThreatClasses =
         prefs.getStringList(_threatClassesStorageKey) ?? const [];
+    final savedThreatClassNames = prefs.getString(_threatClassNamesStorageKey);
+    final savedConfidenceThreshold = prefs.getInt(
+      _confidenceThresholdStorageKey,
+    );
+    final savedCooldownSeconds = prefs.getInt(_reportCooldownStorageKey);
+    final savedLastReportAt = prefs.getInt(_lastReportAtStorageKey);
+    final threatClassNames = <int, String>{};
+    if (savedThreatClassNames != null) {
+      final decoded = jsonDecode(savedThreatClassNames);
+      if (decoded is Map<String, dynamic>) {
+        for (final entry in decoded.entries) {
+          final classId = int.tryParse(entry.key);
+          if (classId != null && entry.value is String) {
+            threatClassNames[classId] = entry.value as String;
+          }
+        }
+      }
+    }
 
     if (!mounted) {
       return;
@@ -162,6 +208,20 @@ class _CodeRequestScreenState extends State<CodeRequestScreen> {
         .map((entry) => int.tryParse(entry))
         .whereType<int>()
         .toList();
+    _threatClassNames = threatClassNames;
+    if (savedConfidenceThreshold != null &&
+        savedConfidenceThreshold >= 0 &&
+        savedConfidenceThreshold <= 100) {
+      _confidenceThreshold = savedConfidenceThreshold;
+    }
+    if (savedCooldownSeconds != null &&
+        savedCooldownSeconds >= 1 &&
+        savedCooldownSeconds <= 60) {
+      _reportCooldownSeconds = savedCooldownSeconds;
+    }
+    if (savedLastReportAt != null) {
+      _lastReportAt = DateTime.fromMillisecondsSinceEpoch(savedLastReportAt);
+    }
 
     setState(() {});
   }
@@ -232,6 +292,69 @@ class _CodeRequestScreenState extends State<CodeRequestScreen> {
       _threatClassesStorageKey,
       parsedThreatClasses.map((value) => value.toString()).toList(),
     );
+
+    final rawThreatClassNames = payload['threat_class_names'];
+    if (rawThreatClassNames is Map) {
+      final parsedNames = <int, String>{};
+      for (final entry in rawThreatClassNames.entries) {
+        final classId = int.tryParse(entry.key.toString());
+        if (classId != null && entry.value is String) {
+          parsedNames[classId] = entry.value as String;
+        }
+      }
+      _threatClassNames = parsedNames;
+      await prefs.setString(
+        _threatClassNamesStorageKey,
+        jsonEncode({
+          for (final entry in parsedNames.entries)
+            entry.key.toString(): entry.value,
+        }),
+      );
+    }
+
+    final rawConfidenceThreshold = payload['confidence_threshold'];
+    if (rawConfidenceThreshold is num &&
+        rawConfidenceThreshold >= 0 &&
+        rawConfidenceThreshold <= 100) {
+      _confidenceThreshold = rawConfidenceThreshold.round();
+      await prefs.setInt(_confidenceThresholdStorageKey, _confidenceThreshold);
+    }
+  }
+
+  Future<void> _refreshDeviceConfiguration(int deviceId) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$_baseApiUrl/api/devices/$deviceId/report'),
+      );
+      if (!mounted) {
+        return;
+      }
+
+      final decoded = response.body.isNotEmpty ? jsonDecode(response.body) : {};
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        if (decoded is Map<String, dynamic> &&
+            decoded['threat_classes'] is List &&
+            decoded['threat_class_names'] is Map &&
+            decoded['confidence_threshold'] is num) {
+          await _persistDeviceData(decoded);
+          if (mounted) {
+            setState(() {});
+          }
+        } else {
+          _statusMessage.value =
+              'The backend returned incomplete device detection settings.';
+        }
+      } else {
+        _statusMessage.value =
+            'Could not refresh device detection settings '
+            '(status ${response.statusCode}).';
+      }
+    } catch (error) {
+      if (mounted) {
+        _statusMessage.value =
+            'Could not refresh device detection settings: $error';
+      }
+    }
   }
 
   Future<void> _sendCode() async {
@@ -295,12 +418,6 @@ class _CodeRequestScreenState extends State<CodeRequestScreen> {
   }
 
   Future<void> _sendReport() async {
-    final currentDeviceId = _deviceId.value;
-    if (currentDeviceId == null) {
-      _statusMessage.value = 'No device ID is available to send a report.';
-      return;
-    }
-
     if (_threatClasses.value.isEmpty) {
       _statusMessage.value = 'No threat classes are saved for this device.';
       return;
@@ -308,16 +425,84 @@ class _CodeRequestScreenState extends State<CodeRequestScreen> {
 
     final random = Random();
     final confidence = random.nextInt(99) + 1;
-    final threatClass =
+    final threatClassId =
         _threatClasses.value[random.nextInt(_threatClasses.value.length)];
-    final timestamp = DateTime.now().toUtc().toIso8601String();
+
+    await _submitIncident(
+      threatClassId: threatClassId,
+      confidence: confidence,
+      threatName: _threatClassNames[threatClassId],
+      isTest: true,
+    );
+  }
+
+  void _handleAudioScores(List<double> scores) {
+    if (_deviceId.value == null ||
+        _isSendingReport ||
+        _reportCooldownRemaining > Duration.zero ||
+        scores.length != audioClassNames.length) {
+      return;
+    }
+
+    final detection = selectThreatDetection(
+      scores: scores,
+      configuredThreatClassIds: _threatClasses.value,
+      threatClassNames: _threatClassNames,
+      confidenceThreshold: _confidenceThreshold,
+    );
+    if (detection != null) {
+      unawaited(
+        _submitIncident(
+          threatClassId: detection.threatClassId,
+          confidence: detection.confidence,
+          threatName: detection.threatClassName,
+          isTest: false,
+        ),
+      );
+    }
+  }
+
+  Duration get _reportCooldownRemaining {
+    final lastReportAt = _lastReportAt;
+    if (lastReportAt == null) {
+      return Duration.zero;
+    }
+    return lastReportAt
+        .add(Duration(seconds: _reportCooldownSeconds))
+        .difference(DateTime.now());
+  }
+
+  Future<void> _submitIncident({
+    required int threatClassId,
+    required int confidence,
+    required String? threatName,
+    required bool isTest,
+  }) async {
+    final currentDeviceId = _deviceId.value;
+    if (currentDeviceId == null) {
+      _statusMessage.value = 'No device ID is available to send a report.';
+      return;
+    }
+    if (_isSendingReport) {
+      return;
+    }
+
+    final cooldownRemaining = _reportCooldownRemaining;
+    if (cooldownRemaining > Duration.zero) {
+      final secondsRemaining = (cooldownRemaining.inMilliseconds + 999) ~/ 1000;
+      _statusMessage.value =
+          'Report cooldown active. Try again in $secondsRemaining seconds.';
+      return;
+    }
 
     setState(() {
       _isSendingReport = true;
     });
+    _statusMessage.value = isTest
+        ? 'Sending test incident...'
+        : 'Sending detected incident...';
 
-    _statusMessage.value = 'Sending report...';
-
+    final timestamp = DateTime.now().toUtc().toIso8601String();
     try {
       final batteryLevel = await Battery().batteryLevel;
       final reportUrl = '$_baseApiUrl/api/devices/$currentDeviceId/report';
@@ -327,7 +512,7 @@ class _CodeRequestScreenState extends State<CodeRequestScreen> {
         body: jsonEncode({
           'timestamp': timestamp,
           'confidence': confidence,
-          'threat_class': threatClass,
+          'threat_class': threatClassId,
           'battery': batteryLevel,
         }),
       );
@@ -337,30 +522,44 @@ class _CodeRequestScreenState extends State<CodeRequestScreen> {
       }
 
       final decoded = response.body.isNotEmpty ? jsonDecode(response.body) : {};
-
       if (response.statusCode >= 200 && response.statusCode < 300) {
+        final reportedAt = DateTime.now();
+        final displayName =
+            threatName ??
+            _threatClassNames[threatClassId] ??
+            'Threat class $threatClassId';
         final incident = <String, dynamic>{
           'timestamp': timestamp,
           'confidence': confidence,
-          'threat_class': threatClass,
+          'threat_class': threatClassId,
+          'threat_name': displayName,
           'battery': batteryLevel,
         };
         final updatedIncidents = [incident, ..._sentIncidents];
+        setState(() {
+          _lastReportAt = reportedAt;
+          _sentIncidents = updatedIncidents;
+        });
+
         try {
           final prefs = await SharedPreferences.getInstance();
-          await prefs.setStringList(
+          final historySaved = await prefs.setStringList(
             _sentIncidentsStorageKey,
             updatedIncidents.map(jsonEncode).toList(),
           );
-          if (mounted) {
-            setState(() {
-              _sentIncidents = updatedIncidents;
-            });
+          final cooldownSaved = await prefs.setInt(
+            _lastReportAtStorageKey,
+            reportedAt.millisecondsSinceEpoch,
+          );
+          if (!historySaved || !cooldownSaved) {
+            throw StateError('Shared preferences did not save incident state.');
           }
-          _statusMessage.value = 'Test incident sent successfully.';
+          _statusMessage.value = isTest
+              ? 'Test incident sent successfully.'
+              : '$displayName detected at $confidence%. Incident sent successfully.';
         } catch (error) {
           _statusMessage.value =
-              'Test incident sent, but incident history could not be saved: $error';
+              'Incident sent, but history or cooldown could not be saved: $error';
         }
       } else {
         if (decoded is Map<String, dynamic> && decoded['detail'] != null) {
@@ -378,6 +577,21 @@ class _CodeRequestScreenState extends State<CodeRequestScreen> {
           _isSendingReport = false;
         });
       }
+    }
+  }
+
+  Future<void> _setReportCooldown(int seconds) async {
+    setState(() {
+      _reportCooldownSeconds = seconds;
+    });
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final saved = await prefs.setInt(_reportCooldownStorageKey, seconds);
+      if (!saved) {
+        throw StateError('Shared preferences did not save the cooldown.');
+      }
+    } catch (error) {
+      _statusMessage.value = 'Could not save report cooldown: $error';
     }
   }
 
@@ -420,6 +634,9 @@ class _CodeRequestScreenState extends State<CodeRequestScreen> {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_deviceIdStorageKey);
     await prefs.remove(_threatClassesStorageKey);
+    await prefs.remove(_threatClassNamesStorageKey);
+    await prefs.remove(_confidenceThresholdStorageKey);
+    await prefs.remove(_lastReportAtStorageKey);
 
     if (!mounted) {
       return;
@@ -427,6 +644,9 @@ class _CodeRequestScreenState extends State<CodeRequestScreen> {
 
     _deviceId.value = null;
     _threatClasses.value = const [];
+    _threatClassNames = {};
+    _confidenceThreshold = _defaultConfidenceThreshold;
+    _lastReportAt = null;
     _codeController.clear();
     _statusMessage.value = 'Device state reset.';
   }
@@ -534,7 +754,30 @@ class _CodeRequestScreenState extends State<CodeRequestScreen> {
           ),
         ],
       ),
+      const SizedBox(height: 20),
+      Text(
+        'Detection confidence threshold: $_confidenceThreshold%',
+        style: Theme.of(context).textTheme.titleSmall,
+      ),
       const SizedBox(height: 16),
+      Text(
+        'Report cooldown: $_reportCooldownSeconds seconds',
+        style: Theme.of(context).textTheme.titleSmall,
+      ),
+      Slider(
+        min: 1,
+        max: 60,
+        divisions: 59,
+        value: _reportCooldownSeconds.toDouble(),
+        label: '$_reportCooldownSeconds seconds',
+        onChanged: (value) {
+          setState(() {
+            _reportCooldownSeconds = value.round();
+          });
+        },
+        onChangeEnd: (value) => unawaited(_setReportCooldown(value.round())),
+      ),
+      const SizedBox(height: 8),
       ValueListenableBuilder<int?>(
         valueListenable: _deviceId,
         builder: (context, deviceId, _) {
@@ -554,7 +797,9 @@ class _CodeRequestScreenState extends State<CodeRequestScreen> {
           );
         },
       ),
-      const SizedBox(height: 20),
+      const SizedBox(height: 16),
+      _buildStatusMessage(),
+      const SizedBox(height: 12),
       Text('Sent incidents', style: Theme.of(context).textTheme.titleMedium),
       const SizedBox(height: 8),
       if (_sentIncidents.isEmpty)
@@ -566,26 +811,24 @@ class _CodeRequestScreenState extends State<CodeRequestScreen> {
         )
       else
         ..._sentIncidents.map((incident) {
-          final timestamp = DateTime.parse(
-            incident['timestamp'] as String,
-          ).toLocal();
-          final threatClass = incident['threat_class'];
+          final timestamp = DateTime.parse(incident['timestamp'] as String)
+              .toLocal();
+          final threatName =
+              incident['threat_name'] ??
+              _threatClassNames[incident['threat_class']] ??
+              'Threat class ${incident['threat_class']}';
           final confidence = incident['confidence'];
           final battery = incident['battery'];
 
           return Card(
             child: ListTile(
               leading: const Icon(Icons.warning_amber_outlined),
-              title: Text('Threat class $threatClass'),
-              subtitle: Text(
-                '${timestamp.toString()} · Battery $battery%',
-              ),
+              title: Text(threatName.toString()),
+              subtitle: Text('${timestamp.toString()} · Battery $battery%'),
               trailing: Text('$confidence%'),
             ),
           );
         }),
-      const SizedBox(height: 12),
-      _buildStatusMessage(),
     ];
   }
 

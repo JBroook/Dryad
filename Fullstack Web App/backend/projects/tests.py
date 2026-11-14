@@ -1281,6 +1281,26 @@ class DeviceManagementTests(ProjectAPITestCase):
         self.assertEqual(connection_code.device, device)
         self.assertIsNotNone(connection_code.used_at)
         self.assertEqual(response.data["threat_classes"], [self.threat_class.id])
+        self.assertEqual(
+            response.data["threat_class_names"],
+            {str(self.threat_class.id): self.threat_class.name},
+        )
+        self.assertEqual(
+            response.data["confidence_threshold"],
+            self.project.confidence_threshold,
+        )
+        config_response = self.client.get(
+            reverse("report_incident", args=[device.id])
+        )
+        self.assertEqual(config_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(
+            config_response.data["threat_class_names"],
+            {str(self.threat_class.id): self.threat_class.name},
+        )
+        self.assertEqual(
+            config_response.data["confidence_threshold"],
+            self.project.confidence_threshold,
+        )
 
     def test_unknown_connection_code_is_rejected(self):
         response = self.connect_device("NOPE00")

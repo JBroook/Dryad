@@ -1040,6 +1040,25 @@ class ProjectGetCodeView(APIView):
             status=status.HTTP_201_CREATED
         )
 
+def _device_detection_config(project):
+    threat_classes = list(
+        project.threat_classes.values_list(
+            "threat_class_id",
+            "threat_class__name",
+        )
+    )
+    return {
+        "threat_classes": [
+            threat_class_id for threat_class_id, _ in threat_classes
+        ],
+        "threat_class_names": {
+            str(threat_class_id): name
+            for threat_class_id, name in threat_classes
+        },
+        "confidence_threshold": project.confidence_threshold,
+    }
+
+
 class DeviceConnectionView(APIView):
     def post(self, request):
         serializer = DeviceConnectSerializer(data=request.data)
@@ -1085,18 +1104,11 @@ class DeviceConnectionView(APIView):
         connection_code.device = device
         connection_code.save(update_fields=["used_at","device"])
 
-        project_threat_classes = list(
-            connection_code.project.threat_classes.values_list(
-                "threat_class_id",
-                flat=True,
-            )
-        )
-
         return Response(
             {
                 "message": "Device connected successfully.",
                 "device_id": device.id,
-                "threat_classes": project_threat_classes,
+                **_device_detection_config(connection_code.project),
             },
             status=status.HTTP_201_CREATED,
         )
@@ -1133,6 +1145,10 @@ class DeviceConnectionView(APIView):
         )
 
 class DeviceReportView(APIView):
+    def get(self, request, device_id):
+        device = get_object_or_404(Device, id=device_id)
+        return Response(_device_detection_config(device.project))
+
     def post(self, request, device_id):
         device = get_object_or_404(Device, id=device_id)
         battery_serializer = DeviceReportBatterySerializer(data=request.data)

@@ -9,7 +9,9 @@ import 'audio_classes.dart';
 import 'audio_listening_task.dart';
 
 class AudioListeningScreen extends StatefulWidget {
-  const AudioListeningScreen({super.key});
+  const AudioListeningScreen({super.key, this.onScores});
+
+  final ValueChanged<List<double>>? onScores;
 
   @override
   State<AudioListeningScreen> createState() => _AudioListeningScreenState();
@@ -76,6 +78,7 @@ class _AudioListeningScreenState extends State<AudioListeningScreen> {
         _status = 'Listening in the background';
         _isListening = true;
       });
+      widget.onScores?.call(scores);
     } else if (type == 'state') {
       final state = data['state']?.toString();
       if (!mounted || state == null) {
@@ -233,7 +236,10 @@ class _AudioListeningScreenState extends State<AudioListeningScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final rankedScores = List<int>.generate(audioClassNames.length, (i) => i)
+    final rankedScores =
+        List<int>.generate(audioClassNames.length, (i) => i)
+            .where((index) => audioClassNames[index] != 'Axe')
+            .toList()
       ..sort((left, right) => _scores[right].compareTo(_scores[left]));
 
     return Scaffold(
