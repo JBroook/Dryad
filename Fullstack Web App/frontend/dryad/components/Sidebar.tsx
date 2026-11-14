@@ -8,7 +8,7 @@ import { TbMapRoute } from "react-icons/tb";
 import { MdOutlineDarkMode, MdOutlineLightMode } from "react-icons/md";
 import { useEffect, useState } from "react";
 import { useTheme } from "next-themes";
-import { apiFetch } from "@/library/api";
+import { apiFetch, logoutRequest } from "@/library/api";
 import { useToast } from "./ToastProvider";
 import UserAvatar from "./UserAvatar";
 
@@ -28,10 +28,12 @@ export default function Sidebar() {
         setTheme(mode ? "mytheme-light" : "mytheme-dark")
     }
     const router = useRouter()
-    function logout() {
-        localStorage.removeItem("access");
-        localStorage.removeItem("refresh");
-
+    async function logout() {
+        try {
+            await logoutRequest();
+        } catch (error) {
+            console.error("Logout failed:", error);
+        }
         router.push("/login");
         showToast("Signed out")
     }

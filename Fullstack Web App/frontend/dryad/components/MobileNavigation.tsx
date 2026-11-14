@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { TbMapRoute } from "react-icons/tb";
 import { IoWarningOutline } from "react-icons/io5";
 import { BsTree } from "react-icons/bs";
+import { logoutRequest } from "@/library/api";
 
 const navigationItems = [
   { href: "/home/mobile", label: "Home", icon: BsTree },
@@ -16,10 +17,12 @@ export default function MobileNavigation() {
   const pathname = usePathname();
   const router = useRouter();
 
-  const logout = () => {
-    localStorage.removeItem("access");
-    localStorage.removeItem("refresh");
-    localStorage.removeItem("userID");
+  const logout = async () => {
+    try {
+      await logoutRequest();
+    } catch (error) {
+      console.error("Logout failed:", error);
+    }
     router.replace("/login");
   };
 

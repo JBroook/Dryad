@@ -79,16 +79,15 @@ export default function Home() {
   }
 
   useEffect(()=>{
-    const token = localStorage.getItem("access");
+    const userID = localStorage.getItem("userID");
 
-    if(!token){
+    if(!userID){
       router.push("/login")
     }else{
       setAuthenticated(true)
     }
 
     // fetch user info
-    const userID = localStorage.getItem("userID")
     apiFetch(`users/${userID}`)
       .then(async (res) => {
         if (!res.ok) throw new Error(await res.text());

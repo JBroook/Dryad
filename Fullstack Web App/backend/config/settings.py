@@ -34,6 +34,8 @@ CORS_ALLOWED_ORIGINS = [
     "http://127.0.0.1:3000",
     "https://dryad-frontend.onrender.com",
 ]
+CORS_ALLOW_CREDENTIALS = True
+CSRF_TRUSTED_ORIGINS = CORS_ALLOWED_ORIGINS
 
 # Application definition
 
@@ -100,6 +102,16 @@ load_dotenv(os.path.join(BASE_DIR, '.env'))
 
 SECRET_KEY = os.getenv('SECRET_KEY')
 DEBUG = os.getenv('DEBUG') == 'True'
+
+JWT_ACCESS_COOKIE_NAME = "dryad_access"
+JWT_REFRESH_COOKIE_NAME = "dryad_refresh"
+JWT_COOKIE_PATH = "/api/"
+JWT_COOKIE_SECURE = not DEBUG
+JWT_COOKIE_SAMESITE = "Lax" if DEBUG else "None"
+CSRF_COOKIE_HTTPONLY = True
+CSRF_COOKIE_PATH = JWT_COOKIE_PATH
+CSRF_COOKIE_SECURE = JWT_COOKIE_SECURE
+CSRF_COOKIE_SAMESITE = JWT_COOKIE_SAMESITE
 
 if os.environ.get("DATABASE_URL"):
     DATABASES = {
@@ -174,7 +186,7 @@ SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
-        'rest_framework_simplejwt.authentication.JWTAuthentication',
+        'api.authentication.CookieJWTAuthentication',
     ),
     "DEFAULT_FILTER_BACKENDS": [
         "django_filters.rest_framework.DjangoFilterBackend",

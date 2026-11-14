@@ -649,6 +649,10 @@ class AuthenticationAPITests(TestCase):
             "last_name": "User",
         }
 
+    def csrf_headers(self):
+        response = self.client.get(reverse("csrf_token"))
+        return {"HTTP_X_CSRFTOKEN": response.data["csrfToken"]}
+
     @patch("users.models.User.send_verification_email")
     def test_registration_creates_user_with_hashed_verification_code(self, send_email):
         response = self.client.post(
@@ -677,7 +681,7 @@ class AuthenticationAPITests(TestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertEqual(User.objects.filter(email__iexact=data["email"]).count(), 1)
 
-    def test_login_returns_tokens_and_user_for_valid_credentials(self):
+    def test_login_sets_httponly_token_cookies_for_valid_credentials(self):
         user = User.objects.create_user(
             email="login@example.com",
             verified=True,
@@ -688,12 +692,85 @@ class AuthenticationAPITests(TestCase):
             reverse("login"),
             {"email": user.email, "password": "Testpass123!"},
             format="json",
+            **self.csrf_headers(),
         )
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertIn("access", response.data)
-        self.assertIn("refresh", response.data)
+        self.assertNotIn("access", response.data)
+        self.assertNotIn("refresh", response.data)
         self.assertEqual(response.data["user"]["email"], user.email)
+        self.assertTrue(response.cookies["dryad_access"]["httponly"])
+        self.assertTrue(response.cookies["dryad_refresh"]["httponly"])
+
+    def test_login_requires_a_csrf_token(self):
+        user = User.objects.create_user(
+            email="csrf-login@example.com",
+            verified=True,
+            password="Testpass123!",
+        )
+
+        response = self.client.post(
+            reverse("login"),
+            {"email": user.email, "password": "Testpass123!"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_cookie_jwt_authentication_requires_csrf_for_unsafe_requests(self):
+        user = User.objects.create_user(
+            email="cookie-auth@example.com",
+            verified=True,
+            password="Testpass123!",
+        )
+        login_response = self.client.post(
+            reverse("login"),
+            {"email": user.email, "password": "Testpass123!"},
+            format="json",
+            **self.csrf_headers(),
+        )
+        self.assertEqual(login_response.status_code, status.HTTP_200_OK)
+
+        url = reverse("user-detail", args=[user.pk])
+        blocked_response = self.client.patch(
+            url,
+            {"first_name": "Blocked"},
+            format="json",
+        )
+        allowed_response = self.client.patch(
+            url,
+            {"first_name": "Updated"},
+            format="json",
+            HTTP_X_CSRFTOKEN=login_response.data["csrfToken"],
+        )
+
+        self.assertEqual(blocked_response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(allowed_response.status_code, status.HTTP_200_OK)
+
+    def test_refresh_uses_cookie_and_does_not_return_jwt(self):
+        user = User.objects.create_user(
+            email="refresh@example.com",
+            verified=True,
+            password="Testpass123!",
+        )
+        login_response = self.client.post(
+            reverse("login"),
+            {"email": user.email, "password": "Testpass123!"},
+            format="json",
+            **self.csrf_headers(),
+        )
+        self.assertEqual(login_response.status_code, status.HTTP_200_OK)
+
+        response = self.client.post(
+            reverse("token_refresh"),
+            {},
+            format="json",
+            HTTP_X_CSRFTOKEN=login_response.data["csrfToken"],
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertNotIn("access", response.data)
+        self.assertTrue(response.cookies["dryad_access"]["httponly"])
 
     def test_login_rejects_an_unverified_user(self):
         user = User.objects.create_user(
@@ -705,6 +782,7 @@ class AuthenticationAPITests(TestCase):
             reverse("login"),
             {"email": user.email, "password": "Testpass123!"},
             format="json",
+            **self.csrf_headers(),
         )
 
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
@@ -722,6 +800,7 @@ class AuthenticationAPITests(TestCase):
             reverse("login"),
             {"email": user.email, "password": "Wrongpass123!"},
             format="json",
+            **self.csrf_headers(),
         )
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
