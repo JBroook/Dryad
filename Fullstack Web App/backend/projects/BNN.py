@@ -436,22 +436,15 @@ def train_model(train_samples):
     )
 
     for epoch in range(100):
-
         optimizer.zero_grad()
-
         logits = model(X_scaled)["logits"].squeeze(-1)
-
         loss = criterion(
             logits,
             y,
         )
-
         loss.backward()
-
         optimizer.step()
-
         if epoch % 10 == 0:
-
             print(
                 f"Epoch {epoch}: "
                 f"loss={loss.item():.4f}"

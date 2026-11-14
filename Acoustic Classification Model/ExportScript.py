@@ -1,13 +1,12 @@
 import torch
 import onnx
 import onnxruntime as ort
-import numpy as np
 from torch import nn
 
 from models import Cnn10
 
-MODEL_PATH = "trainedModels/200epoch_pure_AC/fold0_checkpoint_epoch50.pth"
-OUTPUT_PATH = "trainedModels/200epoch_pure_AC/dryad_audio_model.onnx"
+MODEL_PATH = "trainedModels/26_class_ac_real/fold_4/checkpoint_epoch50.pth"
+OUTPUT_PATH = "trainedModels/26_class_ac_real/dryad_audio_model.onnx"
 
 model = Cnn10(
         sample_rate=32000,
@@ -18,7 +17,7 @@ model = Cnn10(
         fmax=14000,
         classes_num=50
     )
-model.fc_audioset = nn.Linear(512, 27, bias=True)
+model.fc_audioset = nn.Linear(512, 26, bias=True)
 
 checkpoint = torch.load(MODEL_PATH, map_location="cpu")
 model.load_state_dict(checkpoint["model_state_dict"])

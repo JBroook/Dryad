@@ -100,12 +100,12 @@ export default function Incident(props : IncidentProps) {
             </div>
 
             <div className="ml-auto flex shrink-0 flex-row items-center">
-                <div className="flex flex-col items-end">
+                {!props.manualReport && <div className="flex flex-col items-end">
                     <h1 className="font-semibold text-2xl text-accent">
                         {props.confidence}%
                     </h1>
                     <p className="text-secondary-content text-sm">confidence</p>
-                </div>
+                </div>}
 
                 {isOpen ?
                     <IoIosArrowUp className="text-2xl text-secondary-content ml-4" />
@@ -132,16 +132,18 @@ export default function Incident(props : IncidentProps) {
                 </div>
             </div>
 
-            <div className="w-full flex justify-between mt-4">
+            {!props.manualReport && <div className="w-full flex justify-between mt-4">
                 <p className="text-secondary-content text-sm">
                     Confidence
                 </p>
                 <p className="text-accent text-sm text-end">
                     {props.confidence}%
                 </p>
-            </div>
+            </div>}
 
-            <progress className="progress progress-primary w-full mt-2" value={props.confidence} max="100"></progress>
+            {!props.manualReport && 
+                <progress className="progress progress-primary w-full mt-2" value={props.confidence} max="100"></progress>
+            }
 
             <div className="mt-2 flex flex-wrap gap-2">
                 {(props.status=="new" && !props.mini && canManage) &&
