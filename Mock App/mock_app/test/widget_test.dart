@@ -116,4 +116,27 @@ void main() {
     expect(find.text('Threat class 3'), findsOneWidget);
     expect(find.textContaining('Battery 64%'), findsOneWidget);
   });
+
+  testWidgets('restores queued reports and shows the pending count', (
+    WidgetTester tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({
+      'pending_reports': [
+        '{"report_id":"pending-1","device_id":10,'
+            '"timestamp":"2026-01-01T00:00:00.000Z","confidence":90,'
+            '"threat_class":1,"threat_name":"Chainsaw","is_test":false,'
+            '"battery":80}',
+      ],
+    });
+
+    await tester.pumpWidget(const MyApp());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Settings'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text('1 report(s) queued and waiting to send.'),
+      findsOneWidget,
+    );
+  });
 }
