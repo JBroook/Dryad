@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:math';
 
+import 'package:battery_plus/battery_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'package:http/http.dart' as http;
@@ -14,6 +15,7 @@ const String _hotspotHost = '10.111.194.78';
 const String _deviceIdStorageKey = 'device_id';
 const String _threatClassesStorageKey = 'threat_classes';
 const String _networkModeStorageKey = 'network_mode_hotspot';
+const String _sentIncidentsStorageKey = 'sent_incidents';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -76,8 +78,11 @@ class _AppShellState extends State<AppShell> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: IndexedStack(
-        index: _selectedPage,
-        children: const [CodeRequestScreen(), AudioListeningScreen()],
+        index: _selectedPage == 1 ? 1 : 0,
+        children: [
+          CodeRequestScreen(showSettings: _selectedPage == 2),
+          const AudioListeningScreen(),
+        ],
       ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _selectedPage,
@@ -97,6 +102,11 @@ class _AppShellState extends State<AppShell> {
             selectedIcon: Icon(Icons.graphic_eq),
             label: 'Listen',
           ),
+          NavigationDestination(
+            icon: Icon(Icons.settings_outlined),
+            selectedIcon: Icon(Icons.settings),
+            label: 'Settings',
+          ),
         ],
       ),
     );
@@ -104,7 +114,9 @@ class _AppShellState extends State<AppShell> {
 }
 
 class CodeRequestScreen extends StatefulWidget {
-  const CodeRequestScreen({super.key});
+  const CodeRequestScreen({super.key, this.showSettings = false});
+
+  final bool showSettings;
 
   @override
   State<CodeRequestScreen> createState() => _CodeRequestScreenState();
@@ -119,6 +131,7 @@ class _CodeRequestScreenState extends State<CodeRequestScreen> {
   bool _isSendingReport = false;
   bool _isRunningModel = false;
   bool _isHotspotMode = false;
+  List<Map<String, dynamic>> _sentIncidents = [];
 
   bool get _isBusy => _isSendingCode || _isSendingReport || _isRunningModel;
 
@@ -131,6 +144,7 @@ class _CodeRequestScreenState extends State<CodeRequestScreen> {
     super.initState();
     _restoreSavedDeviceData();
     _restoreNetworkMode();
+    _restoreIncidentHistory();
   }
 
   Future<void> _restoreSavedDeviceData() async {
@@ -162,6 +176,26 @@ class _CodeRequestScreenState extends State<CodeRequestScreen> {
 
     _isHotspotMode = savedMode ?? false;
     setState(() {});
+  }
+
+  Future<void> _restoreIncidentHistory() async {
+    final prefs = await SharedPreferences.getInstance();
+    final storedIncidents =
+        prefs.getStringList(_sentIncidentsStorageKey) ?? const [];
+    final incidents = <Map<String, dynamic>>[];
+
+    for (final entry in storedIncidents) {
+      final decoded = jsonDecode(entry);
+      if (decoded is Map<String, dynamic>) {
+        incidents.add(decoded);
+      }
+    }
+
+    if (mounted) {
+      setState(() {
+        _sentIncidents = incidents;
+      });
+    }
   }
 
   Future<void> _persistNetworkMode() async {
@@ -214,12 +248,13 @@ class _CodeRequestScreenState extends State<CodeRequestScreen> {
     _statusMessage.value = 'Sending code...';
 
     try {
+      final batteryLevel = await Battery().batteryLevel;
       final response = await http.post(
         Uri.parse('$_baseApiUrl/api/devices/connect'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           'code': code,
-          'battery': 87,
+          'battery': batteryLevel,
           'coordinate': {
             'type': 'Point',
             'coordinates': [100.195278, 5.458981],
@@ -284,6 +319,7 @@ class _CodeRequestScreenState extends State<CodeRequestScreen> {
     _statusMessage.value = 'Sending report...';
 
     try {
+      final batteryLevel = await Battery().batteryLevel;
       final reportUrl = '$_baseApiUrl/api/devices/$currentDeviceId/report';
       final response = await http.post(
         Uri.parse(reportUrl),
@@ -292,6 +328,7 @@ class _CodeRequestScreenState extends State<CodeRequestScreen> {
           'timestamp': timestamp,
           'confidence': confidence,
           'threat_class': threatClass,
+          'battery': batteryLevel,
         }),
       );
 
@@ -302,7 +339,29 @@ class _CodeRequestScreenState extends State<CodeRequestScreen> {
       final decoded = response.body.isNotEmpty ? jsonDecode(response.body) : {};
 
       if (response.statusCode >= 200 && response.statusCode < 300) {
-        _statusMessage.value = 'Report sent successfully.';
+        final incident = <String, dynamic>{
+          'timestamp': timestamp,
+          'confidence': confidence,
+          'threat_class': threatClass,
+          'battery': batteryLevel,
+        };
+        final updatedIncidents = [incident, ..._sentIncidents];
+        try {
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setStringList(
+            _sentIncidentsStorageKey,
+            updatedIncidents.map(jsonEncode).toList(),
+          );
+          if (mounted) {
+            setState(() {
+              _sentIncidents = updatedIncidents;
+            });
+          }
+          _statusMessage.value = 'Test incident sent successfully.';
+        } catch (error) {
+          _statusMessage.value =
+              'Test incident sent, but incident history could not be saved: $error';
+        }
       } else {
         if (decoded is Map<String, dynamic> && decoded['detail'] != null) {
           _statusMessage.value = decoded['detail'].toString();
@@ -383,8 +442,6 @@ class _CodeRequestScreenState extends State<CodeRequestScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final hasStoredDeviceId = _deviceId.value != null;
-
     return Scaffold(
       appBar: AppBar(title: const Text('Dryad')),
       body: SafeArea(
@@ -396,113 +453,156 @@ class _CodeRequestScreenState extends State<CodeRequestScreen> {
                 constraints: const BoxConstraints(maxWidth: 480),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    ValueListenableBuilder<int?>(
-                      valueListenable: _deviceId,
-                      builder: (context, deviceId, _) {
-                        if (deviceId == null) {
-                          return const SizedBox.shrink();
-                        }
-
-                        return Card(
-                          child: Padding(
-                            padding: const EdgeInsets.all(12),
-                            child: Text(
-                              'Stored device ID: $deviceId',
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                    const SizedBox(height: 20),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: ElevatedButton(
-                            onPressed: _isBusy ? null : _toggleNetworkMode,
-                            child: Text(
-                              _isHotspotMode ? 'Mode: Hotspot' : 'Mode: Wi‑Fi',
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: ElevatedButton(
-                            onPressed: _isBusy ? null : _resetDeviceState,
-                            child: const Text('Reset state'),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 20),
-                    const Text(
-                      'Code',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    TextField(
-                      controller: _codeController,
-                      decoration: const InputDecoration(
-                        border: OutlineInputBorder(),
-                        hintText: 'Enter your code',
-                      ),
-                      textCapitalization: TextCapitalization.characters,
-                    ),
-                    const SizedBox(height: 20),
-                    ElevatedButton(
-                      onPressed: _isBusy || _isSendingCode ? null : _sendCode,
-                      child: _isSendingCode
-                          ? const SizedBox(
-                              width: 18,
-                              height: 18,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Text('Send code'),
-                    ),
-                    const SizedBox(height: 20),
-                    if (hasStoredDeviceId)
-                      ElevatedButton(
-                        onPressed: _isBusy || _isSendingReport
-                            ? null
-                            : _sendReport,
-                        child: _isSendingReport
-                            ? const SizedBox(
-                                width: 18,
-                                height: 18,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                ),
-                              )
-                            : const Text('Send report'),
-                      ),
-                    const SizedBox(height: 20),
-                    ValueListenableBuilder<String>(
-                      valueListenable: _statusMessage,
-                      builder: (context, statusText, _) {
-                        if (statusText.isEmpty) {
-                          return const SizedBox.shrink();
-                        }
-                        return Card(
-                          child: Padding(
-                            padding: const EdgeInsets.all(12),
-                            child: Text(statusText),
-                          ),
-                        );
-                      },
-                    ),
-                  ],
+                  children: widget.showSettings
+                      ? _buildSettingsContent()
+                      : _buildConnectionContent(),
                 ),
               ),
             ),
           ),
         ),
       ),
+    );
+  }
+
+  List<Widget> _buildConnectionContent() {
+    return [
+      ValueListenableBuilder<int?>(
+        valueListenable: _deviceId,
+        builder: (context, deviceId, _) {
+          if (deviceId == null) {
+            return const SizedBox.shrink();
+          }
+
+          return Card(
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Text(
+                'Stored device ID: $deviceId',
+                style: const TextStyle(fontWeight: FontWeight.w600),
+              ),
+            ),
+          );
+        },
+      ),
+      const SizedBox(height: 20),
+      const Text(
+        'Code',
+        style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+      ),
+      const SizedBox(height: 8),
+      TextField(
+        controller: _codeController,
+        decoration: const InputDecoration(
+          border: OutlineInputBorder(),
+          hintText: 'Enter your code',
+        ),
+        textCapitalization: TextCapitalization.characters,
+      ),
+      const SizedBox(height: 20),
+      ElevatedButton(
+        onPressed: _isBusy || _isSendingCode ? null : _sendCode,
+        child: _isSendingCode
+            ? const SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            : const Text('Send code'),
+      ),
+      const SizedBox(height: 20),
+      _buildStatusMessage(),
+    ];
+  }
+
+  List<Widget> _buildSettingsContent() {
+    return [
+      Row(
+        children: [
+          Expanded(
+            child: ElevatedButton(
+              onPressed: _isBusy ? null : _toggleNetworkMode,
+              child: Text(_isHotspotMode ? 'Mode: Hotspot' : 'Mode: Wi‑Fi'),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: ElevatedButton(
+              onPressed: _isBusy ? null : _resetDeviceState,
+              child: const Text('Reset state'),
+            ),
+          ),
+        ],
+      ),
+      const SizedBox(height: 16),
+      ValueListenableBuilder<int?>(
+        valueListenable: _deviceId,
+        builder: (context, deviceId, _) {
+          if (deviceId == null) {
+            return const SizedBox.shrink();
+          }
+
+          return ElevatedButton(
+            onPressed: _isBusy ? null : _sendReport,
+            child: _isSendingReport
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Text('Test Incident'),
+          );
+        },
+      ),
+      const SizedBox(height: 20),
+      Text('Sent incidents', style: Theme.of(context).textTheme.titleMedium),
+      const SizedBox(height: 8),
+      if (_sentIncidents.isEmpty)
+        const Card(
+          child: Padding(
+            padding: EdgeInsets.all(12),
+            child: Text('No incidents sent yet.'),
+          ),
+        )
+      else
+        ..._sentIncidents.map((incident) {
+          final timestamp = DateTime.parse(
+            incident['timestamp'] as String,
+          ).toLocal();
+          final threatClass = incident['threat_class'];
+          final confidence = incident['confidence'];
+          final battery = incident['battery'];
+
+          return Card(
+            child: ListTile(
+              leading: const Icon(Icons.warning_amber_outlined),
+              title: Text('Threat class $threatClass'),
+              subtitle: Text(
+                '${timestamp.toString()} · Battery $battery%',
+              ),
+              trailing: Text('$confidence%'),
+            ),
+          );
+        }),
+      const SizedBox(height: 12),
+      _buildStatusMessage(),
+    ];
+  }
+
+  Widget _buildStatusMessage() {
+    return ValueListenableBuilder<String>(
+      valueListenable: _statusMessage,
+      builder: (context, statusText, _) {
+        if (statusText.isEmpty) {
+          return const SizedBox.shrink();
+        }
+        return Card(
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Text(statusText),
+          ),
+        );
+      },
     );
   }
 }

@@ -1964,11 +1964,15 @@ class NotificationAndAlertTests(ProjectAPITestCase):
                     "threat_class": self.threat_class.id,
                     "timestamp": timestamp.isoformat(),
                     "confidence": 95,
+                    "battery": 42,
                 },
                 format="json",
             )
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        device.refresh_from_db()
+        self.assertEqual(device.battery, 42)
+        self.assertEqual(device.last_seen, timestamp)
         incident = Incident.objects.get(device=device)
         self.assertEqual(incident.project, self.project)
         self.assertEqual(incident.threat_class, self.threat_class)

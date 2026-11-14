@@ -40,6 +40,7 @@ dependencies:
   flutter_onnxruntime: ^1.9.0
   record: ^7.1.2
   flutter_foreground_task: ^11.0.3
+  battery_plus: ^7.1.2
 dev_dependencies:
   flutter_test:
     sdk: flutter

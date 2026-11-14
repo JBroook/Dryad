@@ -23,9 +23,20 @@ from users.serializers import UserSerializer
 from users.models import User
 from projects.models import ConnectionCode, Project, Incident, ThreatClass, Membership, Patrol, GridCell, Device, RoutinePatrol
 from projects.permissions import require_project_role
-from projects.serializers import (DeviceConnectSerializer, ProjectOverviewSerializer, ProjectSerializer, IncidentSerializer, 
-ThreatClassSerializer, MembershipSerializer, PatrolSerializer,
-GridCellSerializer, DeviceSerializer, RoutinePatrolSerializer, ManualIncidentReportSerializer)
+from projects.serializers import (
+    DeviceConnectSerializer,
+    DeviceReportBatterySerializer,
+    ProjectOverviewSerializer,
+    ProjectSerializer,
+    IncidentSerializer,
+    ThreatClassSerializer,
+    MembershipSerializer,
+    PatrolSerializer,
+    GridCellSerializer,
+    DeviceSerializer,
+    RoutinePatrolSerializer,
+    ManualIncidentReportSerializer,
+)
 from django.db.models import Q
 from django_filters.rest_framework import DjangoFilterBackend
 import django_filters
@@ -1124,10 +1135,18 @@ class DeviceConnectionView(APIView):
 class DeviceReportView(APIView):
     def post(self, request, device_id):
         device = get_object_or_404(Device, id=device_id)
+        battery_serializer = DeviceReportBatterySerializer(data=request.data)
+        battery_serializer.is_valid(raise_exception=True)
         threat_class_id = request.data.get("threat_class")
         threat_class = get_object_or_404(ThreatClass, id=threat_class_id)
         timestamp = parse_datetime(request.data.get("timestamp"))
         confidence = request.data.get("confidence")
+        battery = battery_serializer.validated_data.get("battery")
+        device.last_seen = timestamp
+        device.save(update_fields=["last_seen"])
+        if battery is not None:
+            device.battery = battery
+            device.save(update_fields=["battery"])
         device.report_incident(
             threat_class=threat_class,
             timestamp=timestamp,

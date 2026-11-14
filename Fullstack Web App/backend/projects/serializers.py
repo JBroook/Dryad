@@ -348,9 +348,13 @@ class RoutinePatrolSerializer(serializers.ModelSerializer):
 class DeviceConnectSerializer(serializers.Serializer):
     code = serializers.CharField(max_length=6)
     coordinate = GeometryField()
-    battery = serializers.IntegerField()
+    battery = serializers.IntegerField(min_value=0, max_value=100)
 
     def validate_coordinate(self, value):
         if value.geom_type != "Point":
             raise serializers.ValidationError("Coordinate must be a Point.")
         return value
+
+
+class DeviceReportBatterySerializer(serializers.Serializer):
+    battery = serializers.IntegerField(min_value=0, max_value=100, required=False)
