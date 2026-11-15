@@ -66,7 +66,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
           <div
             key={toast.id}
             role={toast.type === "error" ? "alert" : "status"}
-            className={`alert alert-${toast.type} shadow-lg`}
+            className={`bg-base-100 border border-primary py-2 px-4 rounded-xl flex justify-between gap-2`}
           >
             <span>{toast.message}</span>
             <button
