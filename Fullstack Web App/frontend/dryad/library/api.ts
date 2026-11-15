@@ -43,19 +43,36 @@ export async function apiRequest(
     headers.set("Content-Type", "application/json");
   }
 
-  return fetch(`${API_URL}/${url}`, {
-    ...options,
-    method,
-    credentials: "include",
-    headers,
-  });
+  const request = () =>
+    fetch(`${API_URL}/${url}`, {
+      ...options,
+      method,
+      credentials: "include",
+      headers,
+    });
+
+  let response = await request();
+  if (
+    !SAFE_METHODS.has(method) &&
+    response.status === 403 &&
+    (await response.clone().text()).includes("CSRF Failed")
+  ) {
+    csrfToken = null;
+    headers.set("X-CSRFToken", await getCsrfToken());
+    response = await request();
+  }
+
+  return response;
 }
 
 export async function logoutRequest(): Promise<void> {
   try {
     const response = await apiRequest("logout/", { method: "POST" });
     if (!response.ok) {
-      throw new Error("Unable to clear the authentication cookies.");
+      const detail = await response.text();
+      throw new Error(
+        `Unable to clear the authentication cookies (HTTP ${response.status}).${detail ? ` ${detail}` : ""}`,
+      );
     }
   } finally {
     csrfToken = null;
