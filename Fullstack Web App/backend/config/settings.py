@@ -193,34 +193,71 @@ REST_FRAMEWORK = {
     ],
 }
 
-LOGGING = {
-    "version": 1,
-    "disable_existing_loggers": False,
-    "formatters": {
-        "verbose": {
-            "format": (
-                "{levelname} {asctime} {name} "
-                "{message}"
-            ),
-            "style": "{",
+LOGGING = None
+
+if os.getenv('DEBUG') == 'True':  
+    LOGGING = {
+        "version": 1,
+        "disable_existing_loggers": False,
+        "formatters": {
+            "verbose": {
+                "format": "{levelname} {asctime} {name} {message}",
+                "style": "{",
+            },
         },
-    },
-    "handlers": {
-        "console": {
-            "class": "logging.StreamHandler",
-            "formatter": "verbose",
-            "level": "ERROR",
+        "handlers": {
+            "console": {
+                "class": "logging.StreamHandler",
+                "formatter": "verbose",
+                "level": "DEBUG",
+            },
         },
-    },
-    "root": {
-        "handlers": ["console"],
-        "level": "ERROR",
-    },
-    "loggers": {
-        "django": {
+        "root": {
+            "handlers": ["console"],
+            "level": "INFO",
+        },
+        "loggers": {
+            "django": {
+                "handlers": ["console"],
+                "level": "INFO",
+                "propagate": False,
+            },
+            "django.request": {
+                "handlers": ["console"],
+                "level": "INFO",
+                "propagate": False,
+            },
+        },
+    }
+else:
+    LOGGING = {
+        "version": 1,
+        "disable_existing_loggers": False,
+        "formatters": {
+            "verbose": {
+                "format": (
+                    "{levelname} {asctime} {name} "
+                    "{message}"
+                ),
+                "style": "{",
+            },
+        },
+        "handlers": {
+            "console": {
+                "class": "logging.StreamHandler",
+                "formatter": "verbose",
+                "level": "ERROR",
+            },
+        },
+        "root": {
             "handlers": ["console"],
             "level": "ERROR",
-            "propagate": False,
         },
-    },
-}
+        "loggers": {
+            "django": {
+                "handlers": ["console"],
+                "level": "ERROR",
+                "propagate": False,
+            },
+        },
+    }

@@ -14,9 +14,10 @@ interface RoutinePatrolCardProps {
     patrol: RoutinePatrol;
     canManage?: boolean;
     onDelete?: (patrolID: number) => void;
+    showProject?: boolean;
 }
 
-export default function RoutinePatrolCard({ patrol, canManage, onDelete }: RoutinePatrolCardProps) {
+export default function RoutinePatrolCard({ patrol, canManage, onDelete, showProject }: RoutinePatrolCardProps) {
     const [isOpen, setIsOpen] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
     const createdAt = new Date(patrol.created_at);
@@ -105,6 +106,12 @@ export default function RoutinePatrolCard({ patrol, canManage, onDelete }: Routi
 
                 <div className="ml-2 min-w-0 flex-1 md:ml-4">
                     <h1 className="font-semibold mb-1">{patrol.name}</h1>
+                    {showProject && (
+                        <div className="mb-1 flex items-center text-secondary-content text-xs md:text-sm">
+                            <TbMap2 className="mr-1 shrink-0" />
+                            <p className="truncate">Project: {patrol.project.name}</p>
+                        </div>
+                    )}
                     <div className="flex flex-wrap items-center text-secondary-content text-xs md:flex-row md:text-sm">
                         <TbMapRoute className="mr-1" />
                         <p className="mr-3">{capitalizeFirstLetter(patrol.frequency)}</p>
