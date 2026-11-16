@@ -247,7 +247,7 @@ export default function DevicesView(props: DevicesViewProps) {
                     </div>
 
                     <p className="text-base leading-relaxed text-[#7c8c85]">
-                        Code <strong className="font-bold text-white">{deviceCode}</strong> was
+                        Code <strong className="font-bold text-accent">{deviceCode}</strong> was
                         accepted. Give this device a name so you can identify it later.
                     </p>
 
@@ -263,7 +263,7 @@ export default function DevicesView(props: DevicesViewProps) {
                             value={newDeviceName}
                             onChange={(e) => setNewDeviceName(e.target.value)}
                             placeholder={`Device-${deviceCode}`}
-                            className="input input-bordered w-full rounded-2xl border-[#1e2924] bg-[#141b18] px-4 py-3 text-base text-[#a2b2aa] placeholder-[#4a5751] focus:border-[#22c55e] focus:outline-none"
+                            className="input input-bordered w-full rounded-2xl border-[#1e2924] bg-base-100 px-4 py-3 text-base text-[#a2b2aa] placeholder-[#4a5751] focus:border-[#22c55e] focus:outline-none"
                         />
                         </div>
 
