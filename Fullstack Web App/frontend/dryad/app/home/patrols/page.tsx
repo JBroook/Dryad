@@ -58,7 +58,7 @@ export default function Patrols() {
     {title : "Pending", key : "pending", count : patrols.reduce((count, patrol)=> {return patrol.status === "pending" ? (count + 1) : count}, 0)},
     {title : "Completed", key : "completed", count : patrols.reduce((count, patrol)=> {return patrol.status === "completed" ? (count + 1) : count}, 0)},
     {title : "Cancelled", key : "cancelled", count : patrols.reduce((count, patrol)=> {return patrol.status === "cancelled" ? (count + 1) : count}, 0)},
-    // {title : "Routine", key : "routine", count : routinePatrols.length},
+    {title : "Routine", key : "routine", count : routinePatrols.length},
   ]
   
   const extractPatrols = (data : any)=>{
@@ -467,7 +467,7 @@ export default function Patrols() {
           />
         ))}
         {matchingRoutinePatrols.map((patrol) => (
-          <RoutinePatrolCard key={`routine-${patrol.id}`} patrol={patrol} />
+          <RoutinePatrolCard key={`routine-${patrol.id}`} patrol={patrol} showProject />
         ))}
         </>
       :

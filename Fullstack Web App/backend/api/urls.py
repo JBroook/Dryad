@@ -35,6 +35,8 @@ router.register(
 )
 
 urlpatterns = [
+    path("csrf/", views.CsrfTokenView.as_view(), name="csrf_token"),
+    path("logout/", views.LogoutView.as_view(), name="logout"),
     path('login/', views.LoginView.as_view(), name="login"),
     path('register/', views.RegisterView.as_view(), name="register"),
     path("forgot_password/", views.ForgotPasswordView.as_view()),

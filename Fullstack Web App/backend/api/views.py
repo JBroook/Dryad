@@ -4,7 +4,9 @@ import math
 import os
 from datetime import timedelta
 from xml.sax.saxutils import escape
+from django.conf import settings
 from django.http import HttpResponse
+from django.middleware.csrf import get_token, rotate_token
 from django.template.loader import render_to_string
 from django.utils import timezone
 import secrets
@@ -12,10 +14,12 @@ import string
 import resend
 from rest_framework import status
 from rest_framework.exceptions import PermissionDenied
-from rest_framework.permissions import IsAuthenticated, SAFE_METHODS
+from rest_framework.permissions import AllowAny, IsAuthenticated, SAFE_METHODS
 from rest_framework.views import APIView
 from users.serializers import ForgotPasswordSerializer, LoginSerializer, RegisterSerializer, ResetPasswordSerializer, UserSettingsSerializer, VerifyEmailSerializer
-from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.tokens import AccessToken, RefreshToken
+from rest_framework_simplejwt.views import TokenRefreshView
+from .authentication import enforce_csrf
 from rest_framework.response import Response
 from rest_framework.generics import ListCreateAPIView, ListAPIView
 from rest_framework.viewsets import ModelViewSet
@@ -23,9 +27,20 @@ from users.serializers import UserSerializer
 from users.models import User
 from projects.models import ConnectionCode, Project, Incident, ThreatClass, Membership, Patrol, GridCell, Device, RoutinePatrol
 from projects.permissions import require_project_role
-from projects.serializers import (DeviceConnectSerializer, ProjectOverviewSerializer, ProjectSerializer, IncidentSerializer, 
-ThreatClassSerializer, MembershipSerializer, PatrolSerializer,
-GridCellSerializer, DeviceSerializer, RoutinePatrolSerializer, ManualIncidentReportSerializer)
+from projects.serializers import (
+    DeviceConnectSerializer,
+    DeviceReportBatterySerializer,
+    ProjectOverviewSerializer,
+    ProjectSerializer,
+    IncidentSerializer,
+    ThreatClassSerializer,
+    MembershipSerializer,
+    PatrolSerializer,
+    GridCellSerializer,
+    DeviceSerializer,
+    RoutinePatrolSerializer,
+    ManualIncidentReportSerializer,
+)
 from django.db.models import Q
 from django_filters.rest_framework import DjangoFilterBackend
 import django_filters
@@ -76,7 +91,50 @@ import logging
 logger = logging.getLogger(__name__)
 
 
+def _set_jwt_cookie(response, name, token, lifetime):
+    response.set_cookie(
+        name,
+        str(token),
+        max_age=int(lifetime.total_seconds()),
+        httponly=True,
+        secure=settings.JWT_COOKIE_SECURE,
+        samesite=settings.JWT_COOKIE_SAMESITE,
+        path=settings.JWT_COOKIE_PATH,
+    )
+
+
+def _set_auth_cookies(response, refresh_token):
+    access_token = refresh_token.access_token
+    _set_jwt_cookie(
+        response,
+        settings.JWT_ACCESS_COOKIE_NAME,
+        access_token,
+        access_token.lifetime,
+    )
+    _set_jwt_cookie(
+        response,
+        settings.JWT_REFRESH_COOKIE_NAME,
+        refresh_token,
+        refresh_token.lifetime,
+    )
+
+
+class CsrfTokenView(APIView):
+    authentication_classes = []
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        return Response({"csrfToken": get_token(request._request)})
+
+
 class LoginView(APIView):
+    authentication_classes = []
+    permission_classes = [AllowAny]
+
+    def initial(self, request, *args, **kwargs):
+        super().initial(request, *args, **kwargs)
+        enforce_csrf(request)
+
     def post(self, request):
         logger.info("LOGIN DEBUG: Request received")
 
@@ -102,17 +160,82 @@ class LoginView(APIView):
 
             refresh = RefreshToken.for_user(user)
             logger.info("LOGIN DEBUG: JWT tokens generated")
-
-            return Response({
-                "access": str(refresh.access_token),
-                "refresh": str(refresh),
+            rotate_token(request._request)
+            response = Response({
                 "user": user_serializer.data,
                 "message": "Signed in successfully.",
+                "csrfToken": get_token(request._request),
             })
+            _set_auth_cookies(response, refresh)
+            return response
 
         except Exception:
             logger.exception("LOGIN DEBUG: Login failed")
             raise
+
+
+class CookieTokenRefreshView(TokenRefreshView):
+    authentication_classes = []
+    permission_classes = [AllowAny]
+
+    def post(self, request, *args, **kwargs):
+        enforce_csrf(request)
+        refresh_token = request.COOKIES.get(
+            settings.JWT_REFRESH_COOKIE_NAME
+        )
+        if not refresh_token:
+            return Response(
+                {"detail": "Refresh token is missing."},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+
+        serializer = self.get_serializer(data={"refresh": refresh_token})
+        serializer.is_valid(raise_exception=True)
+        validated_data = serializer.validated_data
+
+        response = Response({"detail": "Access token refreshed."})
+        access_token = AccessToken(validated_data["access"])
+        _set_jwt_cookie(
+            response,
+            settings.JWT_ACCESS_COOKIE_NAME,
+            access_token,
+            access_token.lifetime,
+        )
+
+        if "refresh" in validated_data:
+            rotated_refresh = RefreshToken(validated_data["refresh"])
+            _set_jwt_cookie(
+                response,
+                settings.JWT_REFRESH_COOKIE_NAME,
+                rotated_refresh,
+                rotated_refresh.lifetime,
+            )
+
+        return response
+
+
+class LogoutView(APIView):
+    authentication_classes = []
+    permission_classes = [AllowAny]
+
+    def initial(self, request, *args, **kwargs):
+        super().initial(request, *args, **kwargs)
+        enforce_csrf(request)
+
+    def post(self, request):
+        response = Response({"message": "Signed out successfully."})
+        response.delete_cookie(
+            settings.JWT_ACCESS_COOKIE_NAME,
+            path=settings.JWT_COOKIE_PATH,
+            samesite=settings.JWT_COOKIE_SAMESITE,
+        )
+        response.delete_cookie(
+            settings.JWT_REFRESH_COOKIE_NAME,
+            path=settings.JWT_COOKIE_PATH,
+            samesite=settings.JWT_COOKIE_SAMESITE,
+        )
+        return response
+
 
 class DeleteAccountView(APIView):
     permission_classes = [IsAuthenticated]
@@ -1029,6 +1152,25 @@ class ProjectGetCodeView(APIView):
             status=status.HTTP_201_CREATED
         )
 
+def _device_detection_config(project):
+    threat_classes = list(
+        project.threat_classes.values_list(
+            "threat_class_id",
+            "threat_class__name",
+        )
+    )
+    return {
+        "threat_classes": [
+            threat_class_id for threat_class_id, _ in threat_classes
+        ],
+        "threat_class_names": {
+            str(threat_class_id): name
+            for threat_class_id, name in threat_classes
+        },
+        "confidence_threshold": project.confidence_threshold,
+    }
+
+
 class DeviceConnectionView(APIView):
     def post(self, request):
         serializer = DeviceConnectSerializer(data=request.data)
@@ -1074,18 +1216,11 @@ class DeviceConnectionView(APIView):
         connection_code.device = device
         connection_code.save(update_fields=["used_at","device"])
 
-        project_threat_classes = list(
-            connection_code.project.threat_classes.values_list(
-                "threat_class_id",
-                flat=True,
-            )
-        )
-
         return Response(
             {
                 "message": "Device connected successfully.",
                 "device_id": device.id,
-                "threat_classes": project_threat_classes,
+                **_device_detection_config(connection_code.project),
             },
             status=status.HTTP_201_CREATED,
         )
@@ -1122,12 +1257,24 @@ class DeviceConnectionView(APIView):
         )
 
 class DeviceReportView(APIView):
+    def get(self, request, device_id):
+        device = get_object_or_404(Device, id=device_id)
+        return Response(_device_detection_config(device.project))
+
     def post(self, request, device_id):
         device = get_object_or_404(Device, id=device_id)
+        battery_serializer = DeviceReportBatterySerializer(data=request.data)
+        battery_serializer.is_valid(raise_exception=True)
         threat_class_id = request.data.get("threat_class")
         threat_class = get_object_or_404(ThreatClass, id=threat_class_id)
         timestamp = parse_datetime(request.data.get("timestamp"))
         confidence = request.data.get("confidence")
+        battery = battery_serializer.validated_data.get("battery")
+        device.last_seen = timestamp
+        device.save(update_fields=["last_seen"])
+        if battery is not None:
+            device.battery = battery
+            device.save(update_fields=["battery"])
         device.report_incident(
             threat_class=threat_class,
             timestamp=timestamp,

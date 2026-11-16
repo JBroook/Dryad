@@ -10,6 +10,7 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useToast } from "@/components/ToastProvider";
+import { apiRequest, updateCsrfToken } from "@/library/api";
 
 const registerSchema = z
   .object({
@@ -81,8 +82,7 @@ export default function Login() {
     e.preventDefault();
     setSubmitted(true);
     
-    const API_URL = process.env.NEXT_PUBLIC_API_URL;
-    const res = await fetch(`${API_URL}/login/`, {
+    const res = await apiRequest("login/", {
       method: "POST",
       headers: {
         "Content-Type" : "application/json"
@@ -108,9 +108,8 @@ export default function Login() {
 
     const data = await res.json();
 
-    localStorage.setItem("access", data.access);
-    localStorage.setItem("refresh", data.refresh);
     localStorage.setItem("userID", data.user.id);
+    updateCsrfToken(data.csrfToken);
 
     router.push("/home/projects");
     showToast("Welcome back!")

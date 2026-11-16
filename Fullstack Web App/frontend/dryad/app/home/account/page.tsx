@@ -1,7 +1,7 @@
 "use client"
 
 import GlowButton from "@/components/GlowButton"
-import { apiFetch } from "@/library/api"
+import { apiFetch, logoutRequest } from "@/library/api"
 import { useRouter } from "next/navigation"
 import { useEffect, useRef, useState } from "react"
 import { FaRegTrashAlt } from "react-icons/fa"
@@ -47,10 +47,12 @@ export default function Account() {
   }, [pictureFile]);
 
   const router = useRouter()
-  const logout = ()=> {
-    localStorage.removeItem("access");
-    localStorage.removeItem("refresh");
-
+  const logout = async ()=> {
+    try {
+      await logoutRequest();
+    } catch (error) {
+      console.error("Logout failed:", error);
+    }
     router.push("/login");
     showToast("Signed out");
   }
@@ -132,8 +134,11 @@ export default function Account() {
       });
       if (!response.ok) throw new Error(await response.text());
       const data = await response.json();
-      localStorage.removeItem("access");
-      localStorage.removeItem("refresh");
+      try {
+        await logoutRequest();
+      } catch (error) {
+        console.error("Session cleanup failed:", error);
+      }
       showToast(data.message ?? "Account deleted successfully.");
       router.push("/login");
     } catch (err) {
