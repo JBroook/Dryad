@@ -117,6 +117,78 @@ void main() {
     expect(find.textContaining('Battery 64%'), findsOneWidget);
   });
 
+  testWidgets('custom server IP overrides and can fall back to network mode', (
+    WidgetTester tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+
+    await tester.pumpWidget(const MyApp());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Settings'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Requests go to 192.168.100.7:8000'), findsOneWidget);
+
+    await tester.enterText(find.byType(TextField), '10.0.0.42');
+    await tester.tap(find.text('Save IP'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Requests go to 10.0.0.42:8000'), findsOneWidget);
+    expect(
+      (await SharedPreferences.getInstance()).getString('server_ip'),
+      '10.0.0.42',
+    );
+
+    await tester.tap(find.text('Use mode default'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Requests go to 192.168.100.7:8000'), findsOneWidget);
+    expect(
+      (await SharedPreferences.getInstance()).containsKey('server_ip'),
+      isFalse,
+    );
+  });
+
+  testWidgets('reset state clears sent and queued report history', (
+    WidgetTester tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({
+      'device_id': 10,
+      'sent_incidents': [
+        '{"timestamp":"2026-01-01T00:00:00.000Z","confidence":95,'
+            '"threat_class":3,"battery":64}',
+      ],
+      'pending_reports': [
+        '{"report_id":"pending-1","device_id":10,'
+            '"timestamp":"2026-01-01T00:00:00.000Z","confidence":90,'
+            '"threat_class":1,"threat_name":"Chainsaw","is_test":false,'
+            '"battery":80}',
+      ],
+    });
+
+    await tester.pumpWidget(const MyApp());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Settings'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Threat class 3'), findsOneWidget);
+    expect(
+      find.text('1 report(s) queued and waiting to send.'),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.text('Reset state'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('No incidents sent yet.'), findsOneWidget);
+    expect(find.text('Threat class 3'), findsNothing);
+    expect(find.text('1 report(s) queued and waiting to send.'), findsNothing);
+    final prefs = await SharedPreferences.getInstance();
+    expect(prefs.containsKey('sent_incidents'), isFalse);
+    expect(prefs.containsKey('pending_reports'), isFalse);
+    expect(prefs.containsKey('device_id'), isFalse);
+  });
+
   testWidgets('restores queued reports and shows the pending count', (
     WidgetTester tester,
   ) async {

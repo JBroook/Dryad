@@ -14,8 +14,9 @@ import 'audio_classes.dart';
 import 'audio_listening_screen.dart';
 
 const String _wifiHost = '192.168.100.7';
-const String _hotspotHost = '10.111.194.78';
+const String _hotspotHost = '10.181.167.78';
 const String _deviceIdStorageKey = 'device_id';
+const String _serverIpStorageKey = 'server_ip';
 const String _threatClassesStorageKey = 'threat_classes';
 const String _networkModeStorageKey = 'network_mode_hotspot';
 const String _sentIncidentsStorageKey = 'sent_incidents';
@@ -144,6 +145,7 @@ class CodeRequestScreen extends StatefulWidget {
 class _CodeRequestScreenState extends State<CodeRequestScreen>
     with WidgetsBindingObserver {
   final TextEditingController _codeController = TextEditingController();
+  final TextEditingController _serverIpController = TextEditingController();
   final ValueNotifier<String> _statusMessage = ValueNotifier('');
   final ValueNotifier<int?> _deviceId = ValueNotifier<int?>(null);
   final ValueNotifier<List<int>> _threatClasses = ValueNotifier<List<int>>([]);
@@ -151,6 +153,7 @@ class _CodeRequestScreenState extends State<CodeRequestScreen>
   bool _isSendingReport = false;
   bool _isRunningModel = false;
   bool _isHotspotMode = false;
+  String? _customApiHost;
   List<Map<String, dynamic>> _sentIncidents = [];
   List<Map<String, dynamic>> _pendingReports = [];
   Map<int, String> _threatClassNames = {};
@@ -167,7 +170,8 @@ class _CodeRequestScreenState extends State<CodeRequestScreen>
 
   bool get _isBusy => _isSendingCode || _isSendingReport || _isRunningModel;
 
-  String get _apiHost => _isHotspotMode ? _hotspotHost : _wifiHost;
+  String get _apiHost =>
+      _customApiHost ?? (_isHotspotMode ? _hotspotHost : _wifiHost);
 
   String get _baseApiUrl => 'http://$_apiHost:8000';
 
@@ -332,13 +336,63 @@ class _CodeRequestScreenState extends State<CodeRequestScreen>
   Future<void> _restoreNetworkMode() async {
     final prefs = await SharedPreferences.getInstance();
     final savedMode = prefs.getBool(_networkModeStorageKey);
+    final savedServerIp = prefs.getString(_serverIpStorageKey)?.trim();
 
     if (!mounted) {
       return;
     }
 
     _isHotspotMode = savedMode ?? false;
+    if (savedServerIp != null && _isValidIpv4Address(savedServerIp)) {
+      _customApiHost = savedServerIp;
+      _serverIpController.text = savedServerIp;
+    }
     setState(() {});
+  }
+
+  bool _isValidIpv4Address(String address) {
+    final segments = address.split('.');
+    return segments.length == 4 &&
+        segments.every((segment) {
+          final value = int.tryParse(segment);
+          return segment.isNotEmpty &&
+              segment.codeUnits.every((unit) => unit >= 48 && unit <= 57) &&
+              value != null &&
+              value >= 0 &&
+              value <= 255;
+        });
+  }
+
+  Future<void> _saveServerIpOverride() async {
+    final serverIp = _serverIpController.text.trim();
+    if (serverIp.isNotEmpty && !_isValidIpv4Address(serverIp)) {
+      _statusMessage.value = 'Enter a valid IPv4 address.';
+      return;
+    }
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final saved = serverIp.isEmpty
+          ? await prefs.remove(_serverIpStorageKey)
+          : await prefs.setString(_serverIpStorageKey, serverIp);
+      if (!saved) {
+        throw StateError('Shared preferences did not save the server IP.');
+      }
+
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _customApiHost = serverIp.isEmpty ? null : serverIp;
+      });
+      _statusMessage.value = serverIp.isEmpty
+          ? 'Using the IP for the selected network mode.'
+          : 'Server IP saved.';
+    } catch (error) {
+      if (mounted) {
+        _statusMessage.value = 'Could not save server IP: $error';
+      }
+    }
   }
 
   Future<void> _restoreIncidentHistory() async {
@@ -940,24 +994,45 @@ class _CodeRequestScreenState extends State<CodeRequestScreen>
   }
 
   Future<void> _resetDeviceState() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_deviceIdStorageKey);
-    await prefs.remove(_threatClassesStorageKey);
-    await prefs.remove(_threatClassNamesStorageKey);
-    await prefs.remove(_confidenceThresholdStorageKey);
-    await prefs.remove(_lastReportAtStorageKey);
-    await prefs.remove(_lastReportDeliveredAtStorageKey);
+    try {
+      await _pendingQueueWrite;
+      final prefs = await SharedPreferences.getInstance();
+      final removed = await Future.wait([
+        prefs.remove(_deviceIdStorageKey),
+        prefs.remove(_threatClassesStorageKey),
+        prefs.remove(_threatClassNamesStorageKey),
+        prefs.remove(_confidenceThresholdStorageKey),
+        prefs.remove(_lastReportAtStorageKey),
+        prefs.remove(_lastReportDeliveredAtStorageKey),
+        prefs.remove(_sentIncidentsStorageKey),
+        prefs.remove(_pendingReportsStorageKey),
+      ]);
+      if (removed.any((success) => !success)) {
+        throw StateError('Shared preferences did not clear all saved state.');
+      }
+    } catch (error) {
+      if (mounted) {
+        _statusMessage.value = 'Could not reset device state: $error';
+      }
+      return;
+    }
 
     if (!mounted) {
       return;
     }
 
-    _deviceId.value = null;
-    _threatClasses.value = const [];
-    _threatClassNames = {};
-    _confidenceThreshold = _defaultConfidenceThreshold;
-    _lastReportAt = null;
-    _lastReportDeliveredAt = null;
+    _queueRetryTimer?.cancel();
+    _queueRetryTimer = null;
+    setState(() {
+      _deviceId.value = null;
+      _threatClasses.value = const [];
+      _threatClassNames = {};
+      _confidenceThreshold = _defaultConfidenceThreshold;
+      _lastReportAt = null;
+      _lastReportDeliveredAt = null;
+      _sentIncidents = [];
+      _pendingReports = [];
+    });
     _codeController.clear();
     _statusMessage.value = 'Device state reset.';
   }
@@ -971,6 +1046,7 @@ class _CodeRequestScreenState extends State<CodeRequestScreen>
       unawaited(connectivitySubscription.cancel());
     }
     _codeController.dispose();
+    _serverIpController.dispose();
     _statusMessage.dispose();
     _deviceId.dispose();
     _threatClasses.dispose();
@@ -1065,12 +1141,44 @@ class _CodeRequestScreenState extends State<CodeRequestScreen>
           const SizedBox(width: 12),
           Expanded(
             child: ElevatedButton(
-              onPressed: _isBusy ? null : _resetDeviceState,
+              onPressed: _isBusy || _isDrainingReportQueue
+                  ? null
+                  : _resetDeviceState,
               child: const Text('Reset state'),
             ),
           ),
         ],
       ),
+      const SizedBox(height: 20),
+      Text('Server IP address', style: Theme.of(context).textTheme.titleSmall),
+      const SizedBox(height: 8),
+      TextField(
+        controller: _serverIpController,
+        decoration: const InputDecoration(
+          border: OutlineInputBorder(),
+          hintText: 'Enter an IPv4 address',
+          helperText: 'Leave blank to use the selected network mode.',
+        ),
+        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+        onSubmitted: (_) => unawaited(_saveServerIpOverride()),
+      ),
+      const SizedBox(height: 8),
+      Row(
+        children: [
+          TextButton(
+            onPressed: _saveServerIpOverride,
+            child: const Text('Save IP'),
+          ),
+          TextButton(
+            onPressed: () {
+              _serverIpController.clear();
+              unawaited(_saveServerIpOverride());
+            },
+            child: const Text('Use mode default'),
+          ),
+        ],
+      ),
+      Text('Requests go to $_apiHost:8000'),
       const SizedBox(height: 20),
       Text(
         'Detection confidence threshold: $_confidenceThreshold%',

@@ -23,6 +23,7 @@ import dj_database_url
 ALLOWED_HOSTS = [
     "192.168.100.7",
     "10.111.194.78",
+    "10.181.167.78",
     "localhost",
     "127.0.0.1",
     "dryad-backend.onrender.com",
