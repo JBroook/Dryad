@@ -579,7 +579,9 @@ def _retrain_project_after_confirmation(project_id):
 def record_confirmed_incident(project_id):
     project = Project.objects.select_for_update().get(pk=project_id)
     project.confirmed_incidents_since_training += 1
-    should_retrain = project.confirmed_incidents_since_training >= 10
+    should_retrain = (
+        project.confirmed_incidents_since_training >= project.retraining_threshold
+    )
     if should_retrain:
         project.confirmed_incidents_since_training = 0
 

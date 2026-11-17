@@ -22,6 +22,10 @@ class Project(models.Model):
     owner = models.ForeignKey(User, on_delete=models.CASCADE)
     description = models.TextField(null=True, blank=True)
     confidence_threshold = models.IntegerField(default=75)
+    retraining_threshold = models.PositiveSmallIntegerField(
+        default=10,
+        validators=[MinValueValidator(1)],
+    )
     coordinates = models.CharField(max_length=50)
     surface_area = models.IntegerField()
     monitoring_area = models.PolygonField(

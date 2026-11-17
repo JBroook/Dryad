@@ -13,13 +13,15 @@ import 'package:mock_app/audio_classes.dart';
 import 'package:mock_app/main.dart';
 
 void main() {
-  test('model labels cover all 27 output classes', () {
-    expect(audioClassNames, hasLength(27));
+  test('model labels match the 26 outputs and exclude Axe', () {
+    expect(audioClassNames, hasLength(26));
+    expect(audioClassNames, isNot(contains('Axe')));
+    expect(audioClassNames[9], 'Chainsaw');
+    expect(audioClassNames[10], 'Generator');
   });
 
   test('selects the highest configured threat above threshold except Axe', () {
     final scores = List<double>.filled(audioClassNames.length, 0);
-    scores[audioClassNames.indexOf('Axe')] = 0.99;
     scores[audioClassNames.indexOf('Chainsaw')] = 0.75;
     final threatClassNames = {1: 'Chainsaw', 2: 'Gun Shot'};
 

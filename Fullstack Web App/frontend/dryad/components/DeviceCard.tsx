@@ -119,7 +119,7 @@ export default function DeviceCard(props : DeviceCardProps) {
             <p className="text-accent">{props.device.battery}%</p>
         </div>
 
-        <progress className="progress progress-primary w-full mt-2" value={80} max="100"></progress>
+        <progress className="progress progress-primary w-full mt-2" value={props.device.battery} max="100"></progress>
 
         <div className="flex justify-between items-center text-sm my-2 text-secondary-content">
             <p>{lat}°, {lng}°</p>

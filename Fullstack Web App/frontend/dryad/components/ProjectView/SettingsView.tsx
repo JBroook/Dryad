@@ -49,6 +49,7 @@ export default function SettingsView(props: SettingsViewProps) {
             lastTrained : data.properties.last_trained,
             threatClasses : data.properties.threat_classes,
             confidenceThreshold : data.properties.confidence_threshold,
+            retrainingThreshold : data.properties.retraining_threshold,
             alertPreference : data.properties.alert_recipients
         })
     }
@@ -145,6 +146,7 @@ export default function SettingsView(props: SettingsViewProps) {
                         surface_area: project.area,
                         region: project.region,
                         confidence_threshold: project.confidenceThreshold,
+                        retraining_threshold: project.retrainingThreshold,
                         alert_recipients: project.alertPreference,
                         monitoring_area: monitoringArea,
                         ...(project.center
@@ -417,18 +419,35 @@ export default function SettingsView(props: SettingsViewProps) {
 
                     <form className="flex-1">
                         <div className="flex flex-row w-full">
-                            <fieldset className="fieldset pt-2 flex-1 mr-2">
-                                <legend className="fieldset-legend font-medium text-secondary-content">Confidence Threshold (%)</legend>
-                                
-                                <input
-                                type="number"
-                                min="1" max="99"
-                                className="input w-full bg-base-200 border"
-                                placeholder="e.g. 75"
-                                value={project.confidenceThreshold}
-                                onChange={(e)=>setProject({...project, confidenceThreshold : parseInt(e.target.value)})}
-                                />
-                            </fieldset>
+                            <div className="flex-1 mr-2">
+                                <fieldset className="fieldset pt-2">
+                                    <legend className="fieldset-legend font-medium text-secondary-content">Confidence Threshold (%)</legend>
+
+                                    <input
+                                    type="number"
+                                    min="1" max="99"
+                                    className="input w-full bg-base-200 border"
+                                    placeholder="e.g. 75"
+                                    value={project.confidenceThreshold}
+                                    onChange={(e)=>setProject({...project, confidenceThreshold : parseInt(e.target.value)})}
+                                    />
+                                </fieldset>
+
+                                <fieldset className="fieldset pt-2">
+                                    <legend className="fieldset-legend font-medium text-secondary-content">Confirmed Incidents Before Retraining</legend>
+
+                                    <input
+                                    type="number"
+                                    min="1"
+                                    max="32767"
+                                    required
+                                    className="input w-full bg-base-200 border"
+                                    placeholder="e.g. 10"
+                                    value={project.retrainingThreshold}
+                                    onChange={(e)=>setProject({...project, retrainingThreshold : parseInt(e.target.value)})}
+                                    />
+                                </fieldset>
+                            </div>
         
                             <fieldset className="fieldset pt-2 flex-1 ml-2">
                                 <legend className="fieldset-legend font-medium text-secondary-content">Alert Preference</legend>

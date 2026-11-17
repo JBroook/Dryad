@@ -8,7 +8,6 @@ const List<String> audioClassNames = [
   'TreeFalling',
   'Helicopter',
   'VehicleEngine',
-  'Axe',
   'Chainsaw',
   'Generator',
   'Handsaw',

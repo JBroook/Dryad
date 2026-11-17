@@ -49,6 +49,7 @@ export type Project = {
   region : string | null;
   center : LatLng | null;
   confidenceThreshold : number;
+  retrainingThreshold : number;
   threatClasses : ThreatClass[];
   alertPreference : string;
   status : boolean;
@@ -75,6 +76,7 @@ export default function New() {
     region : null,
     center : null,
     confidenceThreshold : 75,
+    retrainingThreshold : 10,
     threatClasses : [],
     alertPreference : "all",
     trainCount : 0,
@@ -126,6 +128,7 @@ export default function New() {
         coordinates : `${project.center!.lat},${project.center!.lng}`,
         surface_area : project.area,
         confidence_threshold : project.confidenceThreshold,
+        retraining_threshold : project.retrainingThreshold,
         alert_recipients : project.alertPreference,
         threat_classes : project.threatClasses.filter((threatClass)=>threatClass.active).map((threatClass)=>({
           threat_class_id : threatClass.id

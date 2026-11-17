@@ -1044,6 +1044,7 @@ class ProjectManagementTests(ProjectAPITestCase):
             {
                 "name": "Updated project",
                 "alert_recipients": Project.AlertPreference.OWNER_ONLY,
+                "retraining_threshold": 4,
             },
             format="json",
         )
@@ -1055,6 +1056,7 @@ class ProjectManagementTests(ProjectAPITestCase):
             self.project.alert_recipients,
             Project.AlertPreference.OWNER_ONLY,
         )
+        self.assertEqual(self.project.retraining_threshold, 4)
 
     def test_project_owner_can_disable_and_activate_project(self):
         project_url = reverse("project-detail", args=[self.project.id])
@@ -1462,6 +1464,26 @@ class RiskModelTests(ProjectAPITestCase):
                 self.project.confirmed_incidents_since_training,
                 9,
             )
+            retrain_project_model.assert_not_called()
+
+            record_confirmed_incident(self.project.pk)
+
+        self.project.refresh_from_db()
+        self.assertEqual(self.project.confirmed_incidents_since_training, 0)
+        self.assertEqual(len(callbacks), 1)
+        retrain_project_model.assert_called_once()
+
+    def test_configured_confirmed_incident_threshold_triggers_retraining(self):
+        from projects.BNN import record_confirmed_incident
+
+        self.project.retraining_threshold = 2
+        self.project.save(update_fields=["retraining_threshold"])
+
+        with (
+            patch("projects.BNN.retrain_project_model") as retrain_project_model,
+            self.captureOnCommitCallbacks(execute=True) as callbacks,
+        ):
+            record_confirmed_incident(self.project.pk)
             retrain_project_model.assert_not_called()
 
             record_confirmed_incident(self.project.pk)
